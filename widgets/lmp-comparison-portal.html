@@ -145,6 +145,9 @@
             color: #555;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            min-height: 32px;
+            display: flex;
+            align-items: center;
         }
 
         .input-field {
@@ -1018,6 +1021,11 @@
                         <option value="5" selected>5-Year Rolling Average</option>
                     </select>
                 </div>
+                
+                <div class="input-group">
+                    <label>LMP Y-O-Y Escalator (%)</label>
+                    <input type="number" class="input-field" id="lmpEscalator" value="0" min="-10" max="20" step="0.5">
+                </div>
             </div>
             
             <div class="info-box" style="margin-top: 15px;">
@@ -1025,6 +1033,7 @@
                 <p><strong>Contract Start Date:</strong> Automatically set to 10 years before the last available actual LMP data for your selected ISO/Zone.</p>
                 <p><strong>Contract Term:</strong> Defaults to 120 months (10 years) ending at the last available actual LMP month.</p>
                 <p><strong>LMP Projection:</strong> For future months beyond available data, the tool uses a rolling average of historical LMP values (1-5 years) from the same month in prior years.</p>
+                <p><strong>LMP Escalator:</strong> Applies a compound annual growth rate to projected LMP values. For example, 3% escalation means Year 1 = base LMP, Year 2 = 1.03x, Year 3 = 1.0609x, etc. Use 0% for no escalation.</p>
             </div>
 
             <!-- TERM INFO BOX -->
@@ -1658,7 +1667,7 @@
             alert('Copied Year 1 settings to all years');
         }
 
-        function getLMPData(iso, zone, targetYear, targetMonth, useAdjustment = true) {
+        function getLMPData(iso, zone, targetYear, targetMonth, useAdjustment = true, contractYear = 0) {
             const dataSet = ISO_DATA[iso];
             if (!dataSet) return { lmp: null, isProjected: false };
             
@@ -1676,6 +1685,12 @@
             
             if (record && record.avg_da_lmp) {
                 let lmp = record.avg_da_lmp / 1000;
+                
+                // Apply year-over-year escalator
+                const escalatorPercent = parseFloat(document.getElementById('lmpEscalator').value);
+                if (escalatorPercent !== 0) {
+                    lmp = lmp * Math.pow(1 + escalatorPercent / 100, contractYear);
+                }
                 
                 if (useAdjustment) {
                     const adjustPercent = parseFloat(document.getElementById('lmpAdjustSlider').value);
@@ -1708,6 +1723,12 @@
             if (historicalValues.length > 0) {
                 const avgLmp = historicalValues.reduce((a, b) => a + b, 0) / historicalValues.length;
                 let lmp = avgLmp / 1000;
+                
+                // Apply year-over-year escalator
+                const escalatorPercent = parseFloat(document.getElementById('lmpEscalator').value);
+                if (escalatorPercent !== 0) {
+                    lmp = lmp * Math.pow(1 + escalatorPercent / 100, contractYear);
+                }
                 
                 if (useAdjustment) {
                     const adjustPercent = parseFloat(document.getElementById('lmpAdjustSlider').value);
@@ -1782,7 +1803,7 @@
                     const actualYear = startYear + Math.floor((startMonth - 1 + i) / 12);
                     
                     const usageKwh = usage[actualMonth];
-                    const lmpResult = getLMPData(iso, zone, actualYear, actualMonth);
+                    const lmpResult = getLMPData(iso, zone, actualYear, actualMonth, true, contractYear);
                     const lmp = lmpResult.lmp;
                     
                     if (lmp === null) continue;
@@ -1936,9 +1957,10 @@
             if (!baseLMPData || baseLMPData.length === 0) {
                 baseLMPData = [];
                 for (let i = 0; i < termMonths; i++) {
+                    const contractYear = Math.floor(i / 12);
                     const actualMonth = (startMonth - 1 + i) % 12;
                     const actualYear = startYear + Math.floor((startMonth - 1 + i) / 12);
-                    const lmpResult = getLMPData(iso, zone, actualYear, actualMonth, false);
+                    const lmpResult = getLMPData(iso, zone, actualYear, actualMonth, false, contractYear);
                     if (lmpResult.lmp !== null) {
                         baseLMPData.push(lmpResult.lmp);
                     }
@@ -1958,7 +1980,7 @@
                 const actualYear = startYear + Math.floor((startMonth - 1 + i) / 12);
                 
                 const usageKwh = usage[actualMonth];
-                const lmpResult = getLMPData(iso, zone, actualYear, actualMonth);
+                const lmpResult = getLMPData(iso, zone, actualYear, actualMonth, true, contractYear);
                 const lmp = lmpResult.lmp;
                 
                 if (lmp === null) {
