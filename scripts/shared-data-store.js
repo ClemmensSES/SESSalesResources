@@ -187,7 +187,7 @@ const SecureEnergyData = {
             zoneId: record.zoneid || record.zone_id || record.pnodeid || '',
             year: record.year || '',
             month: record.month || '',
-            lmp: parseFloat(record.lmp || record.price || record.averagelmp || 0),
+            lmp: parseFloat(record.lmp || record.avg_da_lmp || record.avgdalmp || record.da_lmp || record.price || record.averagelmp || 0),
             energy: parseFloat(record.energy || record.energycomponent || 0),
             congestion: parseFloat(record.congestion || record.congestioncomponent || 0),
             loss: parseFloat(record.loss || record.losscomponent || 0)
