@@ -516,14 +516,16 @@ const UserStore = {
                 'lmp-comparison': true,
                 'data-manager': true,
                 'arcadia-fetcher': true,
-                'user-admin': true
+                'user-admin': true,
+                'analysis-history': true
             };
         }
         return {
             'lmp-comparison': true,
             'data-manager': false,
             'arcadia-fetcher': false,
-            'user-admin': false
+            'user-admin': false,
+            'analysis-history': true
         };
     },
 

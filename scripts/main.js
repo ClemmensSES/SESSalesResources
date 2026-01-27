@@ -1219,6 +1219,12 @@ function escapeHtml(text) {
 // =====================================================
 // ANALYSIS HISTORY WIDGET
 // =====================================================
+let analysisHistoryFilters = {
+    search: '',
+    user: 'all',
+    iso: 'all'
+};
+
 function initAnalysisHistoryWidget() {
     const content = document.getElementById('analysisHistoryContent');
     if (!content) return;
@@ -1231,22 +1237,88 @@ function refreshAnalysisHistory() {
     showNotification('Analysis history refreshed', 'success');
 }
 
+function updateAnalysisFilter(filterType, value) {
+    analysisHistoryFilters[filterType] = value;
+    renderAnalysisHistory();
+}
+
 function renderAnalysisHistory() {
     const content = document.getElementById('analysisHistoryContent');
     if (!content) return;
     
+    const isAdmin = currentUser?.role === 'admin';
+    
     // Get analyses for current user (or all if admin)
-    let analyses = ActivityLog.getAll().filter(a => a.widget === 'lmp-comparison');
+    let allAnalyses = ActivityLog.getAll().filter(a => a.widget === 'lmp-comparison');
     
     // Filter to current user's analyses unless admin
-    if (currentUser && currentUser.role !== 'admin') {
-        analyses = analyses.filter(a => a.userId === currentUser.id);
+    if (!isAdmin) {
+        allAnalyses = allAnalyses.filter(a => a.userId === currentUser?.id);
     }
+    
+    // Apply filters
+    let analyses = allAnalyses.filter(a => {
+        // Search filter
+        if (analysisHistoryFilters.search) {
+            const searchTerm = analysisHistoryFilters.search.toLowerCase();
+            const matchesClient = (a.data?.clientName || '').toLowerCase().includes(searchTerm);
+            const matchesUser = (a.userName || '').toLowerCase().includes(searchTerm);
+            const matchesZone = (a.data?.zone || '').toLowerCase().includes(searchTerm);
+            if (!matchesClient && !matchesUser && !matchesZone) return false;
+        }
+        
+        // User filter (admin only)
+        if (isAdmin && analysisHistoryFilters.user !== 'all') {
+            if (a.userId !== analysisHistoryFilters.user) return false;
+        }
+        
+        // ISO filter
+        if (analysisHistoryFilters.iso !== 'all') {
+            if (a.data?.iso !== analysisHistoryFilters.iso) return false;
+        }
+        
+        return true;
+    });
     
     // Sort by timestamp descending (newest first)
     analyses.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     
-    if (analyses.length === 0) {
+    // Get unique users and ISOs for filter dropdowns
+    const uniqueUsers = [...new Set(allAnalyses.map(a => a.userId).filter(Boolean))];
+    const uniqueISOs = [...new Set(allAnalyses.map(a => a.data?.iso).filter(Boolean))];
+    
+    // Build filter controls HTML (admin gets user filter)
+    const filterControlsHTML = `
+        <div class="analysis-filters" style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; padding: 12px; background: var(--bg-secondary); border-radius: 8px;">
+            <div style="flex: 1; min-width: 200px;">
+                <input type="text" 
+                    placeholder="Search client, user, or zone..." 
+                    value="${analysisHistoryFilters.search}"
+                    oninput="updateAnalysisFilter('search', this.value)"
+                    style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-primary); border-radius: 6px; background: var(--bg-primary); color: var(--text-primary); font-size: 13px;">
+            </div>
+            ${isAdmin ? `
+            <div style="min-width: 150px;">
+                <select onchange="updateAnalysisFilter('user', this.value)" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-primary); border-radius: 6px; background: var(--bg-primary); color: var(--text-primary); font-size: 13px;">
+                    <option value="all" ${analysisHistoryFilters.user === 'all' ? 'selected' : ''}>All Users</option>
+                    ${uniqueUsers.map(uid => {
+                        const user = UserStore.findById(uid);
+                        const name = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email : uid;
+                        return `<option value="${uid}" ${analysisHistoryFilters.user === uid ? 'selected' : ''}>${name}</option>`;
+                    }).join('')}
+                </select>
+            </div>
+            ` : ''}
+            <div style="min-width: 120px;">
+                <select onchange="updateAnalysisFilter('iso', this.value)" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-primary); border-radius: 6px; background: var(--bg-primary); color: var(--text-primary); font-size: 13px;">
+                    <option value="all" ${analysisHistoryFilters.iso === 'all' ? 'selected' : ''}>All ISOs</option>
+                    ${uniqueISOs.map(iso => `<option value="${iso}" ${analysisHistoryFilters.iso === iso ? 'selected' : ''}>${iso}</option>`).join('')}
+                </select>
+            </div>
+        </div>
+    `;
+    
+    if (allAnalyses.length === 0) {
         content.innerHTML = `
             <div style="text-align: center; padding: 60px 20px; color: var(--text-tertiary);">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 16px; opacity: 0.5;">
@@ -1262,13 +1334,19 @@ function renderAnalysisHistory() {
     
     // Build summary stats
     const totalSavings = analyses.reduce((sum, a) => sum + (a.data?.results?.savingsVsFixed || 0), 0);
-    const avgSavings = totalSavings / analyses.length;
+    const avgSavings = analyses.length > 0 ? totalSavings / analyses.length : 0;
+    const uniqueClients = new Set(analyses.map(a => a.data?.clientName).filter(Boolean)).size;
     
     content.innerHTML = `
-        <div class="analysis-history-summary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 16px;">
+        ${filterControlsHTML}
+        <div class="analysis-history-summary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 16px;">
             <div style="text-align: center;">
                 <div style="font-size: 24px; font-weight: 700; color: var(--accent-primary);">${analyses.length}</div>
-                <div style="font-size: 11px; color: var(--text-tertiary); text-transform: uppercase;">Total Analyses</div>
+                <div style="font-size: 11px; color: var(--text-tertiary); text-transform: uppercase;">Analyses</div>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 24px; font-weight: 700; color: var(--accent-secondary);">${uniqueClients}</div>
+                <div style="font-size: 11px; color: var(--text-tertiary); text-transform: uppercase;">Clients</div>
             </div>
             <div style="text-align: center;">
                 <div style="font-size: 24px; font-weight: 700; color: ${totalSavings >= 0 ? '#10b981' : '#ef4444'};">
@@ -1284,9 +1362,19 @@ function renderAnalysisHistory() {
             </div>
         </div>
         
-        <div class="analysis-history-list" style="display: flex; flex-direction: column; gap: 12px;">
-            ${analyses.map(a => renderAnalysisCard(a)).join('')}
-        </div>
+        ${analyses.length === 0 && allAnalyses.length > 0 ? `
+            <div style="text-align: center; padding: 40px 20px; color: var(--text-tertiary);">
+                <p style="font-size: 14px;">No analyses match your filters</p>
+                <button onclick="analysisHistoryFilters = {search: '', user: 'all', iso: 'all'}; renderAnalysisHistory();" 
+                    style="margin-top: 12px; padding: 8px 16px; background: var(--accent-primary); color: white; border: none; border-radius: 6px; cursor: pointer;">
+                    Clear Filters
+                </button>
+            </div>
+        ` : `
+            <div class="analysis-history-list" style="display: flex; flex-direction: column; gap: 12px; max-height: 500px; overflow-y: auto;">
+                ${analyses.map(a => renderAnalysisCard(a)).join('')}
+            </div>
+        `}
     `;
 }
 
@@ -1297,6 +1385,19 @@ function renderAnalysisCard(analysis) {
     const timestamp = new Date(analysis.timestamp);
     const isToday = new Date().toDateString() === timestamp.toDateString();
     const timeStr = isToday ? 'Today ' + timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : timestamp.toLocaleDateString() + ' ' + timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    const isAdmin = currentUser?.role === 'admin';
+    
+    // Create data attribute for reload functionality
+    const analysisDataAttr = encodeURIComponent(JSON.stringify({
+        clientName: d.clientName,
+        iso: d.iso,
+        zone: d.zone,
+        startDate: d.startDate,
+        termMonths: d.termMonths,
+        fixedPrice: d.fixedPrice,
+        lmpAdjustment: d.lmpAdjustment || 0,
+        usage: d.totalAnnualUsage || d.usage
+    }));
     
     return `
         <div class="analysis-card" style="background: var(--bg-secondary); border-radius: 10px; padding: 16px; border-left: 4px solid ${savings >= 0 ? '#10b981' : '#ef4444'};">
@@ -1308,6 +1409,7 @@ function renderAnalysisCard(analysis) {
                     <div style="font-size: 12px; color: var(--text-tertiary);">
                         ${d.iso || 'N/A'} • ${d.zone || 'N/A'} • ${d.termMonths || 0} months
                     </div>
+                    ${isAdmin && analysis.userName ? `<div style="font-size: 11px; color: var(--accent-primary); margin-top: 4px;">👤 ${analysis.userName}</div>` : ''}
                 </div>
                 <div style="text-align: right;">
                     <div style="font-size: 18px; font-weight: 700; color: ${savings >= 0 ? '#10b981' : '#ef4444'};">
@@ -1332,12 +1434,55 @@ function renderAnalysisCard(analysis) {
                 </div>
             </div>
             
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-tertiary);">
-                <span>${currentUser?.role === 'admin' && analysis.userName ? 'By: ' + analysis.userName : ''}</span>
-                <span>${timeStr}</span>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <button onclick="reloadAnalysis('${analysisDataAttr}')" style="
+                    background: var(--accent-primary);
+                    color: white;
+                    border: none;
+                    padding: 6px 12px;
+                    border-radius: 6px;
+                    font-size: 11px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                ">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
+                        <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+                    </svg>
+                    Reload
+                </button>
+                <span style="font-size: 11px; color: var(--text-tertiary);">${timeStr}</span>
             </div>
         </div>
     `;
+}
+
+// Reload an analysis into the LMP Comparison Portal
+function reloadAnalysis(encodedData) {
+    try {
+        const data = JSON.parse(decodeURIComponent(encodedData));
+        
+        // Find the LMP Comparison widget iframe
+        const lmpWidget = document.querySelector('[data-widget-id="lmp-comparison"] iframe');
+        if (lmpWidget && lmpWidget.contentWindow) {
+            // Send message to iframe to load this analysis
+            lmpWidget.contentWindow.postMessage({
+                type: 'LOAD_ANALYSIS',
+                data: data
+            }, '*');
+            
+            // Scroll to the widget
+            scrollToWidget('lmp-comparison');
+            showNotification('Analysis loaded into LMP Comparison Portal', 'success');
+        } else {
+            showNotification('Please open the LMP Comparison Portal first', 'warning');
+        }
+    } catch (e) {
+        console.error('Failed to reload analysis:', e);
+        showNotification('Failed to reload analysis', 'error');
+    }
 }
 
 // Legacy AI Search (for top bar - simplified)
