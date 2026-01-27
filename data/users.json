@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastUpdated": "2026-01-27T14:45:16.952Z",
+  "lastUpdated": "2026-01-27T14:48:57.088Z",
   "users": [
     {
       "id": "admin-001",
@@ -16,6 +16,38 @@
         "data-manager": true,
         "arcadia-fetcher": true,
         "user-admin": true
+      }
+    },
+    {
+      "id": "user-1769525319357",
+      "firstName": "Chad",
+      "lastName": "Lemmens",
+      "email": "clemmens@sesenergy.org",
+      "password": "Linda420!!",
+      "role": "admin",
+      "status": "active",
+      "createdAt": "2026-01-27T14:48:39.357Z",
+      "permissions": {
+        "lmp-comparison": true,
+        "data-manager": true,
+        "arcadia-fetcher": true,
+        "user-admin": true
+      }
+    },
+    {
+      "id": "user-1769525332324",
+      "firstName": "Chad",
+      "lastName": "Brodeur",
+      "email": "cbrodeur@sesenergy.org",
+      "password": "test123",
+      "role": "user",
+      "status": "active",
+      "createdAt": "2026-01-27T14:48:52.324Z",
+      "permissions": {
+        "lmp-comparison": true,
+        "data-manager": false,
+        "arcadia-fetcher": false,
+        "user-admin": false
       }
     }
   ]
