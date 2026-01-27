@@ -462,6 +462,19 @@
         async function loadData() {
             console.log('[LMP Analytics] Loading data...');
             
+            // Show loading state
+            const mainContent = document.getElementById('mainContent');
+            if (mainContent && lmpData.length === 0) {
+                mainContent.innerHTML = `
+                    <div class="no-data">
+                        <div style="width: 48px; height: 48px; border: 3px solid var(--border-color); border-top-color: var(--se-light-green); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                        <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+                        <h3 style="margin: 16px 0 8px;">Loading LMP Data...</h3>
+                        <p>Fetching data from the database</p>
+                    </div>
+                `;
+            }
+            
             // Try localStorage first
             try {
                 const cached = localStorage.getItem('secureEnergy_lmpData');
@@ -476,18 +489,39 @@
                 console.warn('[LMP Analytics] Cache load failed:', e);
             }
 
-            // Try GitHub JSON
+            // Try GitHub JSON - fetch from raw GitHub URL
             try {
-                const response = await fetch('data/lmp-database.json?t=' + Date.now());
+                // Primary: GitHub raw URL for the data repository
+                const githubUrl = 'https://raw.githubusercontent.com/Secure-EC/SESSalesResources/main/data/lmp-database.json';
+                const response = await fetch(githubUrl + '?t=' + Date.now());
                 if (response.ok) {
                     const json = await response.json();
                     if (json.records && json.records.length > 0) {
                         lmpData = json.records;
                         console.log(`[LMP Analytics] Loaded ${lmpData.length} records from GitHub`);
+                        // Cache in localStorage for offline/faster subsequent loads
+                        try {
+                            localStorage.setItem('secureEnergy_lmpData', JSON.stringify(json));
+                        } catch (cacheErr) {
+                            console.warn('[LMP Analytics] Could not cache data:', cacheErr);
+                        }
                     }
                 }
             } catch (e) {
                 console.warn('[LMP Analytics] GitHub load failed:', e);
+                // Fallback: Try relative path (for local development)
+                try {
+                    const localResponse = await fetch('data/lmp-database.json?t=' + Date.now());
+                    if (localResponse.ok) {
+                        const json = await localResponse.json();
+                        if (json.records && json.records.length > 0) {
+                            lmpData = json.records;
+                            console.log(`[LMP Analytics] Loaded ${lmpData.length} records from local path`);
+                        }
+                    }
+                } catch (localErr) {
+                    console.warn('[LMP Analytics] Local load also failed:', localErr);
+                }
             }
 
             // Request from parent if in iframe
@@ -538,7 +572,10 @@
                         <path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>
                     </svg>
                     <h3 style="margin-bottom: 8px;">No LMP Data Available</h3>
-                    <p>Load data using the LMP Data Manager to view analytics</p>
+                    <p>Unable to load data from the database. Check your network connection or try again.</p>
+                    <button onclick="loadData()" style="margin-top: 16px; padding: 10px 20px; background: var(--se-gradient); border: none; border-radius: 8px; color: white; cursor: pointer; font-weight: 500;">
+                        ⟳ Retry Loading
+                    </button>
                 </div>
             `;
         }
