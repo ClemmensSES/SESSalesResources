@@ -120,6 +120,61 @@
             background: rgba(62, 180, 137, 0.1);
         }
 
+        /* Import Mode Toggle */
+        .import-mode-toggle {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .mode-option {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: var(--bg-tertiary);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .mode-option:hover {
+            border-color: var(--se-light-green);
+        }
+
+        .mode-option input[type="radio"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--se-light-green);
+        }
+
+        .mode-option input[type="radio"]:checked + .mode-label strong {
+            color: var(--se-light-green);
+        }
+
+        .mode-option:has(input:checked) {
+            border-color: var(--se-light-green);
+            background: rgba(62, 180, 137, 0.1);
+        }
+
+        .mode-label {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .mode-label strong {
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        .mode-label small {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
         .upload-zone svg {
             width: 48px;
             height: 48px;
@@ -402,6 +457,25 @@
             <!-- Upload Section -->
             <div class="card">
                 <div class="card-title">📁 Bulk CSV Import</div>
+                
+                <!-- Import Mode Toggle -->
+                <div class="import-mode-toggle">
+                    <label class="mode-option">
+                        <input type="radio" name="importMode" value="append" checked>
+                        <span class="mode-label">
+                            <strong>➕ Append</strong>
+                            <small>Add to existing data (keeps ISONE, PJM, etc.)</small>
+                        </span>
+                    </label>
+                    <label class="mode-option">
+                        <input type="radio" name="importMode" value="replace">
+                        <span class="mode-label">
+                            <strong>🔄 Replace</strong>
+                            <small>Clear all and load fresh</small>
+                        </span>
+                    </label>
+                </div>
+                
                 <div class="upload-zone" id="uploadZone">
                     <svg viewBox="0 0 24 24"><path d="M14,2L20,8V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V4A2,2 0 0,1 6,2H14M18,20V9H13V4H6V20H18M12,12L16,16H13.5V19H10.5V16H8L12,12Z"/></svg>
                     <h3>Drop CSV File Here</h3>
@@ -524,6 +598,82 @@ ISONE,2016,1,4008_NEMA,NEMA,38.63`;
         const progressFill = document.getElementById('progressFill');
         const logContainer = document.getElementById('logContainer');
 
+        // Append CSV data to existing records (instead of replacing)
+        function appendFromCSV(dataStore, csvContent, source) {
+            try {
+                const lines = csvContent.trim().split('\n');
+                if (lines.length < 2) {
+                    return { success: false, error: 'CSV is empty' };
+                }
+                
+                const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+                const newRecords = [];
+                
+                for (let i = 1; i < lines.length; i++) {
+                    const values = lines[i].split(',');
+                    if (values.length >= headers.length) {
+                        const record = {};
+                        headers.forEach((h, idx) => {
+                            record[h] = values[idx]?.trim() || '';
+                        });
+                        
+                        // Normalize
+                        newRecords.push({
+                            iso: record.iso || '',
+                            year: record.year || '',
+                            month: record.month || '',
+                            zone: record.zone_name || record.zone || '',
+                            zoneId: record.zone || '',
+                            lmp: parseFloat(record.avg_da_lmp || record.lmp || 0)
+                        });
+                    }
+                }
+                
+                // Get existing records
+                const existingRecords = dataStore.getRecords() || [];
+                
+                // Combine existing + new (avoid duplicates by checking ISO+Year+Month+Zone)
+                const existingKeys = new Set(
+                    existingRecords.map(r => `${r.iso}-${r.year}-${r.month}-${r.zoneId || r.zone}`)
+                );
+                
+                let addedCount = 0;
+                let skippedCount = 0;
+                
+                newRecords.forEach(r => {
+                    const key = `${r.iso}-${r.year}-${r.month}-${r.zoneId || r.zone}`;
+                    if (!existingKeys.has(key)) {
+                        existingRecords.push(r);
+                        existingKeys.add(key);
+                        addedCount++;
+                    } else {
+                        skippedCount++;
+                    }
+                });
+                
+                // Save combined data
+                if (dataStore.data) {
+                    dataStore.data.records = existingRecords;
+                    dataStore.data.meta = {
+                        source: source,
+                        loadedAt: new Date().toISOString(),
+                        recordCount: existingRecords.length
+                    };
+                    // Save to localStorage
+                    const STORAGE_KEY = 'secureEnergy_LMP_Data';
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(dataStore.data));
+                }
+                
+                if (skippedCount > 0) {
+                    log('info', `Skipped ${skippedCount} duplicate records`);
+                }
+                
+                return { success: true, count: addedCount, total: existingRecords.length };
+            } catch (e) {
+                return { success: false, error: e.message };
+            }
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             // Initialize data store (will create standalone if needed)
@@ -580,7 +730,8 @@ ISONE,2016,1,4008_NEMA,NEMA,38.63`;
 
         // Process uploaded file
         function processFile(file) {
-            log('info', `Processing file: ${file.name} (${formatBytes(file.size)})`);
+            const importMode = document.querySelector('input[name="importMode"]:checked')?.value || 'append';
+            log('info', `Processing file: ${file.name} (${formatBytes(file.size)}) - Mode: ${importMode.toUpperCase()}`);
             progressBar.style.display = 'block';
             progressFill.style.width = '20%';
 
@@ -596,11 +747,17 @@ ISONE,2016,1,4008_NEMA,NEMA,38.63`;
                         return;
                     }
                     
-                    const result = dataStore.loadFromCSV(csvText, `file: ${file.name}`);
+                    let result;
+                    if (importMode === 'append') {
+                        result = appendFromCSV(dataStore, csvText, `file: ${file.name}`);
+                    } else {
+                        result = dataStore.loadFromCSV(csvText, `file: ${file.name}`);
+                    }
                     progressFill.style.width = '100%';
                     
                     if (result && result.success) {
-                        log('success', `Successfully loaded ${result.count} records from ${file.name}`);
+                        const modeText = importMode === 'append' ? 'appended' : 'loaded';
+                        log('success', `Successfully ${modeText} ${result.count} records from ${file.name}. Total: ${result.total || result.count} records`);
                         updateUI();
                     } else if (result && result.error) {
                         log('error', `Failed to parse CSV: ${result.error}`);
@@ -749,11 +906,34 @@ ISONE,2016,1,4008_NEMA,NEMA,38.63`;
                 return;
             }
             
-            // Fetch the actual CSV file
-            fetch('lmp_data_combined.csv')
+            // Check if running locally (file:// protocol)
+            if (window.location.protocol === 'file:') {
+                log('warning', 'Pre-configured data loading is not available when testing locally (file:// protocol).');
+                log('info', 'Please upload the CSV file manually, or use a local web server (python -m http.server 8000)');
+                return;
+            }
+            
+            // Try multiple possible paths for the CSV
+            const possiblePaths = [
+                'lmp_data_combined.csv',
+                '../data/lmp_data_combined.csv',
+                '/data/lmp_data_combined.csv',
+                'data/lmp_data_combined.csv'
+            ];
+            
+            tryLoadFromPaths(possiblePaths, 0, dataStore);
+        }
+        
+        function tryLoadFromPaths(paths, index, dataStore) {
+            if (index >= paths.length) {
+                log('error', 'Could not find CSV file. Try uploading manually.');
+                return;
+            }
+            
+            fetch(paths[index])
                 .then(response => {
                     if (!response.ok) {
-                        throw new Error('CSV file not found');
+                        throw new Error('Not found');
                     }
                     return response.text();
                 })
@@ -767,7 +947,8 @@ ISONE,2016,1,4008_NEMA,NEMA,38.63`;
                     }
                 })
                 .catch(err => {
-                    log('error', `Could not load embedded data: ${err.message}. Try uploading the CSV file manually.`);
+                    // Try next path
+                    tryLoadFromPaths(paths, index + 1, dataStore);
                 });
         }
 
@@ -793,9 +974,18 @@ ISONE,2016,1,4008_NEMA,NEMA,38.63`;
                 return;
             }
             
-            const result = dataStore.loadFromCSV(csvText, 'pasted-data');
+            const importMode = document.querySelector('input[name="importMode"]:checked')?.value || 'append';
+            
+            let result;
+            if (importMode === 'append') {
+                result = appendFromCSV(dataStore, csvText, 'pasted-data');
+            } else {
+                result = dataStore.loadFromCSV(csvText, 'pasted-data');
+            }
+            
             if (result && result.success) {
-                log('success', `Loaded ${result.count} records from pasted data`);
+                const modeText = importMode === 'append' ? 'appended' : 'loaded';
+                log('success', `Successfully ${modeText} ${result.count} records from pasted data. Total: ${result.total || result.count} records`);
                 updateUI();
                 closePasteModal();
             } else {
