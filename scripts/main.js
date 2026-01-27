@@ -51,7 +51,7 @@ const WIDGETS = [
 // =====================================================
 // THEME SWITCHER
 // =====================================================
-function setTheme(theme) {
+window.setTheme = function(theme) {
     // Apply theme to document
     document.documentElement.setAttribute('data-theme', theme);
     
@@ -75,7 +75,7 @@ function setTheme(theme) {
 
 function loadSavedTheme() {
     const saved = localStorage.getItem('secureEnergy_theme') || 'dark';
-    setTheme(saved);
+    window.setTheme(saved);
 }
 
 // =====================================================
