@@ -809,20 +809,56 @@ ISONE,2016,1,4008_NEMA,NEMA,38.63`;
         // Standalone data store for local testing
         function createStandaloneDataStore() {
             const STORAGE_KEY = 'secureEnergy_LMP_Data';
+            const GITHUB_RAW_URL = 'https://raw.githubusercontent.com/ClemmensSES/SESSalesResources/main/data/lmp-database.json';
             
             return {
                 data: null,
                 
-                init() {
+                async init() {
+                    // First load from localStorage (cache)
                     const stored = localStorage.getItem(STORAGE_KEY);
                     if (stored) {
                         try {
                             this.data = JSON.parse(stored);
+                            console.log('[DataManager] Loaded from localStorage cache');
                         } catch (e) {
                             this.data = null;
                         }
                     }
+                    
+                    // Then try to load fresh data from GitHub
+                    try {
+                        await this.loadFromGitHub();
+                    } catch (e) {
+                        console.warn('[DataManager] GitHub load failed, using cached data');
+                    }
+                    
                     return Promise.resolve();
+                },
+                
+                async loadFromGitHub() {
+                    try {
+                        const response = await fetch(GITHUB_RAW_URL + '?t=' + Date.now());
+                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                        
+                        const jsonData = await response.json();
+                        if (jsonData && jsonData.records && jsonData.records.length > 0) {
+                            this.data = {
+                                records: jsonData.records,
+                                meta: {
+                                    source: 'GitHub Repository',
+                                    loadedAt: new Date().toISOString(),
+                                    recordCount: jsonData.records.length
+                                }
+                            };
+                            localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+                            console.log(`[DataManager] Loaded ${jsonData.records.length} records from GitHub`);
+                            return true;
+                        }
+                    } catch (e) {
+                        console.warn('[DataManager] GitHub load failed:', e.message);
+                    }
+                    return false;
                 },
                 
                 loadFromCSV(csvContent, source) {
@@ -896,9 +932,9 @@ ISONE,2016,1,4008_NEMA,NEMA,38.63`;
             };
         }
 
-        // Load embedded data
-        function loadEmbeddedData() {
-            log('info', 'Loading pre-configured LMP data...');
+        // Load embedded data (from GitHub JSON)
+        async function loadEmbeddedData() {
+            log('info', 'Loading LMP data from GitHub repository...');
             
             const dataStore = getDataStore();
             if (!dataStore) {
@@ -908,12 +944,40 @@ ISONE,2016,1,4008_NEMA,NEMA,38.63`;
             
             // Check if running locally (file:// protocol)
             if (window.location.protocol === 'file:') {
-                log('warning', 'Pre-configured data loading is not available when testing locally (file:// protocol).');
-                log('info', 'Please upload the CSV file manually, or use a local web server (python -m http.server 8000)');
+                log('warning', 'GitHub data loading is not available when testing locally (file:// protocol).');
+                log('info', 'Please upload the CSV file manually, or use a local web server.');
                 return;
             }
             
-            // Try multiple possible paths for the CSV
+            // Try to load from GitHub JSON first
+            const githubUrl = 'https://raw.githubusercontent.com/ClemmensSES/SESSalesResources/main/data/lmp-database.json';
+            
+            try {
+                log('info', 'Fetching from GitHub...');
+                const response = await fetch(githubUrl + '?t=' + Date.now());
+                if (response.ok) {
+                    const jsonData = await response.json();
+                    if (jsonData && jsonData.records && jsonData.records.length > 0) {
+                        dataStore.data = {
+                            records: jsonData.records,
+                            meta: {
+                                source: 'GitHub Repository',
+                                loadedAt: new Date().toISOString(),
+                                recordCount: jsonData.records.length
+                            }
+                        };
+                        localStorage.setItem('secureEnergy_LMP_Data', JSON.stringify(dataStore.data));
+                        log('success', `Loaded ${jsonData.records.length} records from GitHub`);
+                        updateUI();
+                        return;
+                    }
+                }
+            } catch (e) {
+                log('warning', 'GitHub JSON load failed: ' + e.message);
+            }
+            
+            // Fallback: Try CSV files
+            log('info', 'Trying fallback CSV files...');
             const possiblePaths = [
                 'lmp_data_combined.csv',
                 '../data/lmp_data_combined.csv',

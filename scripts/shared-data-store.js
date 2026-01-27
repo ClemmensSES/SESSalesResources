@@ -9,7 +9,8 @@
 // =====================================================
 const SecureEnergyData = {
     STORAGE_KEY: 'secureEnergy_LMP_Data',
-    DATA_URL: 'data/lmp-database.json', // GitHub hosted JSON
+    DATA_URL: 'data/lmp-database.json', // Relative path for GitHub Pages
+    GITHUB_RAW_URL: 'https://raw.githubusercontent.com/ClemmensSES/SESSalesResources/main/data/lmp-database.json',
     subscribers: [],
     data: null,
     isLoaded: false,
@@ -43,33 +44,41 @@ const SecureEnergyData = {
      * Load data from GitHub hosted JSON file
      */
     async loadFromGitHub() {
-        try {
-            const response = await fetch(this.DATA_URL + '?t=' + Date.now()); // Cache bust
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+        // Try GitHub raw URL first, then relative path
+        const urls = [this.GITHUB_RAW_URL, this.DATA_URL];
+        
+        for (const url of urls) {
+            try {
+                console.log(`[SecureEnergyData] Trying to load from: ${url}`);
+                const response = await fetch(url + '?t=' + Date.now()); // Cache bust
+                if (!response.ok) {
+                    continue;
+                }
+                
+                const jsonData = await response.json();
+                
+                if (jsonData && jsonData.records && jsonData.records.length > 0) {
+                    this.data = {
+                        records: jsonData.records,
+                        meta: jsonData.meta || {
+                            source: url.includes('raw.githubusercontent') ? 'GitHub Repository' : 'Local',
+                            loadedAt: new Date().toISOString(),
+                            version: jsonData.version,
+                            recordCount: jsonData.records.length
+                        }
+                    };
+                    this.isLoaded = true;
+                    this.saveToStorage();
+                    console.log(`[SecureEnergyData] Loaded ${jsonData.records.length} records from ${url.includes('raw.githubusercontent') ? 'GitHub' : 'local path'}`);
+                    this.notifySubscribers();
+                    return true;
+                }
+            } catch (e) {
+                console.warn(`[SecureEnergyData] Failed to load from ${url}:`, e.message);
             }
-            
-            const jsonData = await response.json();
-            
-            if (jsonData && jsonData.records && jsonData.records.length > 0) {
-                this.data = {
-                    records: jsonData.records,
-                    meta: jsonData.meta || {
-                        source: 'GitHub',
-                        loadedAt: new Date().toISOString(),
-                        version: jsonData.version
-                    }
-                };
-                this.isLoaded = true;
-                this.saveToStorage();
-                console.log(`[SecureEnergyData] Loaded ${jsonData.records.length} records from GitHub`);
-                this.notifySubscribers();
-                return true;
-            }
-        } catch (e) {
-            console.warn('[SecureEnergyData] GitHub load failed:', e.message);
-            return false;
         }
+        
+        return false;
     },
 
     /**
