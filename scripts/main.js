@@ -45,6 +45,13 @@ const WIDGETS = [
         src: 'widgets/lmp-comparison-portal.html',
         fullWidth: true,
         height: 700
+    },
+    {
+        id: 'analysis-history',
+        name: 'My Analysis History',
+        icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+        fullWidth: true,
+        embedded: true
     }
 ];
 
@@ -369,6 +376,9 @@ function renderWidgets(user) {
     
     // Initialize AI Assistant widget
     initAIAssistantWidget();
+    
+    // Initialize Analysis History widget
+    initAnalysisHistoryWidget();
 }
 
 function createWidgetElement(widget) {
@@ -410,6 +420,24 @@ function createWidgetElement(widget) {
                 </div>
             </div>
             <div class="widget-content ai-assistant-content" id="aiAssistantContent" style="height: ${widget.height || 500}px;"></div>
+        `;
+    } else if (widget.embedded && widget.id === 'analysis-history') {
+        // Analysis History widget
+        div.innerHTML = `
+            <div class="widget-header">
+                <div class="widget-title">
+                    ${widget.icon}
+                    <span>${widget.name}</span>
+                </div>
+                <div class="widget-actions">
+                    <button class="widget-btn" onclick="refreshAnalysisHistory()" title="Refresh">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="widget-content analysis-history-content" id="analysisHistoryContent" style="height: 500px; overflow-y: auto;"></div>
         `;
     } else {
         // Standard iframe widget
@@ -540,6 +568,13 @@ function getCreateUserPanel() {
                     </label>
                 </div>
                 <div class="widget-permission-item">
+                    <span>My Analysis History</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="perm-analysis-history" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="widget-permission-item">
                     <span>LMP Data Manager</span>
                     <label class="toggle-switch">
                         <input type="checkbox" id="perm-data-manager">
@@ -604,6 +639,11 @@ function getPermissionsPanel() {
                 <tbody>
                     <tr>
                         <td>LMP Comparison Portal</td>
+                        <td><span class="status-badge active">Visible</span></td>
+                        <td><span class="status-badge active">Visible</span></td>
+                    </tr>
+                    <tr>
+                        <td>My Analysis History</td>
                         <td><span class="status-badge active">Visible</span></td>
                         <td><span class="status-badge active">Visible</span></td>
                     </tr>
@@ -682,6 +722,7 @@ function createUser() {
     const permissions = {
         'ai-assistant': document.getElementById('perm-ai-assistant').checked,
         'lmp-comparison': document.getElementById('perm-lmp-comparison').checked,
+        'analysis-history': document.getElementById('perm-analysis-history').checked,
         'data-manager': document.getElementById('perm-data-manager').checked,
         'arcadia-fetcher': document.getElementById('perm-arcadia-fetcher').checked,
         'user-admin': role === 'admin'
@@ -708,6 +749,7 @@ function createUser() {
         document.getElementById('newRole').value = 'user';
         document.getElementById('perm-ai-assistant').checked = true;
         document.getElementById('perm-lmp-comparison').checked = true;
+        document.getElementById('perm-analysis-history').checked = true;
         document.getElementById('perm-data-manager').checked = false;
         document.getElementById('perm-arcadia-fetcher').checked = false;
         
@@ -782,6 +824,13 @@ function editUser(userId) {
                 </label>
             </div>
             <div class="widget-permission-item">
+                <span>My Analysis History</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="edit-perm-analysis-history" ${user.permissions?.['analysis-history'] !== false ? 'checked' : ''}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="widget-permission-item">
                 <span>LMP Data Manager</span>
                 <label class="toggle-switch">
                     <input type="checkbox" id="edit-perm-data-manager" ${user.permissions?.['data-manager'] ? 'checked' : ''}>
@@ -812,6 +861,7 @@ function saveUserEdit() {
         permissions: {
             'ai-assistant': document.getElementById('edit-perm-ai-assistant').checked,
             'lmp-comparison': document.getElementById('edit-perm-lmp-comparison').checked,
+            'analysis-history': document.getElementById('edit-perm-analysis-history').checked,
             'data-manager': document.getElementById('edit-perm-data-manager').checked,
             'arcadia-fetcher': document.getElementById('edit-perm-arcadia-fetcher').checked,
             'user-admin': document.getElementById('editRole').value === 'admin'
@@ -1166,6 +1216,130 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// =====================================================
+// ANALYSIS HISTORY WIDGET
+// =====================================================
+function initAnalysisHistoryWidget() {
+    const content = document.getElementById('analysisHistoryContent');
+    if (!content) return;
+    
+    renderAnalysisHistory();
+}
+
+function refreshAnalysisHistory() {
+    renderAnalysisHistory();
+    showNotification('Analysis history refreshed', 'success');
+}
+
+function renderAnalysisHistory() {
+    const content = document.getElementById('analysisHistoryContent');
+    if (!content) return;
+    
+    // Get analyses for current user (or all if admin)
+    let analyses = ActivityLog.getAll().filter(a => a.widget === 'lmp-comparison');
+    
+    // Filter to current user's analyses unless admin
+    if (currentUser && currentUser.role !== 'admin') {
+        analyses = analyses.filter(a => a.userId === currentUser.id);
+    }
+    
+    // Sort by timestamp descending (newest first)
+    analyses.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    
+    if (analyses.length === 0) {
+        content.innerHTML = `
+            <div style="text-align: center; padding: 60px 20px; color: var(--text-tertiary);">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 16px; opacity: 0.5;">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <p style="font-size: 14px; margin-bottom: 8px;">No analyses yet</p>
+                <p style="font-size: 12px;">Run an analysis in the LMP Comparison Portal to see it here</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Build summary stats
+    const totalSavings = analyses.reduce((sum, a) => sum + (a.data?.results?.savingsVsFixed || 0), 0);
+    const avgSavings = totalSavings / analyses.length;
+    
+    content.innerHTML = `
+        <div class="analysis-history-summary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 16px;">
+            <div style="text-align: center;">
+                <div style="font-size: 24px; font-weight: 700; color: var(--accent-primary);">${analyses.length}</div>
+                <div style="font-size: 11px; color: var(--text-tertiary); text-transform: uppercase;">Total Analyses</div>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 24px; font-weight: 700; color: ${totalSavings >= 0 ? '#10b981' : '#ef4444'};">
+                    ${totalSavings >= 0 ? '+' : ''}$${Math.abs(totalSavings).toLocaleString(undefined, {maximumFractionDigits: 0})}
+                </div>
+                <div style="font-size: 11px; color: var(--text-tertiary); text-transform: uppercase;">Total Savings</div>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 24px; font-weight: 700; color: ${avgSavings >= 0 ? '#10b981' : '#ef4444'};">
+                    ${avgSavings >= 0 ? '+' : ''}$${Math.abs(avgSavings).toLocaleString(undefined, {maximumFractionDigits: 0})}
+                </div>
+                <div style="font-size: 11px; color: var(--text-tertiary); text-transform: uppercase;">Avg Savings</div>
+            </div>
+        </div>
+        
+        <div class="analysis-history-list" style="display: flex; flex-direction: column; gap: 12px;">
+            ${analyses.map(a => renderAnalysisCard(a)).join('')}
+        </div>
+    `;
+}
+
+function renderAnalysisCard(analysis) {
+    const d = analysis.data || {};
+    const results = d.results || {};
+    const savings = results.savingsVsFixed || 0;
+    const timestamp = new Date(analysis.timestamp);
+    const isToday = new Date().toDateString() === timestamp.toDateString();
+    const timeStr = isToday ? 'Today ' + timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : timestamp.toLocaleDateString() + ' ' + timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    
+    return `
+        <div class="analysis-card" style="background: var(--bg-secondary); border-radius: 10px; padding: 16px; border-left: 4px solid ${savings >= 0 ? '#10b981' : '#ef4444'};">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                <div>
+                    <div style="font-weight: 600; font-size: 15px; color: var(--text-primary); margin-bottom: 4px;">
+                        ${d.clientName || 'Unnamed Analysis'}
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-tertiary);">
+                        ${d.iso || 'N/A'} • ${d.zone || 'N/A'} • ${d.termMonths || 0} months
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 18px; font-weight: 700; color: ${savings >= 0 ? '#10b981' : '#ef4444'};">
+                        ${savings >= 0 ? '+' : ''}$${Math.abs(savings).toLocaleString(undefined, {maximumFractionDigits: 0})}
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-tertiary);">savings</div>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 12px; margin-bottom: 12px;">
+                <div style="background: var(--bg-tertiary); padding: 8px; border-radius: 6px; text-align: center;">
+                    <div style="color: var(--text-tertiary); margin-bottom: 2px;">Index Cost</div>
+                    <div style="font-weight: 600; color: var(--text-primary);">$${(results.totalIndexCost || 0).toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+                </div>
+                <div style="background: var(--bg-tertiary); padding: 8px; border-radius: 6px; text-align: center;">
+                    <div style="color: var(--text-tertiary); margin-bottom: 2px;">Fixed Cost</div>
+                    <div style="font-weight: 600; color: var(--text-primary);">$${(results.totalFixedCost || 0).toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+                </div>
+                <div style="background: var(--bg-tertiary); padding: 8px; border-radius: 6px; text-align: center;">
+                    <div style="color: var(--text-tertiary); margin-bottom: 2px;">Fixed Rate</div>
+                    <div style="font-weight: 600; color: var(--text-primary);">$${(d.fixedPrice || 0).toFixed(4)}</div>
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-tertiary);">
+                <span>${currentUser?.role === 'admin' && analysis.userName ? 'By: ' + analysis.userName : ''}</span>
+                <span>${timeStr}</span>
+            </div>
+        </div>
+    `;
+}
+
 // Legacy AI Search (for top bar - simplified)
 const AISearch = {
     init() {
@@ -1253,6 +1427,14 @@ function handleWidgetMessage(event) {
             userName: `${currentUser.firstName} ${currentUser.lastName}`,
             ...event.data.data
         });
+        
+        // Refresh Analysis History widget
+        if (document.getElementById('analysisHistoryContent')) {
+            renderAnalysisHistory();
+        }
+        
+        // Show notification
+        showNotification(`Analysis logged: ${event.data.data.clientName || 'Unnamed'}`, 'success');
     }
 }
 

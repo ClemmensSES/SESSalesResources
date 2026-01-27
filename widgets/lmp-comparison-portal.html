@@ -1161,6 +1161,9 @@
                 <button class="btn btn-primary" onclick="calculate()">
                     ✓ Calculate Results
                 </button>
+                <button class="btn btn-secondary" onclick="resetForm()" title="Clear results and reset form">
+                    🔄 Reset Form
+                </button>
             </div>
         </div>
 
@@ -2082,6 +2085,71 @@ const ISO_DATA = {"ISONE": [{"month": "01", "year": "2016", "zone": "4000_ISONE"
                 
                 console.log('[LMP Portal] Analysis logged:', clientName);
             }
+        }
+        
+        // Reset form to initial state
+        function resetForm() {
+            // Clear client name
+            document.getElementById('clientName').value = '';
+            
+            // Reset ISO and Zone to defaults
+            document.getElementById('iso').value = 'ISONE';
+            updateZoneOptions();
+            
+            // Reset dates and term
+            document.getElementById('startDate').value = '2016-01';
+            document.getElementById('termMonths').value = '120';
+            
+            // Reset pricing
+            document.getElementById('fixedPrice').value = '0.085';
+            document.getElementById('capacityCost').value = '0.015';
+            document.getElementById('ancillaryCost').value = '0.005';
+            document.getElementById('transmissionCost').value = '0.012';
+            
+            // Reset usage to defaults
+            const defaultUsage = [850000, 780000, 720000, 680000, 750000, 920000, 1050000, 1020000, 880000, 760000, 700000, 820000];
+            for (let i = 0; i < 12; i++) {
+                const usageInput = document.getElementById(`usage_${i}`);
+                if (usageInput) usageInput.value = defaultUsage[i];
+            }
+            
+            // Reset LMP adjustment slider
+            const lmpSlider = document.getElementById('lmpAdjustment');
+            if (lmpSlider) {
+                lmpSlider.value = 0;
+                document.getElementById('lmpAdjustValue').textContent = '+0.0%';
+            }
+            
+            // Reset hedge mode to simple
+            document.querySelectorAll('.hedge-mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent.includes('Simple')) btn.classList.add('active');
+            });
+            document.getElementById('simpleHedgeConfig').style.display = 'block';
+            document.getElementById('matrixHedgeConfig').style.display = 'none';
+            
+            // Reset simple hedge inputs
+            document.getElementById('hedgeRate').value = '0.055';
+            document.getElementById('hedgePercent').value = '50';
+            
+            // Clear calculation results
+            calculationResults = null;
+            projectedMonths = [];
+            baseLMPData = [];
+            
+            // Hide results sections
+            document.getElementById('resultsCard').style.display = 'none';
+            document.getElementById('lmpSliderCard').style.display = 'none';
+            document.getElementById('projectionNotice').style.display = 'none';
+            
+            // Update term info display
+            updateTermInfo();
+            
+            // Show notification
+            showNotification('Form reset to defaults', 'info');
+            
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function displayResults() {
