@@ -1152,6 +1152,7 @@ function showNotification(message, type = 'info') {
 
 function updateDataStatus() {
     const stats = SecureEnergyData.getStats();
+    const records = SecureEnergyData.getRecords() || [];
     
     document.getElementById('dataRecordCount').textContent = stats.totalRecords?.toLocaleString() || '0';
     document.getElementById('dataISOCount').textContent = stats.isoCount || '0';
@@ -1163,7 +1164,24 @@ function updateDataStatus() {
     if (stats.totalRecords > 0) {
         indicator.style.background = 'var(--accent-success)';
         title.textContent = 'Data Loaded';
-        desc.textContent = `${stats.totalRecords.toLocaleString()} records from ${stats.isoCount} ISOs`;
+        
+        // Calculate ISO names with zone counts
+        const isoZones = {};
+        records.forEach(r => {
+            const iso = r.iso?.toUpperCase();
+            if (!iso) return;
+            if (!isoZones[iso]) {
+                isoZones[iso] = new Set();
+            }
+            if (r.zone) isoZones[iso].add(r.zone);
+        });
+        
+        // Format: ISONE (9), PJM (12), NYISO (5)
+        const isoList = Object.entries(isoZones)
+            .map(([iso, zones]) => `${iso} (${zones.size})`)
+            .join(', ');
+        
+        desc.textContent = isoList || `${stats.totalRecords.toLocaleString()} records from ${stats.isoCount} ISOs`;
     } else {
         indicator.style.background = 'var(--accent-warning)';
         title.textContent = 'No Data Loaded';
