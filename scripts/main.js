@@ -49,10 +49,43 @@ const WIDGETS = [
 ];
 
 // =====================================================
+// THEME SWITCHER
+// =====================================================
+function setTheme(theme) {
+    // Apply theme to document
+    document.documentElement.setAttribute('data-theme', theme);
+    
+    // Save preference
+    localStorage.setItem('secureEnergy_theme', theme);
+    
+    // Update active button
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.theme === theme);
+    });
+    
+    // Also apply to any iframes (widgets)
+    document.querySelectorAll('iframe').forEach(iframe => {
+        try {
+            iframe.contentDocument?.documentElement?.setAttribute('data-theme', theme);
+        } catch (e) {
+            // Cross-origin iframe, can't access
+        }
+    });
+}
+
+function loadSavedTheme() {
+    const saved = localStorage.getItem('secureEnergy_theme') || 'dark';
+    setTheme(saved);
+}
+
+// =====================================================
 // INITIALIZATION
 // =====================================================
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('[Portal] Initializing...');
+    
+    // Load saved theme first (prevents flash)
+    loadSavedTheme();
     
     // Initialize stores
     await UserStore.init();
