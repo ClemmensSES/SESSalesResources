@@ -110,13 +110,29 @@ const HelpTooltip = {
     attachTriggers() {
         // Wait for widgets to render, then attach
         setTimeout(() => {
-            document.querySelectorAll('[data-widget-id]').forEach(widget => {
+            console.log('[HelpSystem] Attaching help icons to widgets...');
+            const widgets = document.querySelectorAll('[data-widget-id]');
+            console.log(`[HelpSystem] Found ${widgets.length} widgets`);
+            
+            widgets.forEach(widget => {
                 const id = widget.dataset.widgetId;
                 const help = HELP_CONTENT.widgets[id];
-                if (!help) return;
+                
+                if (!help) {
+                    console.log(`[HelpSystem] No help content for widget: ${id}`);
+                    return;
+                }
                 
                 const header = widget.querySelector('.widget-header');
-                if (!header || header.querySelector('.help-icon')) return;
+                if (!header) {
+                    console.log(`[HelpSystem] No header found for widget: ${id}`);
+                    return;
+                }
+                
+                if (header.querySelector('.help-icon')) {
+                    console.log(`[HelpSystem] Help icon already exists for: ${id}`);
+                    return;
+                }
                 
                 // Add help icon
                 const icon = document.createElement('button');
@@ -132,15 +148,18 @@ const HelpTooltip = {
                     this.toggle(id, e.target);
                 });
                 
-                // Insert before widget actions or at end of header
-                const actions = header.querySelector('.widget-actions');
-                if (actions) {
-                    header.insertBefore(icon, actions);
+                // Insert after .widget-title or at end of header
+                const title = header.querySelector('.widget-title');
+                if (title) {
+                    // Insert right after the title element
+                    title.after(icon);
                 } else {
                     header.appendChild(icon);
                 }
+                
+                console.log(`[HelpSystem] Added help icon to: ${id}`);
             });
-        }, 500);
+        }, 800);
     },
     
     addGlobalListeners() {
@@ -422,22 +441,109 @@ function initHelpSystem() {
     
     // Initialize tooltip system
     HelpTooltip.init();
+    console.log('[HelpSystem] Tooltip system initialized');
+    
+    // Add quick action buttons to AI Assistant
+    QuickActions.init();
+    console.log('[HelpSystem] Quick actions initialized');
     
     // Hook into AI query processing
     if (typeof window.processAIQuery === 'function') {
         window.originalProcessAIQuery = window.processAIQuery;
+        console.log('[HelpSystem] Hooked into existing processAIQuery');
+    } else {
+        console.log('[HelpSystem] No existing processAIQuery found, will provide default');
     }
     
     window.processAIQuery = function(query) {
+        console.log('[HelpSystem] Processing query:', query);
         return EnhancedAI.process(query);
     };
     
-    console.log('[HelpSystem] Ready');
+    console.log('[HelpSystem] Ready - Enhanced AI active');
 }
+
+// =====================================================
+// QUICK ACTION BUTTONS
+// =====================================================
+const QuickActions = {
+    buttons: [
+        { label: '🚀 Tour', query: 'tour', title: 'Take a guided tour of the portal' },
+        { label: '❓ Help', query: 'help', title: 'Show help options' },
+        { label: '📊 Data Status', query: 'data status', title: 'Check loaded LMP data' },
+        { label: '📖 What is LMP?', query: 'what is lmp', title: 'Learn about LMP pricing' },
+        { label: '📥 Load Data', query: 'how to load data', title: 'How to import data' },
+        { label: '👥 Users', query: 'show all users', title: 'List all users' }
+    ],
+    
+    init() {
+        // Wait for AI Assistant widget to render
+        setTimeout(() => this.inject(), 1000);
+    },
+    
+    inject() {
+        const aiContent = document.getElementById('aiAssistantContent');
+        if (!aiContent) {
+            console.log('[QuickActions] AI Assistant content not found, retrying...');
+            setTimeout(() => this.inject(), 500);
+            return;
+        }
+        
+        // Check if already injected
+        if (aiContent.querySelector('.quick-actions-bar')) {
+            console.log('[QuickActions] Already injected');
+            return;
+        }
+        
+        // Create the quick actions bar
+        const bar = document.createElement('div');
+        bar.className = 'quick-actions-bar';
+        bar.innerHTML = `
+            <div class="quick-actions-label">Quick Actions:</div>
+            <div class="quick-actions-buttons">
+                ${this.buttons.map(btn => `
+                    <button class="quick-action-btn" 
+                            data-query="${btn.query}" 
+                            title="${btn.title}"
+                            onclick="QuickActions.execute('${btn.query}')">
+                        ${btn.label}
+                    </button>
+                `).join('')}
+            </div>
+        `;
+        
+        // Insert at the top of AI content
+        aiContent.insertBefore(bar, aiContent.firstChild);
+        console.log('[QuickActions] Injected quick action buttons');
+    },
+    
+    execute(query) {
+        const input = document.getElementById('aiAssistantInput');
+        if (input) {
+            input.value = query;
+        }
+        
+        // Call sendAIQuery if it exists (from main.js)
+        if (typeof window.sendAIQuery === 'function') {
+            window.sendAIQuery();
+        } else {
+            // Fallback: trigger enter key on input
+            const event = new KeyboardEvent('keypress', { key: 'Enter', bubbles: true });
+            input?.dispatchEvent(event);
+        }
+    }
+};
+
+// Make QuickActions globally accessible
+window.QuickActions = QuickActions;
 
 // Auto-init when DOM ready, or if already loaded
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => setTimeout(initHelpSystem, 100));
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('[HelpSystem] DOM loaded, initializing in 100ms...');
+        setTimeout(initHelpSystem, 100);
+    });
 } else {
+    console.log('[HelpSystem] DOM already ready, initializing in 100ms...');
     setTimeout(initHelpSystem, 100);
 }

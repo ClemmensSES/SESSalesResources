@@ -7,24 +7,37 @@
    HELP ICON (in widget headers)
    ===================================================== */
 .help-icon {
-    background: none;
+    background: transparent;
     border: none;
-    color: var(--text-tertiary);
+    color: var(--text-tertiary, #888);
     cursor: pointer;
     padding: 4px 8px;
-    margin-left: auto;
-    margin-right: 8px;
+    margin-left: 8px;
     border-radius: 4px;
-    opacity: 0.5;
+    opacity: 0.6;
     transition: all 0.2s ease;
-    display: flex;
+    display: inline-flex;
     align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    vertical-align: middle;
 }
 
 .help-icon:hover {
     opacity: 1;
-    color: var(--accent-primary);
-    background: var(--bg-tertiary);
+    color: var(--accent-primary, #00c853);
+    background: var(--bg-tertiary, rgba(255,255,255,0.1));
+}
+
+.help-icon svg {
+    display: block;
+}
+
+/* Ensure header can accommodate the icon */
+.widget-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
 }
 
 /* =====================================================
@@ -163,6 +176,56 @@
 .tour-next-btn:hover {
     background: var(--se-light-green, #69f0ae);
     transform: translateY(-1px);
+}
+
+/* =====================================================
+   QUICK ACTION BUTTONS BAR
+   ===================================================== */
+.quick-actions-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+    background: var(--bg-tertiary, rgba(255,255,255,0.05));
+    border-bottom: 1px solid var(--border-primary, rgba(255,255,255,0.1));
+    margin-bottom: 0;
+}
+
+.quick-actions-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-tertiary, #888);
+}
+
+.quick-actions-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.quick-action-btn {
+    background: var(--bg-secondary, #1a1a2e);
+    border: 1px solid var(--border-primary, rgba(255,255,255,0.1));
+    color: var(--text-secondary, #ccc);
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.quick-action-btn:hover {
+    background: var(--accent-primary, #00c853);
+    border-color: var(--accent-primary, #00c853);
+    color: #000;
+    transform: translateY(-1px);
+}
+
+.quick-action-btn:active {
+    transform: translateY(0);
 }
 
 /* =====================================================
