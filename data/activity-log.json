@@ -1,7 +1,35 @@
 {
   "version": "2.2.0",
-  "lastUpdated": "2026-01-28T18:27:44.008Z",
+  "lastUpdated": "2026-01-28T18:33:03.305Z",
   "activities": [
+    {
+      "id": "act-1769625180116-kdzzbd",
+      "timestamp": "2026-01-28T18:33:00.116Z",
+      "userId": "user-1769525319357",
+      "userEmail": "clemmens@sesenergy.org",
+      "userName": "Chad Lemmens",
+      "widget": "lmp-comparison",
+      "action": "LMP Analysis",
+      "clientName": "Unnamed Analysis",
+      "data": {
+        "clientName": "Unnamed Analysis",
+        "iso": "ISONE",
+        "zone": "CT",
+        "startDate": "2016-01",
+        "termMonths": 60,
+        "fixedPrice": 0.085,
+        "lmpAdjustment": 0,
+        "totalAnnualUsage": 1843000,
+        "results": {
+          "totalIndexCost": 640091.2839999999,
+          "totalFixedCost": 783275,
+          "savingsVsFixed": 143183.71600000013,
+          "avgBlendedRate": 0.06946188648941941,
+          "totalUsage": 9215000
+        }
+      },
+      "notes": null
+    },
     {
       "id": "act-1769624860780-tcq651",
       "timestamp": "2026-01-28T18:27:40.780Z",
