@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastUpdated": "2026-01-28T13:48:23.645Z",
+  "lastUpdated": "2026-01-28T14:10:58.847Z",
   "users": [
     {
       "id": "admin-001",
@@ -98,7 +98,6 @@
         "user-admin": false
       }
     },
-   
     {
       "id": "user-1769608099594",
       "firstName": "Jamie",
@@ -109,9 +108,9 @@
       "status": "active",
       "createdAt": "2026-01-28T13:48:19.594Z",
       "permissions": {
-        "ai-assistant": true,
+        "ai-assistant": false,
         "lmp-comparison": true,
-        "lmp-analytics": true,
+        "lmp-analytics": false,
         "analysis-history": true,
         "data-manager": false,
         "arcadia-fetcher": false,
