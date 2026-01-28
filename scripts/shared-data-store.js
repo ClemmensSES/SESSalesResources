@@ -687,6 +687,22 @@ const ActivityLog = {
         });
     },
 
+    logAIQuery(params) {
+        return this.log({
+            userId: params.userId, userEmail: params.userEmail, userName: params.userName,
+            widget: 'ai-assistant', action: 'AI Query',
+            data: { query: params.query, responseLength: params.responseLength }
+        });
+    },
+
+    logButtonClick(params) {
+        return this.log({
+            userId: params.userId, userEmail: params.userEmail, userName: params.userName,
+            widget: params.widget || 'portal', action: 'Button Click',
+            data: { button: params.button, context: params.context }
+        });
+    },
+
     logHistoryExport(params) {
         return this.log({
             userId: params.userId, userEmail: params.userEmail, userName: params.userName,
@@ -712,12 +728,16 @@ const ActivityLog = {
     countLogins(todayOnly = false) { return this.countByAction('Login', todayOnly); },
     countLMPAnalyses(todayOnly = false) { return this.countByAction('LMP Analysis', todayOnly); },
     countLMPExports(todayOnly = false) { return this.countByAction('LMP Export', todayOnly); },
+    countAIQueries(todayOnly = false) { return this.countByAction('AI Query', todayOnly); },
+    countButtonClicks(todayOnly = false) { return this.countByAction('Button Click', todayOnly); },
 
     getActivityStats() {
         return {
             logins: { today: this.countLogins(true), total: this.countLogins(false) },
             lmpAnalyses: { today: this.countLMPAnalyses(true), total: this.countLMPAnalyses(false) },
             lmpExports: { today: this.countLMPExports(true), total: this.countLMPExports(false) },
+            aiQueries: { today: this.countAIQueries(true), total: this.countAIQueries(false) },
+            buttonClicks: { today: this.countButtonClicks(true), total: this.countButtonClicks(false) },
             totalActivities: this.activities.length
         };
     },

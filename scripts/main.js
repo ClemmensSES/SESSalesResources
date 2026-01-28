@@ -243,8 +243,8 @@ function getCreateUserPanel() {
 function getManageUsersPanel() { return `<div style="overflow-x:auto;"><table class="users-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody id="usersTableBody"></tbody></table></div>`; }
 
 function getActivityLogPanel() {
-    return `<div class="activity-stats-grid" id="activityStatsGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px;"></div>
-        <div class="activity-filters"><input type="text" id="activitySearch" placeholder="Search..." oninput="renderActivityLog()"><select id="activityWidgetFilter" onchange="renderActivityLog()"><option value="">All Widgets</option><option value="lmp-comparison">LMP Comparison</option><option value="lmp-analytics">LMP Analytics</option><option value="portal">Portal</option></select></div>
+    return `<div class="activity-stats-grid" id="activityStatsGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px;"></div>
+        <div class="activity-filters"><input type="text" id="activitySearch" placeholder="Search..." oninput="renderActivityLog()"><select id="activityWidgetFilter" onchange="renderActivityLog()"><option value="">All Widgets</option><option value="lmp-comparison">LMP Comparison</option><option value="lmp-analytics">LMP Analytics</option><option value="ai-assistant">AI Assistant</option><option value="portal">Portal</option></select></div>
         <div id="activityLogContainer" style="max-height:400px;overflow-y:auto;"></div>`;
 }
 
@@ -324,6 +324,7 @@ function saveGitHubToken() {
 }
 
 async function testGitHubConnection() {
+    trackButtonClick('Test GitHub Connection', 'github-sync');
     showNotification('Testing connection...', 'info');
     const result = await GitHubSync.testConnection();
     showNotification(result.success ? `Connected to ${result.repo}!` : `Failed: ${result.error}`, result.success ? 'success' : 'error');
@@ -331,6 +332,7 @@ async function testGitHubConnection() {
 }
 
 async function manualSyncActivity() {
+    trackButtonClick('Manual Sync Activity', 'github-sync');
     if (!GitHubSync.hasToken()) { showNotification('Configure token first', 'warning'); return; }
     showNotification('Syncing...', 'info');
     const result = await GitHubSync.syncActivityLog();
@@ -340,6 +342,7 @@ async function manualSyncActivity() {
 }
 
 async function manualSyncUsers() {
+    trackButtonClick('Manual Sync Users', 'github-sync');
     if (!GitHubSync.hasToken()) { showNotification('Configure token first', 'warning'); return; }
     showNotification('Syncing users...', 'info');
     const result = await GitHubSync.syncUsers();
@@ -469,9 +472,10 @@ function renderActivityStats() {
     if (!grid) return;
     const stats = ActivityLog.getActivityStats();
     grid.innerHTML = `
-        <div style="background:var(--bg-secondary);border-radius:10px;padding:16px;border-left:4px solid var(--accent-primary);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><h4 style="margin:0;font-size:14px;">Logins</h4></div><div style="display:flex;justify-content:space-around;text-align:center;"><div><div style="font-size:28px;font-weight:700;color:var(--accent-primary);">${stats.logins.today}</div><div style="font-size:11px;color:var(--text-tertiary);">TODAY</div></div><div style="border-left:1px solid var(--border-color);padding-left:20px;"><div style="font-size:28px;font-weight:700;color:var(--text-secondary);">${stats.logins.total}</div><div style="font-size:11px;color:var(--text-tertiary);">ALL TIME</div></div></div></div>
-        <div style="background:var(--bg-secondary);border-radius:10px;padding:16px;border-left:4px solid #10b981;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><h4 style="margin:0;font-size:14px;">LMP Calculations</h4></div><div style="display:flex;justify-content:space-around;text-align:center;"><div><div style="font-size:28px;font-weight:700;color:#10b981;">${stats.lmpAnalyses.today}</div><div style="font-size:11px;color:var(--text-tertiary);">TODAY</div></div><div style="border-left:1px solid var(--border-color);padding-left:20px;"><div style="font-size:28px;font-weight:700;color:var(--text-secondary);">${stats.lmpAnalyses.total}</div><div style="font-size:11px;color:var(--text-tertiary);">ALL TIME</div></div></div></div>
-        <div style="background:var(--bg-secondary);border-radius:10px;padding:16px;border-left:4px solid #f59e0b;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><h4 style="margin:0;font-size:14px;">LMP Exports</h4></div><div style="display:flex;justify-content:space-around;text-align:center;"><div><div style="font-size:28px;font-weight:700;color:#f59e0b;">${stats.lmpExports.today}</div><div style="font-size:11px;color:var(--text-tertiary);">TODAY</div></div><div style="border-left:1px solid var(--border-color);padding-left:20px;"><div style="font-size:28px;font-weight:700;color:var(--text-secondary);">${stats.lmpExports.total}</div><div style="font-size:11px;color:var(--text-tertiary);">ALL TIME</div></div></div></div>`;
+        <div style="background:var(--bg-secondary);border-radius:10px;padding:16px;border-left:4px solid var(--accent-primary);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><h4 style="margin:0;font-size:14px;">Logins</h4><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg></div><div style="display:flex;justify-content:space-around;text-align:center;"><div><div style="font-size:28px;font-weight:700;color:var(--accent-primary);">${stats.logins.today}</div><div style="font-size:11px;color:var(--text-tertiary);">TODAY</div></div><div style="border-left:1px solid var(--border-color);padding-left:20px;"><div style="font-size:28px;font-weight:700;color:var(--text-secondary);">${stats.logins.total}</div><div style="font-size:11px;color:var(--text-tertiary);">ALL TIME</div></div></div></div>
+        <div style="background:var(--bg-secondary);border-radius:10px;padding:16px;border-left:4px solid #10b981;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><h4 style="margin:0;font-size:14px;">LMP Calculations</h4><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div><div style="display:flex;justify-content:space-around;text-align:center;"><div><div style="font-size:28px;font-weight:700;color:#10b981;">${stats.lmpAnalyses.today}</div><div style="font-size:11px;color:var(--text-tertiary);">TODAY</div></div><div style="border-left:1px solid var(--border-color);padding-left:20px;"><div style="font-size:28px;font-weight:700;color:var(--text-secondary);">${stats.lmpAnalyses.total}</div><div style="font-size:11px;color:var(--text-tertiary);">ALL TIME</div></div></div></div>
+        <div style="background:var(--bg-secondary);border-radius:10px;padding:16px;border-left:4px solid #f59e0b;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><h4 style="margin:0;font-size:14px;">LMP Exports</h4><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div><div style="display:flex;justify-content:space-around;text-align:center;"><div><div style="font-size:28px;font-weight:700;color:#f59e0b;">${stats.lmpExports.today}</div><div style="font-size:11px;color:var(--text-tertiary);">TODAY</div></div><div style="border-left:1px solid var(--border-color);padding-left:20px;"><div style="font-size:28px;font-weight:700;color:var(--text-secondary);">${stats.lmpExports.total}</div><div style="font-size:11px;color:var(--text-tertiary);">ALL TIME</div></div></div></div>
+        <div style="background:var(--bg-secondary);border-radius:10px;padding:16px;border-left:4px solid #8b5cf6;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><h4 style="margin:0;font-size:14px;">AI Queries</h4><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg></div><div style="display:flex;justify-content:space-around;text-align:center;"><div><div style="font-size:28px;font-weight:700;color:#8b5cf6;">${stats.aiQueries.today}</div><div style="font-size:11px;color:var(--text-tertiary);">TODAY</div></div><div style="border-left:1px solid var(--border-color);padding-left:20px;"><div style="font-size:28px;font-weight:700;color:var(--text-secondary);">${stats.aiQueries.total}</div><div style="font-size:11px;color:var(--text-tertiary);">ALL TIME</div></div></div></div>`;
 }
 
 // =====================================================
@@ -483,6 +487,7 @@ function exportLMPData() { downloadJSON(SecureEnergyData.exportForGitHub(), 'lmp
 function downloadJSON(content, filename) { const blob = new Blob([content], { type: 'application/json' }), url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url); }
 
 function exportMyAnalysisRecords() {
+    trackButtonClick('Export Analysis Records', 'analysis-history');
     const isAdmin = currentUser?.role === 'admin';
     let analyses = ActivityLog.getAll().filter(a => a.widget === 'lmp-comparison');
     if (!isAdmin) analyses = analyses.filter(a => a.userId === currentUser?.id);
@@ -520,6 +525,17 @@ function sendAIQuery() {
     const response = processAIQuery(query);
     msgs.innerHTML += `<div class="ai-message ai-response"><div class="message-content">${response}</div></div>`;
     msgs.scrollTop = msgs.scrollHeight;
+    
+    // Log AI query
+    if (currentUser) {
+        ActivityLog.logAIQuery({
+            userId: currentUser.id,
+            userEmail: currentUser.email,
+            userName: `${currentUser.firstName} ${currentUser.lastName}`,
+            query: query.substring(0, 100), // Truncate for storage
+            responseLength: response.length
+        });
+    }
 }
 
 function processAIQuery(query) {
@@ -537,7 +553,7 @@ const AISearch = { init() { const input = document.getElementById('aiSearchInput
 // =====================================================
 let analysisHistoryFilters = { search: '', user: 'all', iso: 'all' };
 function initAnalysisHistoryWidget() { if (document.getElementById('analysisHistoryContent')) renderAnalysisHistory(); }
-function refreshAnalysisHistory() { renderAnalysisHistory(); showNotification('Refreshed', 'success'); }
+function refreshAnalysisHistory() { trackButtonClick('Refresh History', 'analysis-history'); renderAnalysisHistory(); showNotification('Refreshed', 'success'); }
 function updateAnalysisFilter(type, value) { analysisHistoryFilters[type] = value; renderAnalysisHistory(); }
 
 function renderAnalysisHistory() {
@@ -591,6 +607,7 @@ function renderAnalysisCard(a) {
 }
 
 function showAnalysisDetail(encodedData) {
+    trackButtonClick('Show Analysis Detail', 'analysis-history');
     try {
         const a = JSON.parse(decodeURIComponent(encodedData)), d = a.data || {}, r = d.results || {}, savings = r.savingsVsFixed || 0, client = a.clientName || d.clientName || 'Unnamed';
         const modal = document.getElementById('editUserModal'), content = document.getElementById('editUserContent');
@@ -616,6 +633,7 @@ function showAnalysisDetail(encodedData) {
 }
 
 function reloadAnalysis(encodedData) {
+    trackButtonClick('Reload Analysis', 'analysis-history');
     try {
         const data = JSON.parse(decodeURIComponent(encodedData));
         const lmpWidget = document.querySelector('[data-widget-id="lmp-comparison"] iframe');
@@ -633,6 +651,20 @@ function reloadAnalysis(encodedData) {
 function showNotification(message, type = 'info') { const n = document.getElementById('notification'); n.textContent = message; n.className = 'notification show ' + type; setTimeout(() => n.classList.remove('show'), 3000); }
 function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
 function scrollToWidget(id) { const w = document.querySelector(`[data-widget-id="${id}"]`); if (w) { w.scrollIntoView({ behavior: 'smooth' }); w.style.boxShadow = '0 0 20px var(--se-light-green)'; setTimeout(() => w.style.boxShadow = '', 2000); } }
+
+// Track button clicks for analytics
+function trackButtonClick(buttonName, widget = 'portal', context = null) {
+    if (currentUser) {
+        ActivityLog.logButtonClick({
+            userId: currentUser.id,
+            userEmail: currentUser.email,
+            userName: `${currentUser.firstName} ${currentUser.lastName}`,
+            button: buttonName,
+            widget: widget,
+            context: context
+        });
+    }
+}
 
 function updateDataStatus() {
     const stats = SecureEnergyData.getStats();
