@@ -1,6 +1,12 @@
 /**
- * Secure Energy Analytics Portal - Main Controller
+ * Secure Energy Analytics Portal - Main Controller v2.1
  * Handles authentication, widget management, and UI interactions
+ * 
+ * v2.1 Updates:
+ * - Added "Show" button to view full analysis details in modal
+ * - Added "Export All Records" button for users in Analysis History
+ * - Added Activity Stats boxes in Admin Activity Log panel
+ * - Improved clientName consistency across all activity logging
  */
 
 // Current user reference
@@ -391,19 +397,19 @@ function renderWidgets(user) {
 
 function createWidgetElement(widget) {
     const div = document.createElement('div');
-    div.className = 'widget' + (widget.fullWidth ? ' widget-full' : '');
+    div.className = 'widget' + (widget.fullWidth ? ' full-width' : '');
     div.dataset.widgetId = widget.id;
     if (widget.adminOnly) div.dataset.adminOnly = 'true';
     
-    const popoutBtn = `
-        <button class="widget-action-btn" title="Pop Out" onclick="popoutWidget('${widget.id}')">
+    const popoutBtn = widget.src ? `
+        <button class="widget-btn" onclick="popoutWidget('${widget.id}')" title="Open in new window">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
                 <polyline points="15 3 21 3 21 9"/>
                 <line x1="10" y1="14" x2="21" y2="3"/>
             </svg>
         </button>
-    `;
+    ` : '';
     
     if (widget.embedded && widget.id === 'user-admin') {
         // User admin widget
@@ -438,6 +444,13 @@ function createWidgetElement(widget) {
                     <span>${widget.name}</span>
                 </div>
                 <div class="widget-actions">
+                    <button class="widget-btn" onclick="exportMyAnalysisRecords()" title="Export My Records">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                    </button>
                     <button class="widget-btn" onclick="refreshAnalysisHistory()" title="Refresh">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
@@ -631,11 +644,17 @@ function getManageUsersPanel() {
 
 function getActivityLogPanel() {
     return `
+        <!-- Activity Stats Boxes -->
+        <div class="activity-stats-grid" id="activityStatsGrid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
+            <!-- Stats will be rendered here -->
+        </div>
+        
         <div class="activity-filters">
             <input type="text" id="activitySearch" placeholder="Search by client or user..." oninput="renderActivityLog()">
             <select id="activityWidgetFilter" onchange="renderActivityLog()">
                 <option value="">All Widgets</option>
                 <option value="lmp-comparison">LMP Comparison</option>
+                <option value="lmp-analytics">LMP Analytics</option>
                 <option value="portal">Portal</option>
             </select>
         </div>
@@ -789,8 +808,19 @@ function renderUsersTable() {
             <td><span class="status-badge ${user.status}">${user.status}</span></td>
             <td>${new Date(user.createdAt).toLocaleDateString()}</td>
             <td>
-                <button class="table-btn" onclick="editUser('${user.id}')">Edit</button>
-                ${user.id !== 'admin-001' ? `<button class="table-btn danger" onclick="deleteUser('${user.id}')">Delete</button>` : ''}
+                <button class="action-btn" onclick="editUser('${user.id}')" title="Edit">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                </button>
+                ${user.email !== 'admin@sesenergy.org' ? `
+                <button class="action-btn delete" onclick="deleteUser('${user.id}')" title="Delete">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    </svg>
+                </button>
+                ` : ''}
             </td>
         </tr>
     `).join('');
@@ -804,27 +834,33 @@ function editUser(userId) {
     const content = document.getElementById('editUserContent');
     
     content.innerHTML = `
-        <input type="hidden" id="editUserId" value="${userId}">
-        <div class="form-group" style="margin-bottom: 16px;">
-            <label>First Name</label>
-            <input type="text" id="editFirstName" value="${user.firstName}">
+        <input type="hidden" id="editUserId" value="${user.id}">
+        <div class="form-row">
+            <div class="form-group">
+                <label>First Name</label>
+                <input type="text" id="editFirstName" value="${user.firstName}">
+            </div>
+            <div class="form-group">
+                <label>Last Name</label>
+                <input type="text" id="editLastName" value="${user.lastName}">
+            </div>
         </div>
-        <div class="form-group" style="margin-bottom: 16px;">
-            <label>Last Name</label>
-            <input type="text" id="editLastName" value="${user.lastName}">
+        <div class="form-row single">
+            <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" id="editEmail" value="${user.email}" ${user.email === 'admin@sesenergy.org' ? 'disabled' : ''}>
+            </div>
         </div>
-        <div class="form-group" style="margin-bottom: 16px;">
-            <label>Email</label>
-            <input type="email" id="editEmail" value="${user.email}" ${userId === 'admin-001' ? 'disabled' : ''}>
+        <div class="form-row single">
+            <div class="form-group">
+                <label>Role</label>
+                <select id="editRole" ${user.email === 'admin@sesenergy.org' ? 'disabled' : ''}>
+                    <option value="user" ${user.role === 'user' ? 'selected' : ''}>Standard User</option>
+                    <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Administrator</option>
+                </select>
+            </div>
         </div>
-        <div class="form-group" style="margin-bottom: 16px;">
-            <label>Role</label>
-            <select id="editRole" ${userId === 'admin-001' ? 'disabled' : ''}>
-                <option value="user" ${user.role === 'user' ? 'selected' : ''}>Standard User</option>
-                <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Administrator</option>
-            </select>
-        </div>
-        <div class="widget-permissions">
+        <div class="widget-permissions" style="margin-top: 20px;">
             <h4>Widget Permissions</h4>
             <div class="widget-permission-item">
                 <span>AI Assistant</span>
@@ -932,7 +968,13 @@ function closeEditModal() {
 // =====================================================
 function renderActivityLog() {
     const container = document.getElementById('activityLogContainer');
+    const statsGrid = document.getElementById('activityStatsGrid');
     if (!container) return;
+    
+    // Render Activity Stats Boxes
+    if (statsGrid) {
+        renderActivityStats();
+    }
     
     const searchTerm = document.getElementById('activitySearch')?.value.toLowerCase() || '';
     const widgetFilter = document.getElementById('activityWidgetFilter')?.value || '';
@@ -945,7 +987,8 @@ function renderActivityLog() {
             a.userName?.toLowerCase().includes(searchTerm) ||
             a.userEmail?.toLowerCase().includes(searchTerm) ||
             a.data?.iso?.toLowerCase().includes(searchTerm) ||
-            a.data?.zone?.toLowerCase().includes(searchTerm)
+            a.data?.zone?.toLowerCase().includes(searchTerm) ||
+            a.data?.clientName?.toLowerCase().includes(searchTerm)
         );
     }
     
@@ -988,6 +1031,9 @@ function renderActivityLog() {
             `;
         }
         
+        // Get client name from either direct field or data object
+        const clientName = a.clientName || a.data?.clientName;
+        
         return `
             <div class="activity-card">
                 <div class="activity-card-header">
@@ -997,12 +1043,87 @@ function renderActivityLog() {
                 <div class="activity-card-meta">
                     <span>User: ${a.userName || 'Unknown'}</span>
                     <span>Widget: ${a.widget}</span>
-                    ${a.clientName ? `<span style="color: var(--accent-primary); font-weight: 600;">Client: ${a.clientName}</span>` : ''}
+                    ${clientName ? `<span style="color: var(--accent-primary); font-weight: 600;">Client: ${clientName}</span>` : ''}
                 </div>
                 ${detailsHTML}
             </div>
         `;
     }).join('');
+}
+
+/**
+ * Render Activity Statistics Boxes
+ */
+function renderActivityStats() {
+    const statsGrid = document.getElementById('activityStatsGrid');
+    if (!statsGrid) return;
+    
+    const stats = ActivityLog.getActivityStats();
+    
+    statsGrid.innerHTML = `
+        <div class="activity-stat-box" style="background: var(--bg-secondary); border-radius: 10px; padding: 16px; border-left: 4px solid var(--accent-primary);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h4 style="margin: 0; font-size: 14px; color: var(--text-primary);">Portal Logins</h4>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="2">
+                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                    <polyline points="10 17 15 12 10 7"/>
+                    <line x1="15" y1="12" x2="3" y2="12"/>
+                </svg>
+            </div>
+            <div style="display: flex; justify-content: space-around; text-align: center;">
+                <div>
+                    <div style="font-size: 28px; font-weight: 700; color: var(--accent-primary);">${stats.logins.today}</div>
+                    <div style="font-size: 11px; color: var(--text-tertiary); text-transform: uppercase;">Today</div>
+                </div>
+                <div style="border-left: 1px solid var(--border-color); padding-left: 20px;">
+                    <div style="font-size: 28px; font-weight: 700; color: var(--text-secondary);">${stats.logins.total}</div>
+                    <div style="font-size: 11px; color: var(--text-tertiary); text-transform: uppercase;">All Time</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="activity-stat-box" style="background: var(--bg-secondary); border-radius: 10px; padding: 16px; border-left: 4px solid #10b981;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h4 style="margin: 0; font-size: 14px; color: var(--text-primary);">LMP Calculations</h4>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2">
+                    <line x1="18" y1="20" x2="18" y2="10"/>
+                    <line x1="12" y1="20" x2="12" y2="4"/>
+                    <line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+            </div>
+            <div style="display: flex; justify-content: space-around; text-align: center;">
+                <div>
+                    <div style="font-size: 28px; font-weight: 700; color: #10b981;">${stats.lmpAnalyses.today}</div>
+                    <div style="font-size: 11px; color: var(--text-tertiary); text-transform: uppercase;">Today</div>
+                </div>
+                <div style="border-left: 1px solid var(--border-color); padding-left: 20px;">
+                    <div style="font-size: 28px; font-weight: 700; color: var(--text-secondary);">${stats.lmpAnalyses.total}</div>
+                    <div style="font-size: 11px; color: var(--text-tertiary); text-transform: uppercase;">All Time</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="activity-stat-box" style="background: var(--bg-secondary); border-radius: 10px; padding: 16px; border-left: 4px solid #f59e0b;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h4 style="margin: 0; font-size: 14px; color: var(--text-primary);">LMP Analytics Exports</h4>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+            </div>
+            <div style="display: flex; justify-content: space-around; text-align: center;">
+                <div>
+                    <div style="font-size: 28px; font-weight: 700; color: #f59e0b;">${stats.lmpExports.today}</div>
+                    <div style="font-size: 11px; color: var(--text-tertiary); text-transform: uppercase;">Today</div>
+                </div>
+                <div style="border-left: 1px solid var(--border-color); padding-left: 20px;">
+                    <div style="font-size: 28px; font-weight: 700; color: var(--text-secondary);">${stats.lmpExports.total}</div>
+                    <div style="font-size: 11px; color: var(--text-tertiary); text-transform: uppercase;">All Time</div>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
 // =====================================================
@@ -1033,6 +1154,87 @@ function downloadJSON(content, filename) {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+}
+
+/**
+ * Export user's analysis records as CSV
+ */
+function exportMyAnalysisRecords() {
+    const isAdmin = currentUser?.role === 'admin';
+    
+    // Get analyses for current user (or all if admin)
+    let analyses = ActivityLog.getAll().filter(a => a.widget === 'lmp-comparison');
+    
+    // Filter to current user's analyses unless admin
+    if (!isAdmin) {
+        analyses = analyses.filter(a => a.userId === currentUser?.id);
+    }
+    
+    if (analyses.length === 0) {
+        showNotification('No analysis records to export', 'warning');
+        return;
+    }
+    
+    // Build CSV content
+    const headers = [
+        'Date/Time',
+        'User',
+        'Client Name',
+        'ISO',
+        'Zone',
+        'Start Date',
+        'Term (Months)',
+        'Fixed Rate',
+        'LMP Adjustment %',
+        'Annual Usage (kWh)',
+        'Index Cost',
+        'Fixed Cost',
+        'Savings'
+    ];
+    
+    const rows = analyses.map(a => {
+        const d = a.data || {};
+        const results = d.results || {};
+        return [
+            new Date(a.timestamp).toLocaleString(),
+            a.userName || a.userEmail || 'Unknown',
+            d.clientName || a.clientName || '',
+            d.iso || '',
+            d.zone || '',
+            d.startDate || '',
+            d.termMonths || '',
+            d.fixedPrice || '',
+            d.lmpAdjustment || 0,
+            d.totalAnnualUsage || d.usage || '',
+            results.totalIndexCost || '',
+            results.totalFixedCost || '',
+            results.savingsVsFixed || ''
+        ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+    });
+    
+    const csv = [headers.join(','), ...rows].join('\n');
+    
+    // Download
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `analysis-history-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    // Log the export
+    ActivityLog.logHistoryExport({
+        userId: currentUser?.id,
+        userEmail: currentUser?.email,
+        userName: currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : null,
+        recordCount: analyses.length,
+        format: 'CSV'
+    });
+    
+    showNotification(`Exported ${analyses.length} analysis records`, 'success');
 }
 
 // =====================================================
@@ -1296,7 +1498,7 @@ function renderAnalysisHistory() {
         // Search filter
         if (analysisHistoryFilters.search) {
             const searchTerm = analysisHistoryFilters.search.toLowerCase();
-            const matchesClient = (a.data?.clientName || '').toLowerCase().includes(searchTerm);
+            const matchesClient = (a.data?.clientName || a.clientName || '').toLowerCase().includes(searchTerm);
             const matchesUser = (a.userName || '').toLowerCase().includes(searchTerm);
             const matchesZone = (a.data?.zone || '').toLowerCase().includes(searchTerm);
             if (!matchesClient && !matchesUser && !matchesZone) return false;
@@ -1370,7 +1572,7 @@ function renderAnalysisHistory() {
     // Build summary stats
     const totalSavings = analyses.reduce((sum, a) => sum + (a.data?.results?.savingsVsFixed || 0), 0);
     const avgSavings = analyses.length > 0 ? totalSavings / analyses.length : 0;
-    const uniqueClients = new Set(analyses.map(a => a.data?.clientName).filter(Boolean)).size;
+    const uniqueClients = new Set(analyses.map(a => a.data?.clientName || a.clientName).filter(Boolean)).size;
     
     content.innerHTML = `
         ${filterControlsHTML}
@@ -1422,9 +1624,12 @@ function renderAnalysisCard(analysis) {
     const timeStr = isToday ? 'Today ' + timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : timestamp.toLocaleDateString() + ' ' + timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     const isAdmin = currentUser?.role === 'admin';
     
+    // Get client name from either direct field or data object
+    const clientName = d.clientName || analysis.clientName || 'Unnamed Analysis';
+    
     // Create data attribute for reload functionality
     const analysisDataAttr = encodeURIComponent(JSON.stringify({
-        clientName: d.clientName,
+        clientName: clientName,
         iso: d.iso,
         zone: d.zone,
         startDate: d.startDate,
@@ -1434,12 +1639,18 @@ function renderAnalysisCard(analysis) {
         usage: d.totalAnnualUsage || d.usage
     }));
     
+    // Create data for show modal
+    const showDataAttr = encodeURIComponent(JSON.stringify({
+        ...analysis,
+        clientName: clientName
+    }));
+    
     return `
         <div class="analysis-card" style="background: var(--bg-secondary); border-radius: 10px; padding: 16px; border-left: 4px solid ${savings >= 0 ? '#10b981' : '#ef4444'};">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
                 <div>
                     <div style="font-weight: 600; font-size: 15px; color: var(--text-primary); margin-bottom: 4px;">
-                        ${d.clientName || 'Unnamed Analysis'}
+                        ${clientName}
                     </div>
                     <div style="font-size: 12px; color: var(--text-tertiary);">
                         ${d.iso || 'N/A'} • ${d.zone || 'N/A'} • ${d.termMonths || 0} months
@@ -1470,28 +1681,211 @@ function renderAnalysisCard(analysis) {
             </div>
             
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <button onclick="reloadAnalysis('${analysisDataAttr}')" style="
-                    background: var(--accent-primary);
-                    color: white;
-                    border: none;
-                    padding: 6px 12px;
-                    border-radius: 6px;
-                    font-size: 11px;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    gap: 4px;
-                ">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
-                        <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
-                    </svg>
-                    Reload
-                </button>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="showAnalysisDetail('${showDataAttr}')" style="
+                        background: var(--accent-secondary);
+                        color: white;
+                        border: none;
+                        padding: 6px 12px;
+                        border-radius: 6px;
+                        font-size: 11px;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        gap: 4px;
+                    ">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        Show
+                    </button>
+                    <button onclick="reloadAnalysis('${analysisDataAttr}')" style="
+                        background: var(--accent-primary);
+                        color: white;
+                        border: none;
+                        padding: 6px 12px;
+                        border-radius: 6px;
+                        font-size: 11px;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        gap: 4px;
+                    ">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
+                            <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+                        </svg>
+                        Reload
+                    </button>
+                </div>
                 <span style="font-size: 11px; color: var(--text-tertiary);">${timeStr}</span>
             </div>
         </div>
     `;
+}
+
+/**
+ * Show full analysis details in a modal window
+ */
+function showAnalysisDetail(encodedData) {
+    try {
+        const analysis = JSON.parse(decodeURIComponent(encodedData));
+        const d = analysis.data || {};
+        const results = d.results || {};
+        const savings = results.savingsVsFixed || 0;
+        const timestamp = new Date(analysis.timestamp);
+        const clientName = analysis.clientName || d.clientName || 'Unnamed Analysis';
+        
+        // Build monthly breakdown if available
+        let monthlyBreakdownHTML = '';
+        if (results.monthlyData && results.monthlyData.length > 0) {
+            monthlyBreakdownHTML = `
+                <div style="margin-top: 20px;">
+                    <h4 style="margin-bottom: 12px; font-size: 14px; color: var(--text-primary);">Monthly Breakdown</h4>
+                    <div style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                            <thead style="position: sticky; top: 0; background: var(--bg-tertiary);">
+                                <tr>
+                                    <th style="padding: 8px; text-align: left; border-bottom: 1px solid var(--border-color);">Month</th>
+                                    <th style="padding: 8px; text-align: right; border-bottom: 1px solid var(--border-color);">LMP</th>
+                                    <th style="padding: 8px; text-align: right; border-bottom: 1px solid var(--border-color);">Usage</th>
+                                    <th style="padding: 8px; text-align: right; border-bottom: 1px solid var(--border-color);">Cost</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${results.monthlyData.map(m => `
+                                    <tr>
+                                        <td style="padding: 8px; border-bottom: 1px solid var(--border-color);">${m.month || m.label}</td>
+                                        <td style="padding: 8px; text-align: right; border-bottom: 1px solid var(--border-color);">$${(m.lmp || 0).toFixed(4)}</td>
+                                        <td style="padding: 8px; text-align: right; border-bottom: 1px solid var(--border-color);">${(m.usage || 0).toLocaleString()} kWh</td>
+                                        <td style="padding: 8px; text-align: right; border-bottom: 1px solid var(--border-color);">$${(m.cost || 0).toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+        
+        const modal = document.getElementById('editUserModal');
+        const content = document.getElementById('editUserContent');
+        
+        content.innerHTML = `
+            <div class="analysis-detail-view">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 2px solid var(--border-color);">
+                    <div>
+                        <h2 style="margin: 0 0 4px 0; font-size: 20px; color: var(--text-primary);">${clientName}</h2>
+                        <p style="margin: 0; font-size: 13px; color: var(--text-tertiary);">Analysis performed on ${timestamp.toLocaleString()}</p>
+                        ${analysis.userName ? `<p style="margin: 4px 0 0 0; font-size: 12px; color: var(--accent-primary);">By: ${analysis.userName}</p>` : ''}
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 28px; font-weight: 700; color: ${savings >= 0 ? '#10b981' : '#ef4444'};">
+                            ${savings >= 0 ? '+' : ''}$${Math.abs(savings).toLocaleString(undefined, {maximumFractionDigits: 0})}
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-tertiary);">Total Savings vs Fixed</div>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                    <div>
+                        <h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-secondary);">Analysis Parameters</h4>
+                        <div style="background: var(--bg-tertiary); padding: 16px; border-radius: 8px;">
+                            <div style="display: grid; gap: 10px; font-size: 13px;">
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: var(--text-tertiary);">ISO:</span>
+                                    <span style="color: var(--text-primary); font-weight: 500;">${d.iso || 'N/A'}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: var(--text-tertiary);">Zone:</span>
+                                    <span style="color: var(--text-primary); font-weight: 500;">${d.zone || 'N/A'}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: var(--text-tertiary);">Start Date:</span>
+                                    <span style="color: var(--text-primary); font-weight: 500;">${d.startDate || 'N/A'}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: var(--text-tertiary);">Term Length:</span>
+                                    <span style="color: var(--text-primary); font-weight: 500;">${d.termMonths || 0} months</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: var(--text-tertiary);">Fixed Rate:</span>
+                                    <span style="color: var(--text-primary); font-weight: 500;">$${(d.fixedPrice || 0).toFixed(4)}/kWh</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: var(--text-tertiary);">LMP Adjustment:</span>
+                                    <span style="color: var(--text-primary); font-weight: 500;">${(d.lmpAdjustment || 0).toFixed(1)}%</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: var(--text-tertiary);">Annual Usage:</span>
+                                    <span style="color: var(--text-primary); font-weight: 500;">${(d.totalAnnualUsage || d.usage || 0).toLocaleString()} kWh</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-secondary);">Cost Summary</h4>
+                        <div style="background: var(--bg-tertiary); padding: 16px; border-radius: 8px;">
+                            <div style="display: grid; gap: 10px; font-size: 13px;">
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: var(--text-tertiary);">Total Index Cost:</span>
+                                    <span style="color: var(--text-primary); font-weight: 600;">$${(results.totalIndexCost || 0).toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: var(--text-tertiary);">Total Fixed Cost:</span>
+                                    <span style="color: var(--text-primary); font-weight: 600;">$${(results.totalFixedCost || 0).toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; padding-top: 10px; border-top: 1px solid var(--border-color);">
+                                    <span style="color: var(--text-tertiary);">Savings vs Fixed:</span>
+                                    <span style="color: ${savings >= 0 ? '#10b981' : '#ef4444'}; font-weight: 700; font-size: 16px;">
+                                        ${savings >= 0 ? '+' : ''}$${Math.abs(savings).toLocaleString(undefined, {maximumFractionDigits: 0})}
+                                    </span>
+                                </div>
+                                ${results.percentSavings !== undefined ? `
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: var(--text-tertiary);">Percent Savings:</span>
+                                    <span style="color: ${results.percentSavings >= 0 ? '#10b981' : '#ef4444'}; font-weight: 600;">
+                                        ${results.percentSavings >= 0 ? '+' : ''}${results.percentSavings.toFixed(2)}%
+                                    </span>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                ${monthlyBreakdownHTML}
+                
+                <div style="margin-top: 20px; display: flex; gap: 12px;">
+                    <button onclick="closeEditModal()" style="flex: 1; padding: 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; font-size: 14px;">
+                        Close
+                    </button>
+                    <button onclick="closeEditModal(); reloadAnalysis('${encodeURIComponent(JSON.stringify({
+                        clientName: clientName,
+                        iso: d.iso,
+                        zone: d.zone,
+                        startDate: d.startDate,
+                        termMonths: d.termMonths,
+                        fixedPrice: d.fixedPrice,
+                        lmpAdjustment: d.lmpAdjustment || 0,
+                        usage: d.totalAnnualUsage || d.usage
+                    }))}')" style="flex: 1; padding: 12px; background: var(--accent-primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px;">
+                        Reload into Calculator
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        // Update modal title
+        document.querySelector('#editUserModal .modal-title').textContent = 'Analysis Details';
+        
+        modal.classList.add('show');
+    } catch (e) {
+        console.error('Failed to show analysis detail:', e);
+        showNotification('Failed to load analysis details', 'error');
+    }
 }
 
 // Reload an analysis into the LMP Comparison Portal
@@ -1601,11 +1995,15 @@ function handleWidgetMessage(event) {
     }
     
     if (event.data?.type === 'LMP_ANALYSIS_COMPLETE' && currentUser) {
+        // Ensure clientName is captured from the event data
+        const eventData = event.data.data || {};
+        
         ActivityLog.logLMPAnalysis({
             userId: currentUser.id,
             userEmail: currentUser.email,
             userName: `${currentUser.firstName} ${currentUser.lastName}`,
-            ...event.data.data
+            clientName: eventData.clientName, // Ensure clientName is passed
+            ...eventData
         });
         
         // Refresh Analysis History widget
@@ -1614,7 +2012,23 @@ function handleWidgetMessage(event) {
         }
         
         // Show notification
-        showNotification(`Analysis logged: ${event.data.data.clientName || 'Unnamed'}`, 'success');
+        showNotification(`Analysis logged: ${eventData.clientName || 'Unnamed'}`, 'success');
+    }
+    
+    // Handle LMP Export logging from widgets
+    if (event.data?.type === 'LMP_EXPORT_COMPLETE' && currentUser) {
+        const eventData = event.data.data || {};
+        
+        ActivityLog.logLMPExport({
+            userId: currentUser.id,
+            userEmail: currentUser.email,
+            userName: `${currentUser.firstName} ${currentUser.lastName}`,
+            clientName: eventData.clientName,
+            exportType: eventData.exportType,
+            iso: eventData.iso,
+            zone: eventData.zone,
+            format: eventData.format
+        });
     }
 }
 

@@ -1,7 +1,11 @@
 /**
- * Secure Energy Shared Data Store v2.0
+ * Secure Energy Shared Data Store v2.1
  * Centralized data management for LMP data, user authentication, and activity logging
  * Supports GitHub Pages hosting with JSON file persistence
+ * 
+ * v2.1 Updates:
+ * - Added activity counting methods for dashboard stats
+ * - Enhanced activity logging for exports
  */
 
 // =====================================================
@@ -261,10 +265,9 @@ const SecureEnergyData = {
     /**
      * Calculate average LMP
      */
-    getAverageLMP(iso, zone, year) {
-        const data = this.getLMPData(iso, zone, year);
+    getAverageLMP(iso, zone, year, month = null) {
+        const data = this.getLMPData(iso, zone, year, month);
         if (data.length === 0) return null;
-        
         const sum = data.reduce((acc, r) => acc + (r.lmp || 0), 0);
         return sum / data.length;
     },
@@ -274,12 +277,15 @@ const SecureEnergyData = {
      */
     getStats() {
         const records = this.getRecords();
+        const isos = this.getISOs();
+        const years = this.getYears();
+        
         return {
             totalRecords: records.length,
-            isoCount: this.getISOs().length,
-            yearRange: this.getYears(),
-            isLoaded: this.isLoaded,
-            lastUpdate: this.data?.meta?.loadedAt || null
+            isoCount: isos.length,
+            isos: isos,
+            yearRange: years.length > 0 ? [years[0], years[years.length - 1]] : null,
+            lastUpdate: this.data?.meta?.loadedAt
         };
     },
 
@@ -287,9 +293,7 @@ const SecureEnergyData = {
      * Subscribe to data changes
      */
     subscribe(callback) {
-        if (typeof callback === 'function') {
-            this.subscribers.push(callback);
-        }
+        this.subscribers.push(callback);
     },
 
     /**
@@ -297,32 +301,12 @@ const SecureEnergyData = {
      */
     notifySubscribers() {
         this.subscribers.forEach(cb => {
-            try {
-                cb(this.data);
-            } catch (e) {
-                console.error('[SecureEnergyData] Subscriber error:', e);
-            }
+            try { cb(this.data); } catch (e) { console.error(e); }
         });
-        
-        // Also broadcast via postMessage for iframe widgets
-        window.postMessage({
-            type: 'LMP_DATA_UPDATE',
-            stats: this.getStats()
-        }, '*');
     },
 
     /**
-     * Clear all data
-     */
-    clear() {
-        this.data = null;
-        this.isLoaded = false;
-        localStorage.removeItem(this.STORAGE_KEY);
-        this.notifySubscribers();
-    },
-
-    /**
-     * Export data as JSON for GitHub update
+     * Export for GitHub update
      */
     exportForGitHub() {
         return JSON.stringify({
@@ -336,87 +320,77 @@ const SecureEnergyData = {
 
 
 // =====================================================
-// USER DATA STORE
+// USER STORE
 // =====================================================
 const UserStore = {
     STORAGE_KEY: 'secureEnergy_users',
     SESSION_KEY: 'secureEnergy_currentUser',
-    USERS_URL: 'data/users.json', // GitHub hosted JSON
+    USERS_URL: 'data/users.json',
     users: [],
-    isLoaded: false,
 
     /**
-     * Default admin user (fallback if JSON fails to load)
-     */
-    defaultAdmin: {
-        id: 'admin-001',
-        firstName: 'System',
-        lastName: 'Administrator',
-        email: 'admin@sesenergy.org',
-        password: 'admin123',
-        role: 'admin',
-        status: 'active',
-        createdAt: new Date().toISOString(),
-        permissions: {
-            'lmp-comparison': true,
-            'data-manager': true,
-            'arcadia-fetcher': true,
-            'user-admin': true
-        }
-    },
-
-    /**
-     * Initialize - load from GitHub then localStorage
+     * Initialize
      */
     async init() {
         console.log('[UserStore] Initializing...');
         
-        // First check localStorage for cached users
-        const cached = this.loadFromStorage();
-        if (cached && Array.isArray(cached) && cached.length > 0) {
-            this.users = cached;
-            console.log(`[UserStore] Loaded ${cached.length} users from cache`);
-        }
-        
-        // Try to load from GitHub (will override cache if successful)
+        // Try GitHub first
         try {
             await this.loadFromGitHub();
         } catch (e) {
-            console.warn('[UserStore] GitHub load failed:', e.message);
+            console.warn('[UserStore] GitHub load failed');
         }
         
-        // If still no users, create default admin
-        if (!this.users || this.users.length === 0) {
-            console.log('[UserStore] No users found, creating default admin');
-            this.users = [this.defaultAdmin];
-            this.saveToStorage();
+        // Load from localStorage
+        const cached = this.loadFromStorage();
+        if (cached && cached.length > 0) {
+            // Merge - avoid duplicates by email
+            const existingEmails = new Set(this.users.map(u => u.email.toLowerCase()));
+            cached.forEach(u => {
+                if (!existingEmails.has(u.email.toLowerCase())) {
+                    this.users.push(u);
+                }
+            });
         }
         
-        // Ensure default admin always exists
-        const hasAdmin = this.users.some(u => u.id === 'admin-001');
-        if (!hasAdmin) {
-            console.log('[UserStore] Default admin missing, adding it');
-            this.users.unshift(this.defaultAdmin);
-            this.saveToStorage();
+        // Ensure default admin exists
+        if (this.users.length === 0 || !this.users.some(u => u.email === 'admin@sesenergy.org')) {
+            this.users.unshift({
+                id: 'admin-default',
+                email: 'admin@sesenergy.org',
+                password: 'admin123',
+                firstName: 'Admin',
+                lastName: 'User',
+                role: 'admin',
+                status: 'active',
+                createdAt: new Date().toISOString(),
+                permissions: {
+                    'user-admin': true,
+                    'ai-assistant': true,
+                    'lmp-comparison': true,
+                    'lmp-analytics': true,
+                    'analysis-history': true,
+                    'data-manager': true,
+                    'arcadia-fetcher': true
+                }
+            });
         }
         
-        this.isLoaded = true;
-        console.log('[UserStore] Ready with', this.users.length, 'users');
+        this.saveToStorage();
+        console.log(`[UserStore] ${this.users.length} users loaded`);
         return this.users;
     },
 
     /**
-     * Load users from GitHub JSON
+     * Load from GitHub
      */
     async loadFromGitHub() {
         const response = await fetch(this.USERS_URL + '?t=' + Date.now());
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
         const data = await response.json();
-        if (data && data.users && data.users.length > 0) {
+        if (data && data.users) {
             this.users = data.users;
-            this.saveToStorage();
-            console.log(`[UserStore] Loaded ${data.users.length} users from GitHub`);
             return true;
         }
         return false;
@@ -467,21 +441,16 @@ const UserStore = {
      */
     create(userData) {
         if (this.findByEmail(userData.email)) {
-            throw new Error('A user with this email already exists');
+            throw new Error('Email already exists');
         }
-
+        
         const newUser = {
             id: 'user-' + Date.now(),
-            firstName: userData.firstName,
-            lastName: userData.lastName,
-            email: userData.email,
-            password: userData.password,
-            role: userData.role || 'user',
+            ...userData,
             status: 'active',
-            createdAt: new Date().toISOString(),
-            permissions: userData.permissions || this.getDefaultPermissions(userData.role)
+            createdAt: new Date().toISOString()
         };
-
+        
         this.users.push(newUser);
         this.saveToStorage();
         return newUser;
@@ -493,13 +462,14 @@ const UserStore = {
     update(id, updates) {
         const index = this.users.findIndex(u => u.id === id);
         if (index === -1) throw new Error('User not found');
-
-        // Protect default admin
-        if (id === 'admin-001') {
-            delete updates.email;
-            delete updates.role;
+        
+        // Check email uniqueness
+        if (updates.email && updates.email !== this.users[index].email) {
+            if (this.findByEmail(updates.email)) {
+                throw new Error('Email already exists');
+            }
         }
-
+        
         this.users[index] = { ...this.users[index], ...updates };
         this.saveToStorage();
         return this.users[index];
@@ -509,35 +479,14 @@ const UserStore = {
      * Delete user
      */
     delete(id) {
-        if (id === 'admin-001') {
-            throw new Error('Cannot delete the system administrator');
+        const index = this.users.findIndex(u => u.id === id);
+        if (index === -1) throw new Error('User not found');
+        if (this.users[index].email === 'admin@sesenergy.org') {
+            throw new Error('Cannot delete default admin');
         }
-        this.users = this.users.filter(u => u.id !== id);
+        
+        this.users.splice(index, 1);
         this.saveToStorage();
-    },
-
-    /**
-     * Get default permissions by role
-     */
-    getDefaultPermissions(role) {
-        if (role === 'admin') {
-            return {
-                'lmp-comparison': true,
-                'lmp-analytics': true,
-                'data-manager': true,
-                'arcadia-fetcher': true,
-                'user-admin': true,
-                'analysis-history': true
-            };
-        }
-        return {
-            'lmp-comparison': true,
-            'lmp-analytics': true,
-            'data-manager': false,
-            'arcadia-fetcher': false,
-            'user-admin': false,
-            'analysis-history': true
-        };
     },
 
     /**
@@ -706,13 +655,58 @@ const ActivityLog = {
             action: 'LMP Analysis',
             clientName: params.clientName,
             data: {
+                clientName: params.clientName, // Also store in data for consistency
                 iso: params.iso,
                 zone: params.zone,
+                startDate: params.startDate,
+                termMonths: params.termMonths,
+                fixedPrice: params.fixedPrice,
+                lmpAdjustment: params.lmpAdjustment,
+                totalAnnualUsage: params.usage || params.totalAnnualUsage,
                 baselineYear: params.baselineYear,
                 comparisonYears: params.comparisonYears,
                 rate: params.rate,
                 usage: params.usage,
                 results: params.results
+            },
+            notes: params.notes
+        });
+    },
+
+    /**
+     * Log LMP Analytics Export
+     */
+    logLMPExport(params) {
+        return this.log({
+            userId: params.userId,
+            userEmail: params.userEmail,
+            userName: params.userName,
+            widget: 'lmp-analytics',
+            action: 'LMP Export',
+            clientName: params.clientName || null,
+            data: {
+                exportType: params.exportType || 'chart',
+                iso: params.iso,
+                zone: params.zone,
+                format: params.format || 'PNG'
+            },
+            notes: params.notes
+        });
+    },
+
+    /**
+     * Log Analysis History Export (user exporting their records)
+     */
+    logHistoryExport(params) {
+        return this.log({
+            userId: params.userId,
+            userEmail: params.userEmail,
+            userName: params.userName,
+            widget: 'analysis-history',
+            action: 'History Export',
+            data: {
+                recordCount: params.recordCount || 0,
+                format: params.format || 'CSV'
             },
             notes: params.notes
         });
@@ -740,6 +734,13 @@ const ActivityLog = {
     },
 
     /**
+     * Get activities by action
+     */
+    getByAction(action) {
+        return this.activities.filter(a => a.action === action);
+    },
+
+    /**
      * Get activities by client
      */
     getByClient(clientName) {
@@ -753,6 +754,100 @@ const ActivityLog = {
      */
     getRecent(count = 50) {
         return this.activities.slice(0, count);
+    },
+
+    /**
+     * Get today's start timestamp (midnight local time)
+     */
+    getTodayStart() {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return today.toISOString();
+    },
+
+    /**
+     * Count activities by action type
+     * @param {string} action - Action type to count (e.g., 'Login', 'LMP Analysis', 'LMP Export')
+     * @param {boolean} todayOnly - If true, only count today's activities
+     * @returns {number} Count of matching activities
+     */
+    countByAction(action, todayOnly = false) {
+        const todayStart = this.getTodayStart();
+        return this.activities.filter(a => {
+            const matchesAction = a.action === action;
+            if (!matchesAction) return false;
+            if (todayOnly) {
+                return a.timestamp >= todayStart;
+            }
+            return true;
+        }).length;
+    },
+
+    /**
+     * Count activities by widget type
+     * @param {string} widget - Widget name to count
+     * @param {boolean} todayOnly - If true, only count today's activities
+     * @returns {number} Count of matching activities
+     */
+    countByWidget(widget, todayOnly = false) {
+        const todayStart = this.getTodayStart();
+        return this.activities.filter(a => {
+            const matchesWidget = a.widget === widget;
+            if (!matchesWidget) return false;
+            if (todayOnly) {
+                return a.timestamp >= todayStart;
+            }
+            return true;
+        }).length;
+    },
+
+    /**
+     * Count portal logins
+     * @param {boolean} todayOnly - If true, only count today's logins
+     * @returns {number} Login count
+     */
+    countLogins(todayOnly = false) {
+        return this.countByAction('Login', todayOnly);
+    },
+
+    /**
+     * Count LMP Comparison calculations/analyses
+     * @param {boolean} todayOnly - If true, only count today's analyses
+     * @returns {number} Analysis count
+     */
+    countLMPAnalyses(todayOnly = false) {
+        return this.countByAction('LMP Analysis', todayOnly);
+    },
+
+    /**
+     * Count LMP Analytics exports
+     * @param {boolean} todayOnly - If true, only count today's exports
+     * @returns {number} Export count
+     */
+    countLMPExports(todayOnly = false) {
+        return this.countByAction('LMP Export', todayOnly);
+    },
+
+    /**
+     * Get comprehensive activity statistics
+     * @returns {Object} Statistics object with counts
+     */
+    getActivityStats() {
+        return {
+            logins: {
+                today: this.countLogins(true),
+                total: this.countLogins(false)
+            },
+            lmpAnalyses: {
+                today: this.countLMPAnalyses(true),
+                total: this.countLMPAnalyses(false)
+            },
+            lmpExports: {
+                today: this.countLMPExports(true),
+                total: this.countLMPExports(false)
+            },
+            totalActivities: this.activities.length
+        };
     },
 
     /**
