@@ -358,7 +358,7 @@ function renderErrorLog() {
     if (!container) return;
     
     const errors = ErrorLog.getRecent(50), stats = ErrorLog.getStats();
-    const typeColors = { javascript: '#ef4444', promise: '#f59e0b', github: '#8b5cf6', widget: '#ec4899', network: '#3b82f6', init: '#06b6d4', storage: '#84cc16, parse: '#14b8a6' };
+    const typeColors = { javascript: '#ef4444', promise: '#f59e0b', github: '#8b5cf6', widget: '#ec4899', network: '#3b82f6', init: '#06b6d4', storage: '#84cc16', parse: '#14b8a6' };
     
     if (statsContainer) {
         statsContainer.innerHTML = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
