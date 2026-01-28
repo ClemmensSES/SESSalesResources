@@ -1,7 +1,67 @@
 {
   "version": "2.2.0",
-  "lastUpdated": "2026-01-28T17:57:09.943Z",
+  "lastUpdated": "2026-01-28T18:27:44.008Z",
   "activities": [
+    {
+      "id": "act-1769624860780-tcq651",
+      "timestamp": "2026-01-28T18:27:40.780Z",
+      "userId": "user-1769525319357",
+      "userEmail": "clemmens@sesenergy.org",
+      "userName": "Chad Lemmens",
+      "widget": "analysis-history",
+      "action": "History Export",
+      "clientName": null,
+      "data": {
+        "recordCount": 1,
+        "format": "CSV"
+      },
+      "notes": null
+    },
+    {
+      "id": "act-1769624860778-srebhg",
+      "timestamp": "2026-01-28T18:27:40.778Z",
+      "userId": "user-1769525319357",
+      "userEmail": "clemmens@sesenergy.org",
+      "userName": "Chad Lemmens",
+      "widget": "analysis-history",
+      "action": "Button Click",
+      "clientName": null,
+      "data": {
+        "button": "Export Analysis Records",
+        "context": null
+      },
+      "notes": null
+    },
+    {
+      "id": "act-1769624829562-rokmnq",
+      "timestamp": "2026-01-28T18:27:09.562Z",
+      "userId": "user-1769525319357",
+      "userEmail": "clemmens@sesenergy.org",
+      "userName": "Chad Lemmens",
+      "widget": "ai-assistant",
+      "action": "AI Query",
+      "clientName": null,
+      "data": {
+        "query": "Show all users",
+        "responseLength": 364
+      },
+      "notes": null
+    },
+    {
+      "id": "act-1769624818664-hstrp6",
+      "timestamp": "2026-01-28T18:26:58.664Z",
+      "userId": "user-1769525319357",
+      "userEmail": "clemmens@sesenergy.org",
+      "userName": "Chad Lemmens",
+      "widget": "ai-assistant",
+      "action": "AI Query",
+      "clientName": null,
+      "data": {
+        "query": "tour",
+        "responseLength": 86
+      },
+      "notes": null
+    },
     {
       "id": "act-1769623026760-s1fbul",
       "timestamp": "2026-01-28T17:57:06.760Z",
