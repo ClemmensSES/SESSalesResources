@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peak Demand Analytics - Secure Energy</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Secure Energy Brand Colors */
+            --se-dark-green: #004D40;
+            --se-light-green: #3EB489;
+            --se-secure-text: #333F48;
+            --se-energy-text: #287233;
+            --se-gradient: linear-gradient(135deg, #004D40 0%, #3EB489 100%);
+            
+            /* UI Colors */
+            --bg-primary: #0A0E1A;
+            --bg-secondary: #131824;
+            --bg-tertiary: #1A2030;
+            --bg-elevated: #222938;
+            --bg-card: rgba(19, 24, 36, 0.95);
+            
+            /* Text Colors */
+            --text-primary: #FFFFFF;
+            --text-secondary: #A0AEC0;
+            --text-tertiary: #718096;
+            --text-muted: #4A5568;
+            
+            /* Accent Colors */
+            --accent-peak: #ef4444;
+            --accent-high: #f97316;
+            --accent-warning: #f59e0b;
+            --accent-normal: #3EB489;
+            --accent-cool: #3b82f6;
+            --accent-info: #8b5cf6;
+            
+            /* Borders & Effects */
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-subtle: rgba(255, 255, 255, 0.04);
+            --glow-green: 0 0 20px rgba(62, 180, 137, 0.3);
+            --glow-red: 0 0 20px rgba(239, 68, 68, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+            background-image: 
+                radial-gradient(ellipse at 20% 0%, rgba(62, 180, 137, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 100%, rgba(0, 77, 64, 0.08) 0%, transparent 50%);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Header Section */
+        .header {
+            background: var(--se-gradient);
+            border-radius: 16px;
+            padding: 24px 30px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            box-shadow: var(--glow-green);
+        }
+
+        .header-left h1 {
+            font-size: 26px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            letter-spacing: -0.02em;
+        }
+
+        .header-left p {
+            opacity: 0.9;
+            font-size: 14px;
+            font-weight: 400;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .iso-select-wrapper {
+            position: relative;
+        }
+
+        .iso-select {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 10px;
+            padding: 12px 40px 12px 16px;
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            appearance: none;
+            min-width: 180px;
+            transition: all 0.2s ease;
+        }
+
+        .iso-select:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .iso-select:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+        }
+
+        .iso-select option {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .iso-select-wrapper::after {
+            content: '';
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 6px solid white;
+            pointer-events: none;
+        }
+
+        .refresh-btn {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 10px;
+            padding: 12px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .refresh-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: rotate(180deg);
+        }
+
+        /* Stats Banner */
+        .stats-banner {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border-radius: 14px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--se-gradient);
+        }
+
+        .stat-card.peak::before {
+            background: linear-gradient(90deg, #ef4444, #f97316);
+        }
+
+        .stat-card.winter::before {
+            background: linear-gradient(90deg, #3b82f6, #06b6d4);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-tertiary);
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .stat-value .unit {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-left: 4px;
+        }
+
+        .stat-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .stat-meta .date {
+            color: var(--se-light-green);
+            font-weight: 600;
+        }
+
+        /* Main Content Grid */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 24px;
+        }
+
+        @media (max-width: 1100px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Top 5 Panel */
+        .top5-panel {
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .panel-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-title {
+            font-size: 18px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .panel-title svg {
+            color: var(--accent-peak);
+        }
+
+        .view-toggle {
+            display: flex;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 3px;
+        }
+
+        .view-toggle button {
+            background: transparent;
+            border: none;
+            color: var(--text-tertiary);
+            padding: 8px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+
+        .view-toggle button.active {
+            background: var(--se-dark-green);
+            color: white;
+        }
+
+        .view-toggle button:hover:not(.active) {
+            color: var(--text-primary);
+        }
+
+        /* Top 5 List */
+        .top5-list {
+            padding: 16px 0;
+        }
+
+        .peak-item {
+            display: grid;
+            grid-template-columns: 50px 1fr auto;
+            gap: 16px;
+            align-items: center;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-subtle);
+            transition: background 0.2s ease;
+        }
+
+        .peak-item:hover {
+            background: rgba(62, 180, 137, 0.05);
+        }
+
+        .peak-item:last-child {
+            border-bottom: none;
+        }
+
+        .peak-rank {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .peak-rank.rank-1 {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        }
+
+        .peak-rank.rank-2 {
+            background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+            color: white;
+        }
+
+        .peak-rank.rank-3 {
+            background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+            color: white;
+        }
+
+        .peak-rank.rank-4,
+        .peak-rank.rank-5 {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .peak-info h4 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--text-primary);
+        }
+
+        .peak-info .peak-date {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .peak-info .peak-notes {
+            font-size: 11px;
+            color: var(--accent-warning);
+            margin-top: 2px;
+        }
+
+        .peak-stats {
+            text-align: right;
+        }
+
+        .peak-load {
+            font-size: 22px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-primary);
+        }
+
+        .peak-load .unit {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-left: 2px;
+        }
+
+        .peak-temp {
+            font-size: 13px;
+            color: var(--accent-peak);
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 4px;
+            margin-top: 4px;
+        }
+
+        /* Chart Section */
+        .chart-section {
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            padding: 24px;
+            backdrop-filter: blur(10px);
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .chart-title {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .chart-container {
+            height: 280px;
+            position: relative;
+        }
+
+        /* Info Panel */
+        .info-panel {
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            padding: 24px;
+            backdrop-filter: blur(10px);
+        }
+
+        .info-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .info-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: var(--se-gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .info-title {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .info-subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .info-value {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .info-value a {
+            color: var(--se-light-green);
+            text-decoration: none;
+        }
+
+        .info-value a:hover {
+            text-decoration: underline;
+        }
+
+        /* Data Source Link */
+        .data-source {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .source-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            color: var(--se-light-green);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .source-link:hover {
+            background: var(--bg-elevated);
+            transform: translateX(4px);
+        }
+
+        /* Loading State */
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            gap: 16px;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--se-light-green);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        /* Error State */
+        .error-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .error-state svg {
+            color: var(--accent-warning);
+            margin-bottom: 16px;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 24px;
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+
+        .footer a {
+            color: var(--se-light-green);
+            text-decoration: none;
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-in {
+            animation: fadeInUp 0.4s ease forwards;
+        }
+
+        .peak-item {
+            opacity: 0;
+            animation: fadeInUp 0.4s ease forwards;
+        }
+
+        .peak-item:nth-child(1) { animation-delay: 0.05s; }
+        .peak-item:nth-child(2) { animation-delay: 0.1s; }
+        .peak-item:nth-child(3) { animation-delay: 0.15s; }
+        .peak-item:nth-child(4) { animation-delay: 0.2s; }
+        .peak-item:nth-child(5) { animation-delay: 0.25s; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>⚡ Peak Demand Analytics</h1>
+                <p>Historical system peak data by ISO/RTO region</p>
+            </div>
+            <div class="header-controls">
+                <div class="iso-select-wrapper">
+                    <select id="isoSelect" class="iso-select">
+                        <option value="ISONE">ISO New England</option>
+                        <option value="PJM">PJM Interconnection</option>
+                        <option value="NYISO">New York ISO</option>
+                        <option value="ERCOT">ERCOT (Texas)</option>
+                        <option value="CAISO">California ISO</option>
+                        <option value="MISO">MISO</option>
+                    </select>
+                </div>
+                <button class="refresh-btn" onclick="loadData()" title="Refresh Data">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M23 4v6h-6M1 20v-6h6"/>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Stats Banner -->
+        <div class="stats-banner" id="statsBanner">
+            <!-- Populated by JavaScript -->
+        </div>
+
+        <!-- Main Content -->
+        <div class="content-grid">
+            <!-- Left: Top 5 + Chart -->
+            <div>
+                <!-- Top 5 Panel -->
+                <div class="top5-panel">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                            </svg>
+                            Top 5 System Peaks
+                        </div>
+                        <div class="view-toggle">
+                            <button id="btnAllTime" class="active" onclick="setView('alltime')">All-Time</button>
+                            <button id="btnRecent" onclick="setView('recent')">Recent Years</button>
+                        </div>
+                    </div>
+                    <div class="top5-list" id="top5List">
+                        <div class="loading">
+                            <div class="loading-spinner"></div>
+                            <div class="loading-text">Loading peak data...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chart Section -->
+                <div class="chart-section" style="margin-top: 24px;">
+                    <div class="chart-header">
+                        <div class="chart-title">📈 Annual Peak Trend</div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="peakChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Info Panel -->
+            <div>
+                <div class="info-panel" id="infoPanel">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>Data sourced from official ISO/RTO reports • <a href="https://github.com/Secure-EC/SESSalesResources" target="_blank">View on GitHub</a></p>
+            <p style="margin-top: 8px;">Last updated: <span id="lastUpdated">--</span></p>
+        </div>
+    </div>
+
+    <script>
+        // Configuration - matches ClemmensSES/SESSalesResources repository
+        const DATA_CONFIG = {
+            GITHUB_RAW_URL: 'https://raw.githubusercontent.com/ClemmensSES/SESSalesResources/main/data/peak-demand.json',
+            STORAGE_KEY: 'secureEnergy_peakDemand',
+            FALLBACK_URLS: [
+                'https://raw.githubusercontent.com/ClemmensSES/SESSalesResources/main/data/peak-demand.json',
+                '../data/peak-demand.json',
+                'data/peak-demand.json'
+            ]
+        };
+
+        // State
+        let peakData = null;
+        let currentISO = 'ISONE';
+        let currentView = 'alltime';
+        let peakChart = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('isoSelect').addEventListener('change', (e) => {
+                currentISO = e.target.value;
+                renderAll();
+            });
+            loadData();
+        });
+
+        // Load data from GitHub or fallback
+        async function loadData() {
+            showLoading();
+            
+            for (const url of DATA_CONFIG.FALLBACK_URLS) {
+                try {
+                    const response = await fetch(url + '?t=' + Date.now());
+                    if (response.ok) {
+                        peakData = await response.json();
+                        console.log('[Peak Demand] Loaded data from:', url);
+                        
+                        // Cache locally
+                        try {
+                            localStorage.setItem(DATA_CONFIG.STORAGE_KEY, JSON.stringify(peakData));
+                        } catch (e) {
+                            console.warn('[Peak Demand] Could not cache:', e);
+                        }
+                        
+                        renderAll();
+                        return;
+                    }
+                } catch (err) {
+                    console.warn('[Peak Demand] Failed to load from:', url, err);
+                }
+            }
+            
+            // Try localStorage cache
+            try {
+                const cached = localStorage.getItem(DATA_CONFIG.STORAGE_KEY);
+                if (cached) {
+                    peakData = JSON.parse(cached);
+                    console.log('[Peak Demand] Loaded from cache');
+                    renderAll();
+                    return;
+                }
+            } catch (e) {
+                console.warn('[Peak Demand] No cache available');
+            }
+            
+            showError('Unable to load peak demand data');
+        }
+
+        // Render all components
+        function renderAll() {
+            if (!peakData || !peakData.data || !peakData.data[currentISO]) {
+                showError('No data available for ' + currentISO);
+                return;
+            }
+            
+            const isoData = peakData.data[currentISO];
+            
+            renderStatsBanner(isoData);
+            renderTop5(isoData);
+            renderInfoPanel(isoData);
+            renderChart(isoData);
+            
+            document.getElementById('lastUpdated').textContent = peakData.metadata?.lastUpdated || '--';
+        }
+
+        // Render stats banner
+        function renderStatsBanner(isoData) {
+            const banner = document.getElementById('statsBanner');
+            const allTime = isoData.allTimePeak;
+            const winter = isoData.allTimeWinterPeak;
+            const latest = isoData.annualPeaks[0];
+            
+            banner.innerHTML = `
+                <div class="stat-card peak">
+                    <div class="stat-label">All-Time Summer Peak</div>
+                    <div class="stat-value">${formatNumber(allTime.loadMW)}<span class="unit">MW</span></div>
+                    <div class="stat-meta"><span class="date">${formatDate(allTime.date)}</span> • ${allTime.tempF}°F</div>
+                </div>
+                <div class="stat-card winter">
+                    <div class="stat-label">All-Time Winter Peak</div>
+                    <div class="stat-value">${formatNumber(winter.loadMW)}<span class="unit">MW</span></div>
+                    <div class="stat-meta"><span class="date">${formatDate(winter.date)}</span> • ${winter.tempF}°F</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Most Recent Peak (${latest.year})</div>
+                    <div class="stat-value">${formatNumber(latest.loadMW)}<span class="unit">MW</span></div>
+                    <div class="stat-meta"><span class="date">${formatDate(latest.date)}</span> • ${latest.tempF}°F</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Coverage</div>
+                    <div class="stat-value">${formatNumber(isoData.customers || 0)}</div>
+                    <div class="stat-meta">retail customers served</div>
+                </div>
+            `;
+        }
+
+        // Render Top 5 list
+        function renderTop5(isoData) {
+            const list = document.getElementById('top5List');
+            let peaks;
+            
+            if (currentView === 'alltime') {
+                // Combine all peaks and sort by load
+                const allPeaks = [
+                    { ...isoData.allTimePeak, year: new Date(isoData.allTimePeak.date).getFullYear() },
+                    ...isoData.annualPeaks
+                ];
+                peaks = allPeaks
+                    .sort((a, b) => b.loadMW - a.loadMW)
+                    .slice(0, 5);
+            } else {
+                // Just recent years, sorted by load
+                peaks = [...isoData.annualPeaks]
+                    .sort((a, b) => b.loadMW - a.loadMW)
+                    .slice(0, 5);
+            }
+            
+            list.innerHTML = peaks.map((peak, idx) => `
+                <div class="peak-item">
+                    <div class="peak-rank rank-${idx + 1}">${idx + 1}</div>
+                    <div class="peak-info">
+                        <h4>${peak.year} ${peak.type === 'winter' ? 'Winter' : 'Summer'} Peak</h4>
+                        <div class="peak-date">${formatDate(peak.date)} at ${formatHour(peak.hour)}</div>
+                        ${peak.notes ? `<div class="peak-notes">${peak.notes}</div>` : ''}
+                    </div>
+                    <div class="peak-stats">
+                        <div class="peak-load">${formatNumber(peak.loadMW)}<span class="unit">MW</span></div>
+                        <div class="peak-temp">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
+                            </svg>
+                            ${peak.tempF}°F
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render info panel
+        function renderInfoPanel(isoData) {
+            const panel = document.getElementById('infoPanel');
+            const source = peakData.dataSources?.[currentISO] || {};
+            
+            panel.innerHTML = `
+                <div class="info-header">
+                    <div class="info-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 16v-4M12 8h.01"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="info-title">${source.name || currentISO}</div>
+                        <div class="info-subtitle">${isoData.region || 'Regional Transmission Organization'}</div>
+                    </div>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Record Peak</span>
+                    <span class="info-value">${formatNumber(isoData.allTimePeak.loadMW)} MW</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Record Date</span>
+                    <span class="info-value">${formatDate(isoData.allTimePeak.date)}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Record Temperature</span>
+                    <span class="info-value">${isoData.allTimePeak.tempF}°F</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Customers Served</span>
+                    <span class="info-value">${formatNumber(isoData.customers || 0)}</span>
+                </div>
+                ${isoData.population ? `
+                <div class="info-item">
+                    <span class="info-label">Population</span>
+                    <span class="info-value">${formatNumber(isoData.population)}</span>
+                </div>
+                ` : ''}
+                ${isoData.forecastPeak2035 ? `
+                <div class="info-item">
+                    <span class="info-label">2035 Forecast</span>
+                    <span class="info-value">${formatNumber(isoData.forecastPeak2035)} MW</span>
+                </div>
+                ` : ''}
+                <div class="info-item">
+                    <span class="info-label">Update Frequency</span>
+                    <span class="info-value">${source.updateFrequency || 'Annual'}</span>
+                </div>
+                
+                <div class="data-source">
+                    <a href="${source.peakReportUrl || '#'}" target="_blank" class="source-link">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                            <polyline points="15 3 21 3 21 9"/>
+                            <line x1="10" y1="14" x2="21" y2="3"/>
+                        </svg>
+                        View Official Data Source
+                    </a>
+                </div>
+            `;
+        }
+
+        // Render chart
+        function renderChart(isoData) {
+            const ctx = document.getElementById('peakChart').getContext('2d');
+            
+            if (peakChart) {
+                peakChart.destroy();
+            }
+            
+            const years = isoData.annualPeaks.map(p => p.year).reverse();
+            const loads = isoData.annualPeaks.map(p => p.loadMW).reverse();
+            const temps = isoData.annualPeaks.map(p => p.tempF).reverse();
+            
+            peakChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: years,
+                    datasets: [
+                        {
+                            label: 'Peak Load (MW)',
+                            data: loads,
+                            backgroundColor: 'rgba(62, 180, 137, 0.7)',
+                            borderColor: '#3EB489',
+                            borderWidth: 1,
+                            borderRadius: 6,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Temperature (°F)',
+                            data: temps,
+                            type: 'line',
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#ef4444',
+                            tension: 0.3,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                color: '#A0AEC0',
+                                boxWidth: 12,
+                                padding: 16,
+                                font: { family: "'Plus Jakarta Sans', sans-serif", size: 12 }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#1A2030',
+                            titleColor: '#fff',
+                            bodyColor: '#A0AEC0',
+                            borderColor: '#3EB489',
+                            borderWidth: 1,
+                            padding: 12,
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: (ctx) => {
+                                    if (ctx.dataset.label.includes('Load')) {
+                                        return `Peak: ${ctx.raw.toLocaleString()} MW`;
+                                    }
+                                    return `Temp: ${ctx.raw}°F`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#718096', font: { size: 11 } }
+                        },
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: {
+                                color: '#718096',
+                                font: { size: 11 },
+                                callback: (v) => (v / 1000).toFixed(0) + 'K'
+                            },
+                            title: {
+                                display: true,
+                                text: 'Peak Load (MW)',
+                                color: '#718096',
+                                font: { size: 11 }
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: {
+                                color: '#ef4444',
+                                font: { size: 11 },
+                                callback: (v) => v + '°F'
+                            },
+                            title: {
+                                display: true,
+                                text: 'Temperature (°F)',
+                                color: '#ef4444',
+                                font: { size: 11 }
+                            },
+                            min: 80,
+                            max: 115
+                        }
+                    }
+                }
+            });
+        }
+
+        // View toggle
+        function setView(view) {
+            currentView = view;
+            document.getElementById('btnAllTime').classList.toggle('active', view === 'alltime');
+            document.getElementById('btnRecent').classList.toggle('active', view === 'recent');
+            
+            if (peakData?.data?.[currentISO]) {
+                renderTop5(peakData.data[currentISO]);
+            }
+        }
+
+        // Utility functions
+        function formatNumber(num) {
+            return num?.toLocaleString() || '0';
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '--';
+            const d = new Date(dateStr + 'T00:00:00');
+            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function formatHour(hour) {
+            if (hour === undefined || hour === null) return '--';
+            const suffix = hour >= 12 ? 'PM' : 'AM';
+            const h = hour % 12 || 12;
+            return `${h}:00 ${suffix}`;
+        }
+
+        function showLoading() {
+            document.getElementById('top5List').innerHTML = `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Loading peak data...</div>
+                </div>
+            `;
+        }
+
+        function showError(msg) {
+            document.getElementById('top5List').innerHTML = `
+                <div class="error-state">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 8v4M12 16h.01"/>
+                    </svg>
+                    <p>${msg}</p>
+                    <p style="margin-top: 8px; font-size: 12px;">Check console for details</p>
+                </div>
+            `;
+        }
+
+        // Listen for cross-widget communication
+        window.addEventListener('message', (event) => {
+            if (event.data?.type === 'SELECT_ISO' && event.data?.iso) {
+                currentISO = event.data.iso;
+                document.getElementById('isoSelect').value = currentISO;
+                renderAll();
+            }
+        });
+    </script>
+</body>
+</html>
