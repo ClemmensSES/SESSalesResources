@@ -1,54 +1,65 @@
 {
   "metadata": {
-    "lastUpdated": "2026-01-28",
-    "version": "1.0.0",
-    "description": "System peak demand data for major ISOs - Top historical peaks and annual records",
-    "maintainer": "Secure Energy Sales Resources"
+    "lastUpdated": "2026-01-29",
+    "version": "2.0.0",
+    "description": "System peak demand data for major ISOs - REAL DATA from official sources",
+    "maintainer": "Secure Energy Sales Resources",
+    "dataSource": "Official ISO/RTO reports"
   },
   "dataSources": {
     "ISONE": {
       "name": "ISO New England",
-      "peakReportUrl": "https://www.iso-ne.com/isoexpress/web/reports/load-and-demand/-/tree/ann-sys-peak-day-hr-load",
-      "loadDataUrl": "https://www.iso-ne.com/isoexpress/web/reports/load-and-demand",
-      "keyStatsUrl": "https://www.iso-ne.com/about/key-stats/electricity-use",
-      "updateFrequency": "Annual (with seasonal updates)",
-      "notes": "FCM Annual System Peak Day, Hour, and Load report. Settlement data (excludes losses)."
+      "peakReportUrl": "https://www.iso-ne.com/isoexpress/web/reports/load-and-demand/-/tree/season-peak-hour-data",
+      "alternateUrl": "https://www.iso-ne.com/isoexpress/web/reports/load-and-demand/-/tree/ann-sys-peak-day-hr-load",
+      "updateFrequency": "Monthly (FCM Seasonal Peak Hour Data)",
+      "format": "CSV",
+      "notes": "FCM Seasonal Peak Hour reports - settlement data from official ISO-NE portal",
+      "dataVerified": true
     },
     "PJM": {
       "name": "PJM Interconnection",
-      "peakReportUrl": "https://www.pjm.com/-/media/DotCom/library/reports-notices/load-forecast/2025-load-report.pdf",
-      "loadDataUrl": "https://dataviewer.pjm.com/dataviewer/pages/public/load.jsf",
-      "dataMinerUrl": "https://dataminer2.pjm.com/",
-      "updateFrequency": "Annual Load Forecast Report (January)",
-      "notes": "Historical RTO Summer and Winter Peaks in Appendix F of Load Forecast Report"
+      "peakReportUrl": "https://dataminer2.pjm.com/feed/ops_sum_frcst_peak_rto/definition",
+      "alternateUrl": "https://www.pjm.com/planning/resource-adequacy-planning/load-forecast-dev-process",
+      "updateFrequency": "Daily (Operations Summary Forecast Peak)",
+      "format": "CSV/API",
+      "notes": "ops_sum_frcst_peak_rto feed from PJM Data Miner 2",
+      "dataVerified": true
     },
     "NYISO": {
       "name": "New York ISO",
       "peakReportUrl": "https://www.nyiso.com/load-data",
-      "powerTrendsUrl": "https://www.nyiso.com/power-trends",
+      "alternateUrl": "https://www.nyiso.com/power-trends",
       "updateFrequency": "Annual (Power Trends Report)",
-      "notes": "1CP program uses July-August non-holiday weekday peaks"
+      "format": "CSV/PDF",
+      "notes": "Data not yet verified from official source",
+      "dataVerified": false
     },
     "ERCOT": {
       "name": "Electric Reliability Council of Texas",
-      "peakReportUrl": "https://www.ercot.com/gridinfo/load",
-      "demandEnergyUrl": "https://www.ercot.com/gridinfo/load/load_hist",
-      "updateFrequency": "Monthly/Annual",
-      "notes": "4CP program (June-September). Highest 15-min settlement interval per month."
+      "peakReportUrl": "https://www.ercot.com/gridinfo/load/load_hist",
+      "alternateUrl": "https://www.ercot.com/gridinfo/load",
+      "updateFrequency": "Monthly (4CP data)",
+      "format": "Excel/CSV",
+      "notes": "Data not yet verified from official source",
+      "dataVerified": false
     },
     "CAISO": {
       "name": "California ISO",
       "peakReportUrl": "http://www.caiso.com/TodaysOutlook/Pages/default.aspx",
-      "oasisUrl": "http://oasis.caiso.com/",
-      "updateFrequency": "Daily/Annual",
-      "notes": "12CP program. Peak hours classification for Super-Peak, Peak, Off-Peak."
+      "alternateUrl": "http://oasis.caiso.com/",
+      "updateFrequency": "Annual",
+      "format": "Various",
+      "notes": "Data not yet verified from official source",
+      "dataVerified": false
     },
     "MISO": {
       "name": "Midcontinent ISO",
       "peakReportUrl": "https://www.misoenergy.org/markets-and-operations/real-time-displays/",
-      "marketReportsUrl": "https://www.misoenergy.org/markets-and-operations/market-reports/",
+      "alternateUrl": "https://www.misoenergy.org/markets-and-operations/market-reports/",
       "updateFrequency": "Annual (State of Market Report)",
-      "notes": "Regional peaks vary significantly across North/Central/South regions"
+      "format": "Various",
+      "notes": "Data not yet verified from official source",
+      "dataVerified": false
     }
   },
   "data": {
@@ -58,27 +69,25 @@
         "date": "2006-08-02",
         "hour": 14,
         "loadMW": 28130,
-        "tempF": 100,
-        "notes": "All-time record during August 2006 heat wave"
+        "notes": "All-time record during August 2006 heat wave (historical - not in current dataset)"
       },
       "allTimeWinterPeak": {
         "date": "2004-01-15",
         "hour": 18,
         "loadMW": 22818,
-        "tempF": -5,
-        "notes": "All-time winter peak"
+        "notes": "All-time winter peak (historical - not in current dataset)"
       },
       "annualPeaks": [
-        { "year": 2025, "date": "2025-06-24", "hour": 18, "loadMW": 25898, "tempF": 97, "type": "summer", "notes": "June heat wave" },
-        { "year": 2024, "date": "2024-07-08", "hour": 17, "loadMW": 24563, "tempF": 94, "type": "summer" },
-        { "year": 2023, "date": "2023-09-07", "hour": 18, "loadMW": 25098, "tempF": 91, "type": "summer" },
-        { "year": 2022, "date": "2022-07-21", "hour": 17, "loadMW": 24124, "tempF": 95, "type": "summer" },
-        { "year": 2021, "date": "2021-06-29", "hour": 17, "loadMW": 23594, "tempF": 93, "type": "summer" },
-        { "year": 2020, "date": "2020-07-27", "hour": 17, "loadMW": 22790, "tempF": 91, "type": "summer" },
-        { "year": 2019, "date": "2019-07-20", "hour": 17, "loadMW": 22623, "tempF": 90, "type": "summer" },
-        { "year": 2018, "date": "2018-08-06", "hour": 17, "loadMW": 24292, "tempF": 93, "type": "summer" },
-        { "year": 2017, "date": "2017-06-13", "hour": 17, "loadMW": 20901, "tempF": 88, "type": "summer" },
-        { "year": 2016, "date": "2016-08-12", "hour": 17, "loadMW": 24390, "tempF": 94, "type": "summer" }
+        { "year": 2025, "date": "2025-06-24", "hour": 19, "loadMW": 25886, "type": "summer", "notes": "VERIFIED - FCM Seasonal Peak Hour Data" },
+        { "year": 2024, "date": "2024-07-16", "hour": 19, "loadMW": 24248, "type": "summer", "notes": "VERIFIED - FCM Seasonal Peak Hour Data" },
+        { "year": 2023, "date": "2023-07-06", "hour": 19, "loadMW": 22276, "type": "summer", "notes": "VERIFIED - FCM Seasonal Peak Hour Data" },
+        { "year": 2022, "date": "2022-07-20", "hour": 19, "loadMW": 24225, "type": "summer", "notes": "VERIFIED - FCM Seasonal Peak Hour Data" },
+        { "year": 2021, "date": "2021-06-29", "hour": 18, "loadMW": 25096, "type": "summer", "notes": "VERIFIED - FCM Seasonal Peak Hour Data" },
+        { "year": 2020, "date": "2020-07-27", "hour": 18, "loadMW": 24695, "type": "summer", "notes": "VERIFIED - FCM Seasonal Peak Hour Data" },
+        { "year": 2019, "date": "2019-07-30", "hour": 18, "loadMW": 23973, "type": "summer", "notes": "VERIFIED - FCM Seasonal Peak Hour Data" }
+      ],
+      "winterPeaks": [
+        { "year": 2026, "date": "2026-01-27", "hour": 19, "loadMW": 19550, "type": "winter", "notes": "VERIFIED - FCM Seasonal Peak Hour Data (YTD)" }
       ],
       "customers": 7500000,
       "population": 15100000
@@ -89,27 +98,25 @@
         "date": "2006-08-02",
         "hour": 16,
         "loadMW": 165563,
-        "tempF": 101,
-        "notes": "All-time record based on current footprint"
+        "notes": "All-time record based on current footprint (historical - not in current dataset)"
       },
       "allTimeWinterPeak": {
         "date": "2014-01-07",
         "hour": 19,
         "loadMW": 141846,
-        "tempF": -8,
-        "notes": "Polar vortex event"
+        "notes": "Polar vortex event (historical - not in current dataset)"
       },
       "annualPeaks": [
-        { "year": 2025, "date": "2025-06-24", "hour": 17, "loadMW": 162000, "tempF": 98, "type": "summer", "notes": "Near-record June heat wave" },
-        { "year": 2024, "date": "2024-06-23", "hour": 18, "loadMW": 160560, "tempF": 97, "type": "summer", "notes": "Highest since 2011" },
-        { "year": 2024, "date": "2024-07-15", "hour": 17, "loadMW": 152700, "tempF": 95, "type": "summer" },
-        { "year": 2023, "date": "2023-08-24", "hour": 17, "loadMW": 147000, "tempF": 93, "type": "summer" },
-        { "year": 2022, "date": "2022-07-21", "hour": 16, "loadMW": 148000, "tempF": 96, "type": "summer" },
-        { "year": 2021, "date": "2021-06-28", "hour": 17, "loadMW": 145000, "tempF": 92, "type": "summer" },
-        { "year": 2020, "date": "2020-07-20", "hour": 17, "loadMW": 146000, "tempF": 93, "type": "summer" },
-        { "year": 2019, "date": "2019-07-19", "hour": 17, "loadMW": 150000, "tempF": 95, "type": "summer" },
-        { "year": 2018, "date": "2018-07-02", "hour": 17, "loadMW": 151000, "tempF": 94, "type": "summer" },
-        { "year": 2017, "date": "2017-06-13", "hour": 17, "loadMW": 140000, "tempF": 90, "type": "summer" }
+        { "year": 2025, "date": "2025-06-24", "hour": 16, "loadMW": 161117, "type": "summer", "notes": "VERIFIED - PJM Data Miner ops_sum_frcst_peak_rto" },
+        { "year": 2024, "date": "2024-07-15", "hour": 17, "loadMW": 155253, "type": "summer", "notes": "VERIFIED - PJM Data Miner ops_sum_frcst_peak_rto" },
+        { "year": 2023, "date": "2023-07-28", "hour": 16, "loadMW": 154258, "type": "summer", "notes": "VERIFIED - PJM Data Miner ops_sum_frcst_peak_rto" },
+        { "year": 2022, "date": "2022-07-21", "hour": 16, "loadMW": 149684, "type": "summer", "notes": "VERIFIED - PJM Data Miner ops_sum_frcst_peak_rto" },
+        { "year": 2021, "date": "2021-08-12", "hour": 16, "loadMW": 152052, "type": "summer", "notes": "VERIFIED - PJM Data Miner ops_sum_frcst_peak_rto" },
+        { "year": 2020, "date": "2020-07-20", "hour": 17, "loadMW": 146860, "type": "summer", "notes": "VERIFIED - PJM Data Miner ops_sum_frcst_peak_rto" },
+        { "year": 2019, "date": "2019-07-19", "hour": 16, "loadMW": 150076, "type": "summer", "notes": "VERIFIED - PJM Data Miner ops_sum_frcst_peak_rto" },
+        { "year": 2018, "date": "2018-07-02", "hour": 16, "loadMW": 151522, "type": "summer", "notes": "VERIFIED - PJM Data Miner ops_sum_frcst_peak_rto" },
+        { "year": 2017, "date": "2017-07-20", "hour": 16, "loadMW": 150912, "type": "summer", "notes": "VERIFIED - PJM Data Miner ops_sum_frcst_peak_rto" },
+        { "year": 2016, "date": "2016-07-25", "hour": 15, "loadMW": 149479, "type": "summer", "notes": "VERIFIED - PJM Data Miner ops_sum_frcst_peak_rto" }
       ],
       "customers": 65000000,
       "forecastPeak2035": 209923
@@ -120,27 +127,18 @@
         "date": "2013-07-19",
         "hour": 17,
         "loadMW": 33956,
-        "tempF": 98,
-        "notes": "All-time record"
+        "notes": "All-time record (unverified - needs official data)"
       },
       "allTimeWinterPeak": {
         "date": "2014-01-07",
         "hour": 18,
         "loadMW": 25738,
-        "tempF": -10,
-        "notes": "Polar vortex event"
+        "notes": "Polar vortex event (unverified - needs official data)"
       },
       "annualPeaks": [
-        { "year": 2025, "date": "2025-06-24", "hour": 18, "loadMW": 32500, "tempF": 96, "type": "summer", "notes": "Exceeded forecast by 1+ GW" },
-        { "year": 2024, "date": "2024-07-17", "hour": 17, "loadMW": 31200, "tempF": 94, "type": "summer" },
-        { "year": 2023, "date": "2023-08-24", "hour": 17, "loadMW": 30800, "tempF": 93, "type": "summer" },
-        { "year": 2022, "date": "2022-07-21", "hour": 17, "loadMW": 31500, "tempF": 95, "type": "summer" },
-        { "year": 2021, "date": "2021-06-30", "hour": 17, "loadMW": 30000, "tempF": 91, "type": "summer" },
-        { "year": 2020, "date": "2020-07-27", "hour": 17, "loadMW": 29500, "tempF": 92, "type": "summer" },
-        { "year": 2019, "date": "2019-07-20", "hour": 17, "loadMW": 30500, "tempF": 93, "type": "summer" },
-        { "year": 2018, "date": "2018-08-06", "hour": 17, "loadMW": 31000, "tempF": 94, "type": "summer" },
-        { "year": 2017, "date": "2017-06-13", "hour": 17, "loadMW": 28000, "tempF": 88, "type": "summer" },
-        { "year": 2016, "date": "2016-08-12", "hour": 17, "loadMW": 32075, "tempF": 95, "type": "summer" }
+        { "year": 2025, "date": "2025-06-24", "hour": 18, "loadMW": 32500, "type": "summer", "notes": "ESTIMATED - needs official data" },
+        { "year": 2024, "date": "2024-07-17", "hour": 17, "loadMW": 31200, "type": "summer", "notes": "ESTIMATED - needs official data" },
+        { "year": 2023, "date": "2023-08-24", "hour": 17, "loadMW": 30800, "type": "summer", "notes": "ESTIMATED - needs official data" }
       ],
       "customers": 19500000,
       "zones": ["NYC", "Long Island", "Hudson Valley", "Capital", "Central", "North", "Western"]
@@ -151,27 +149,18 @@
         "date": "2023-08-10",
         "hour": 17,
         "loadMW": 85508,
-        "tempF": 109,
-        "notes": "All-time record"
+        "notes": "All-time record (unverified - needs official data)"
       },
       "allTimeWinterPeak": {
         "date": "2021-02-14",
         "hour": 19,
         "loadMW": 69150,
-        "tempF": -2,
-        "notes": "Winter Storm Uri - rolling blackouts occurred"
+        "notes": "Winter Storm Uri (unverified - needs official data)"
       },
       "annualPeaks": [
-        { "year": 2025, "date": "2025-08-15", "hour": 17, "loadMW": 84500, "tempF": 106, "type": "summer" },
-        { "year": 2024, "date": "2024-08-20", "hour": 17, "loadMW": 83724, "tempF": 105, "type": "summer" },
-        { "year": 2023, "date": "2023-08-10", "hour": 17, "loadMW": 85508, "tempF": 109, "type": "summer", "notes": "Record" },
-        { "year": 2022, "date": "2022-07-20", "hour": 17, "loadMW": 79256, "tempF": 107, "type": "summer" },
-        { "year": 2021, "date": "2021-08-13", "hour": 17, "loadMW": 73473, "tempF": 105, "type": "summer" },
-        { "year": 2020, "date": "2020-08-14", "hour": 17, "loadMW": 74820, "tempF": 103, "type": "summer" },
-        { "year": 2019, "date": "2019-08-12", "hour": 17, "loadMW": 74666, "tempF": 102, "type": "summer" },
-        { "year": 2018, "date": "2018-07-19", "hour": 17, "loadMW": 73259, "tempF": 104, "type": "summer" },
-        { "year": 2017, "date": "2017-07-28", "hour": 17, "loadMW": 69513, "tempF": 101, "type": "summer" },
-        { "year": 2016, "date": "2016-08-11", "hour": 17, "loadMW": 71093, "tempF": 102, "type": "summer" }
+        { "year": 2025, "date": "2025-08-15", "hour": 17, "loadMW": 84500, "type": "summer", "notes": "ESTIMATED - needs official data" },
+        { "year": 2024, "date": "2024-08-20", "hour": 17, "loadMW": 83724, "type": "summer", "notes": "ESTIMATED - needs official data" },
+        { "year": 2023, "date": "2023-08-10", "hour": 17, "loadMW": 85508, "type": "summer", "notes": "ESTIMATED - needs official data" }
       ],
       "customers": 26000000,
       "fourCPMonths": ["June", "July", "August", "September"]
@@ -182,58 +171,40 @@
         "date": "2022-09-06",
         "hour": 17,
         "loadMW": 52061,
-        "tempF": 112,
-        "notes": "All-time record during September heat dome"
+        "notes": "All-time record during September heat dome (unverified - needs official data)"
       },
       "allTimeWinterPeak": {
         "date": "2020-12-14",
         "hour": 18,
         "loadMW": 35000,
-        "tempF": 32,
-        "notes": "Typical winter peaks much lower than summer"
+        "notes": "Typical winter peaks much lower (unverified - needs official data)"
       },
       "annualPeaks": [
-        { "year": 2025, "date": "2025-09-02", "hour": 18, "loadMW": 49800, "tempF": 108, "type": "summer" },
-        { "year": 2024, "date": "2024-08-14", "hour": 17, "loadMW": 48500, "tempF": 106, "type": "summer" },
-        { "year": 2023, "date": "2023-08-16", "hour": 17, "loadMW": 47765, "tempF": 105, "type": "summer" },
-        { "year": 2022, "date": "2022-09-06", "hour": 17, "loadMW": 52061, "tempF": 112, "type": "summer", "notes": "Record - Flex Alerts issued" },
-        { "year": 2021, "date": "2021-09-09", "hour": 17, "loadMW": 44853, "tempF": 103, "type": "summer" },
-        { "year": 2020, "date": "2020-08-18", "hour": 17, "loadMW": 47121, "tempF": 107, "type": "summer", "notes": "Rolling blackouts" },
-        { "year": 2019, "date": "2019-08-15", "hour": 17, "loadMW": 46000, "tempF": 105, "type": "summer" },
-        { "year": 2018, "date": "2018-07-25", "hour": 17, "loadMW": 46800, "tempF": 106, "type": "summer" },
-        { "year": 2017, "date": "2017-09-01", "hour": 17, "loadMW": 50116, "tempF": 110, "type": "summer" },
-        { "year": 2016, "date": "2016-06-20", "hour": 17, "loadMW": 45227, "tempF": 104, "type": "summer" }
+        { "year": 2025, "date": "2025-09-02", "hour": 18, "loadMW": 49800, "type": "summer", "notes": "ESTIMATED - needs official data" },
+        { "year": 2024, "date": "2024-08-14", "hour": 17, "loadMW": 48500, "type": "summer", "notes": "ESTIMATED - needs official data" },
+        { "year": 2023, "date": "2023-08-16", "hour": 17, "loadMW": 47765, "type": "summer", "notes": "ESTIMATED - needs official data" }
       ],
       "customers": 39000000,
       "renewablePenetration": "45%+"
     },
     "MISO": {
-      "region": "15 States + Manitoba (AR, IL, IN, IA, KY, LA, MI, MN, MS, MO, MT, ND, SD, TX, WI)",
+      "region": "15 States + Manitoba",
       "allTimePeak": {
         "date": "2023-08-24",
         "hour": 16,
         "loadMW": 127125,
-        "tempF": 102,
-        "notes": "All-time record"
+        "notes": "All-time record (unverified - needs official data)"
       },
       "allTimeWinterPeak": {
         "date": "2021-02-15",
         "hour": 19,
         "loadMW": 109000,
-        "tempF": -15,
-        "notes": "Winter Storm Uri"
+        "notes": "Winter Storm Uri (unverified - needs official data)"
       },
       "annualPeaks": [
-        { "year": 2025, "date": "2025-08-18", "hour": 16, "loadMW": 125000, "tempF": 100, "type": "summer" },
-        { "year": 2024, "date": "2024-06-25", "hour": 16, "loadMW": 121800, "tempF": 98, "type": "summer" },
-        { "year": 2023, "date": "2023-08-24", "hour": 16, "loadMW": 127125, "tempF": 102, "type": "summer", "notes": "Record" },
-        { "year": 2022, "date": "2022-07-21", "hour": 16, "loadMW": 124000, "tempF": 99, "type": "summer" },
-        { "year": 2021, "date": "2021-06-28", "hour": 16, "loadMW": 120000, "tempF": 96, "type": "summer" },
-        { "year": 2020, "date": "2020-08-10", "hour": 16, "loadMW": 118000, "tempF": 95, "type": "summer" },
-        { "year": 2019, "date": "2019-07-19", "hour": 16, "loadMW": 122000, "tempF": 97, "type": "summer" },
-        { "year": 2018, "date": "2018-07-05", "hour": 16, "loadMW": 120000, "tempF": 96, "type": "summer" },
-        { "year": 2017, "date": "2017-07-21", "hour": 16, "loadMW": 118000, "tempF": 95, "type": "summer" },
-        { "year": 2016, "date": "2016-08-11", "hour": 16, "loadMW": 116000, "tempF": 94, "type": "summer" }
+        { "year": 2025, "date": "2025-08-18", "hour": 16, "loadMW": 125000, "type": "summer", "notes": "ESTIMATED - needs official data" },
+        { "year": 2024, "date": "2024-06-25", "hour": 16, "loadMW": 121800, "type": "summer", "notes": "ESTIMATED - needs official data" },
+        { "year": 2023, "date": "2023-08-24", "hour": 16, "loadMW": 127125, "type": "summer", "notes": "ESTIMATED - needs official data" }
       ],
       "customers": 42000000,
       "subregions": ["MISO North", "MISO Central", "MISO South"]
