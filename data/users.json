@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastUpdated": "2026-01-29T16:11:21.298Z",
+  "lastUpdated": "2026-01-29T16:21:34.212Z",
   "users": [
     {
       "id": "admin-001",
@@ -60,11 +60,16 @@
       "status": "active",
       "createdAt": "2026-01-27T15:32:32.869Z",
       "permissions": {
+        "bid-management": false,
+        "ai-assistant": true,
         "lmp-comparison": true,
+        "lmp-analytics": true,
+        "peak-demand": true,
+        "analysis-history": true,
         "data-manager": false,
-        "arcadia-fetcher": false,
-        "user-admin": false
-      }
+        "arcadia-fetcher": false
+      },
+      "updatedAt": "2026-01-29T16:21:21.956Z"
     },
     {
       "id": "user-1769527973957",
@@ -76,11 +81,16 @@
       "status": "active",
       "createdAt": "2026-01-27T15:32:53.957Z",
       "permissions": {
+        "bid-management": false,
+        "ai-assistant": true,
         "lmp-comparison": true,
+        "lmp-analytics": true,
+        "peak-demand": true,
+        "analysis-history": true,
         "data-manager": false,
-        "arcadia-fetcher": false,
-        "user-admin": false
-      }
+        "arcadia-fetcher": false
+      },
+      "updatedAt": "2026-01-29T16:21:26.153Z"
     },
     {
       "id": "user-1769527996133",
@@ -92,16 +102,16 @@
       "status": "active",
       "createdAt": "2026-01-27T15:33:16.133Z",
       "permissions": {
+        "bid-management": false,
         "ai-assistant": true,
         "lmp-comparison": true,
         "lmp-analytics": true,
         "peak-demand": true,
         "analysis-history": true,
         "data-manager": false,
-        "arcadia-fetcher": false,
-        "user-admin": false
+        "arcadia-fetcher": false
       },
-      "updatedAt": "2026-01-29T16:11:21.297Z"
+      "updatedAt": "2026-01-29T16:21:29.912Z"
     },
     {
       "id": "user-1769608099594",
@@ -113,14 +123,16 @@
       "status": "active",
       "createdAt": "2026-01-28T13:48:19.594Z",
       "permissions": {
+        "bid-management": false,
         "ai-assistant": true,
         "lmp-comparison": true,
         "lmp-analytics": true,
+        "peak-demand": true,
         "analysis-history": true,
         "data-manager": false,
-        "arcadia-fetcher": false,
-        "user-admin": false
-      }
+        "arcadia-fetcher": false
+      },
+      "updatedAt": "2026-01-29T16:21:34.212Z"
     },
     {
       "id": "user-1769696905370",
