@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastUpdated": "2026-01-29T18:18:17.158Z",
+  "lastUpdated": "2026-01-29T18:18:28.853Z",
   "users": [
     {
       "id": "admin-001",
@@ -147,16 +147,18 @@
       "password": "test123",
       "role": "user",
       "permissions": {
-        "ai-assistant": true,
-        "lmp-comparison": true,
+        "bid-management": false,
+        "ai-assistant": false,
+        "lmp-comparison": false,
         "lmp-analytics": true,
+        "peak-demand": false,
         "analysis-history": true,
         "data-manager": false,
-        "arcadia-fetcher": false,
-        "user-admin": false
+        "arcadia-fetcher": false
       },
       "status": "active",
-      "createdAt": "2026-01-29T14:28:25.370Z"
+      "createdAt": "2026-01-29T14:28:25.370Z",
+      "updatedAt": "2026-01-29T18:18:28.853Z"
     }
   ]
 }
