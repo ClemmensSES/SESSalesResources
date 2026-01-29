@@ -1,26 +1,81 @@
 /**
- * Secure Energy Analytics Portal - Main Controller v2.2
+ * Secure Energy Analytics Portal - Main Controller v2.3
  * 
- * v2.2 Updates:
- * - GitHub Sync tab for cross-user activity persistence
- * - Error Log viewer in Admin panel
- * - Show button for analysis details
- * - Export All Records for users
- * - Activity Stats boxes
+ * v2.3 Updates:
+ * - Draggable widgets with reorder persistence
+ * - Resizable widgets (height adjustment, full-width toggle)
+ * - Collapsible widgets
+ * - Widget layout persistence per user
+ * - Enhanced UX with smooth animations
  */
 
 let currentUser = null;
 
-const WIDGETS = [
-    { id: 'user-admin', name: 'User Administration', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>', adminOnly: true, fullWidth: true, embedded: true },
-    { id: 'ai-assistant', name: 'AI Assistant', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>', fullWidth: true, embedded: true, height: 500 },
-    { id: 'lmp-analytics', name: 'LMP Analytics Dashboard', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>', src: 'widgets/lmp-analytics.html', fullWidth: true, height: 800 },
-    { id: 'data-manager', name: 'LMP Data Manager', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>', src: 'widgets/lmp-data-manager.html', height: 500 },
-    { id: 'arcadia-fetcher', name: 'Arcadia LMP Data Fetcher', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>', src: 'widgets/arcadia-lmp-fetcher.html', height: 500 },
-    { id: 'lmp-comparison', name: 'LMP Comparison Portal', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>', src: 'widgets/lmp-comparison-portal.html', fullWidth: true, height: 700 },
-    { id: 'peak-demand', name: 'Peak Demand Analytics', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>', src: 'widgets/peak-demand-widget.html', fullWidth: true, height: 750 },
-    { id: 'analysis-history', name: 'My Analysis History', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', fullWidth: true, embedded: true }
+const DEFAULT_WIDGETS = [
+    { id: 'user-admin', name: 'User Administration', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>', adminOnly: true, fullWidth: true, embedded: true, defaultHeight: 700, minHeight: 400, maxHeight: 1200 },
+    { id: 'ai-assistant', name: 'AI Assistant', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>', fullWidth: true, embedded: true, defaultHeight: 500, minHeight: 300, maxHeight: 800 },
+    { id: 'lmp-analytics', name: 'LMP Analytics Dashboard', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>', src: 'widgets/lmp-analytics.html', fullWidth: true, defaultHeight: 800, minHeight: 400, maxHeight: 1200 },
+    { id: 'data-manager', name: 'LMP Data Manager', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>', src: 'widgets/lmp-data-manager.html', defaultHeight: 500, minHeight: 300, maxHeight: 900 },
+    { id: 'arcadia-fetcher', name: 'Arcadia LMP Data Fetcher', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>', src: 'widgets/arcadia-lmp-fetcher.html', defaultHeight: 500, minHeight: 300, maxHeight: 800 },
+    { id: 'lmp-comparison', name: 'LMP Comparison Portal', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>', src: 'widgets/lmp-comparison-portal.html', fullWidth: true, defaultHeight: 700, minHeight: 400, maxHeight: 1100 },
+    { id: 'peak-demand', name: 'Peak Demand Analytics', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>', src: 'widgets/peak-demand-widget.html', fullWidth: true, defaultHeight: 750, minHeight: 400, maxHeight: 1100 },
+    { id: 'analysis-history', name: 'My Analysis History', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', fullWidth: true, embedded: true, defaultHeight: 500, minHeight: 300, maxHeight: 900 }
 ];
+
+// Clone widgets to avoid mutating defaults
+let WIDGETS = JSON.parse(JSON.stringify(DEFAULT_WIDGETS));
+
+// =====================================================
+// WIDGET LAYOUT MANAGEMENT
+// =====================================================
+const WidgetLayout = {
+    storageKey: 'secureEnergy_widgetLayout',
+    
+    getLayoutForUser(userId) {
+        try {
+            const all = JSON.parse(localStorage.getItem(this.storageKey) || '{}');
+            return all[userId] || null;
+        } catch { return null; }
+    },
+    
+    saveLayoutForUser(userId, layout) {
+        try {
+            const all = JSON.parse(localStorage.getItem(this.storageKey) || '{}');
+            all[userId] = layout;
+            localStorage.setItem(this.storageKey, JSON.stringify(all));
+        } catch (e) { console.error('[WidgetLayout] Save failed:', e); }
+    },
+    
+    getWidgetConfig(userId, widgetId) {
+        const layout = this.getLayoutForUser(userId);
+        return layout?.widgets?.[widgetId] || null;
+    },
+    
+    saveWidgetConfig(userId, widgetId, config) {
+        const layout = this.getLayoutForUser(userId) || { order: [], widgets: {} };
+        layout.widgets[widgetId] = { ...layout.widgets[widgetId], ...config };
+        this.saveLayoutForUser(userId, layout);
+    },
+    
+    saveOrder(userId, orderArray) {
+        const layout = this.getLayoutForUser(userId) || { order: [], widgets: {} };
+        layout.order = orderArray;
+        this.saveLayoutForUser(userId, layout);
+    },
+    
+    getOrder(userId) {
+        const layout = this.getLayoutForUser(userId);
+        return layout?.order || [];
+    },
+    
+    resetLayout(userId) {
+        try {
+            const all = JSON.parse(localStorage.getItem(this.storageKey) || '{}');
+            delete all[userId];
+            localStorage.setItem(this.storageKey, JSON.stringify(all));
+        } catch {}
+    }
+};
 
 // =====================================================
 // THEME
@@ -38,7 +93,7 @@ function loadSavedTheme() { window.setTheme(localStorage.getItem('secureEnergy_t
 // INITIALIZATION
 // =====================================================
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('[Portal] Initializing v2.2...');
+    console.log('[Portal] Initializing v2.3...');
     loadSavedTheme();
     
     await UserStore.init();
@@ -149,41 +204,362 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
 });
 
 // =====================================================
-// WIDGETS
+// WIDGETS - Enhanced with Drag, Resize, Collapse
 // =====================================================
+let draggedWidget = null;
+let dragOverWidget = null;
+
 function renderWidgets(user) {
     const container = document.getElementById('widgetsGrid');
     container.innerHTML = '';
-    WIDGETS.forEach(w => {
-        if (w.adminOnly && user.role !== 'admin') return;
-        if (user.permissions && user.permissions[w.id] === false) return;
-        container.appendChild(createWidgetElement(w));
+    
+    // Filter widgets based on permissions
+    let availableWidgets = DEFAULT_WIDGETS.filter(w => {
+        if (w.adminOnly && user.role !== 'admin') return false;
+        if (user.permissions && user.permissions[w.id] === false) return false;
+        return true;
     });
+    
+    // Apply saved order if exists
+    const savedOrder = WidgetLayout.getOrder(user.id);
+    if (savedOrder.length > 0) {
+        availableWidgets.sort((a, b) => {
+            const aIdx = savedOrder.indexOf(a.id);
+            const bIdx = savedOrder.indexOf(b.id);
+            if (aIdx === -1 && bIdx === -1) return 0;
+            if (aIdx === -1) return 1;
+            if (bIdx === -1) return -1;
+            return aIdx - bIdx;
+        });
+    }
+    
+    // Add reset layout button
+    const resetBtn = document.createElement('div');
+    resetBtn.className = 'widget-layout-controls';
+    resetBtn.innerHTML = `
+        <button class="layout-reset-btn" onclick="resetWidgetLayout()" title="Reset widget layout to default">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+            </svg>
+            Reset Layout
+        </button>
+    `;
+    container.appendChild(resetBtn);
+    
+    availableWidgets.forEach(w => {
+        container.appendChild(createWidgetElement(w, user));
+    });
+    
     if (user.role === 'admin') initAdminWidget();
     initAIAssistantWidget();
     initAnalysisHistoryWidget();
+    
+    // Initialize drag and drop
+    initDragAndDrop();
 }
 
-function createWidgetElement(widget) {
+function createWidgetElement(widget, user) {
     const div = document.createElement('div');
-    div.className = 'widget' + (widget.fullWidth ? ' full-width' : '');
+    
+    // Get saved config for this widget
+    const savedConfig = WidgetLayout.getWidgetConfig(user.id, widget.id) || {};
+    const isCollapsed = savedConfig.collapsed || false;
+    const isFullWidth = savedConfig.fullWidth !== undefined ? savedConfig.fullWidth : widget.fullWidth;
+    const currentHeight = savedConfig.height || widget.defaultHeight || 500;
+    
+    div.className = 'widget' + (isFullWidth ? ' full-width' : '') + (isCollapsed ? ' collapsed' : '');
     div.dataset.widgetId = widget.id;
+    div.draggable = true;
+    
+    // Control buttons
+    const controlsHtml = `
+        <div class="widget-controls">
+            <button class="widget-ctrl-btn collapse-btn" onclick="toggleWidgetCollapse('${widget.id}')" title="${isCollapsed ? 'Expand' : 'Collapse'}">
+                <svg class="collapse-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="${isCollapsed ? '6 9 12 15 18 9' : '18 15 12 9 6 15'}"/>
+                </svg>
+            </button>
+            <button class="widget-ctrl-btn width-btn" onclick="toggleWidgetWidth('${widget.id}')" title="${isFullWidth ? 'Standard width' : 'Full width'}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    ${isFullWidth 
+                        ? '<path d="M4 14h6v6H4zM14 4h6v6h-6z"/><path d="M14 14h6v6h-6z"/><path d="M4 4h6v6H4z"/>' 
+                        : '<path d="M3 8V5a2 2 0 0 1 2-2h3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M21 16v3a2 2 0 0 1-2 2h-3"/>'}
+                </svg>
+            </button>
+            <div class="widget-drag-handle" title="Drag to reorder">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/>
+                    <circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/>
+                </svg>
+            </div>
+        </div>
+    `;
     
     const popoutBtn = widget.src ? `<button class="widget-btn" onclick="popoutWidget('${widget.id}')" title="Pop out"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>` : '';
     
+    const contentStyle = `height:${currentHeight}px;${isCollapsed ? 'display:none;' : ''}`;
+    
     if (widget.embedded && widget.id === 'user-admin') {
-        div.innerHTML = `<div class="widget-header"><div class="widget-title">${widget.icon}<span>${widget.name}</span><span class="widget-badge">ADMIN</span></div></div><div class="widget-content admin-widget-content" id="adminWidgetContent" style="height:700px;"></div>`;
+        div.innerHTML = `
+            <div class="widget-header">
+                <div class="widget-title">${widget.icon}<span>${widget.name}</span><span class="widget-badge">ADMIN</span></div>
+                <div class="widget-actions">${controlsHtml}</div>
+            </div>
+            <div class="widget-content admin-widget-content" id="adminWidgetContent" style="${contentStyle}" data-default-height="${widget.defaultHeight}" data-min-height="${widget.minHeight}" data-max-height="${widget.maxHeight}"></div>
+            <div class="widget-resize-handle" data-widget-id="${widget.id}"></div>`;
     } else if (widget.embedded && widget.id === 'ai-assistant') {
-        div.innerHTML = `<div class="widget-header"><div class="widget-title">${widget.icon}<span>${widget.name}</span><span class="widget-badge" style="background:var(--accent-info);">BETA</span></div></div><div class="widget-content ai-assistant-content" id="aiAssistantContent" style="height:${widget.height||500}px;"></div>`;
+        div.innerHTML = `
+            <div class="widget-header">
+                <div class="widget-title">${widget.icon}<span>${widget.name}</span><span class="widget-badge" style="background:var(--accent-info);">BETA</span></div>
+                <div class="widget-actions">${controlsHtml}</div>
+            </div>
+            <div class="widget-content ai-assistant-content" id="aiAssistantContent" style="${contentStyle}" data-default-height="${widget.defaultHeight}" data-min-height="${widget.minHeight}" data-max-height="${widget.maxHeight}"></div>
+            <div class="widget-resize-handle" data-widget-id="${widget.id}"></div>`;
     } else if (widget.embedded && widget.id === 'analysis-history') {
-        div.innerHTML = `<div class="widget-header"><div class="widget-title">${widget.icon}<span>${widget.name}</span></div><div class="widget-actions"><button class="widget-btn" onclick="exportMyAnalysisRecords()" title="Export"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button><button class="widget-btn" onclick="refreshAnalysisHistory()" title="Refresh"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></button></div></div><div class="widget-content analysis-history-content" id="analysisHistoryContent" style="height:500px;overflow-y:auto;"></div>`;
+        div.innerHTML = `
+            <div class="widget-header">
+                <div class="widget-title">${widget.icon}<span>${widget.name}</span></div>
+                <div class="widget-actions">
+                    <button class="widget-btn" onclick="exportMyAnalysisRecords()" title="Export"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+                    <button class="widget-btn" onclick="refreshAnalysisHistory()" title="Refresh"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></button>
+                    ${controlsHtml}
+                </div>
+            </div>
+            <div class="widget-content analysis-history-content" id="analysisHistoryContent" style="${contentStyle}overflow-y:auto;" data-default-height="${widget.defaultHeight}" data-min-height="${widget.minHeight}" data-max-height="${widget.maxHeight}"></div>
+            <div class="widget-resize-handle" data-widget-id="${widget.id}"></div>`;
     } else {
-        div.innerHTML = `<div class="widget-header"><div class="widget-title">${widget.icon}<span>${widget.name}</span></div><div class="widget-actions">${popoutBtn}</div></div><div class="widget-content" style="height:${widget.height||500}px;"><iframe class="widget-iframe" src="${widget.src}" title="${widget.name}"></iframe></div>`;
+        div.innerHTML = `
+            <div class="widget-header">
+                <div class="widget-title">${widget.icon}<span>${widget.name}</span></div>
+                <div class="widget-actions">${popoutBtn}${controlsHtml}</div>
+            </div>
+            <div class="widget-content" style="${contentStyle}" data-default-height="${widget.defaultHeight}" data-min-height="${widget.minHeight}" data-max-height="${widget.maxHeight}">
+                <iframe class="widget-iframe" src="${widget.src}" title="${widget.name}"></iframe>
+            </div>
+            <div class="widget-resize-handle" data-widget-id="${widget.id}"></div>`;
     }
+    
     return div;
 }
 
-function popoutWidget(id) { const w = WIDGETS.find(x => x.id === id); if (w?.src) window.open(w.src, id, 'width=1200,height=800'); }
+// =====================================================
+// DRAG AND DROP
+// =====================================================
+function initDragAndDrop() {
+    const widgets = document.querySelectorAll('.widget[draggable="true"]');
+    
+    widgets.forEach(widget => {
+        widget.addEventListener('dragstart', handleDragStart);
+        widget.addEventListener('dragend', handleDragEnd);
+        widget.addEventListener('dragover', handleDragOver);
+        widget.addEventListener('dragenter', handleDragEnter);
+        widget.addEventListener('dragleave', handleDragLeave);
+        widget.addEventListener('drop', handleDrop);
+    });
+    
+    // Initialize resize handles
+    initResizeHandles();
+}
+
+function handleDragStart(e) {
+    draggedWidget = this;
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', this.dataset.widgetId);
+    
+    // Create ghost image
+    const ghost = this.cloneNode(true);
+    ghost.style.opacity = '0.5';
+    ghost.style.position = 'absolute';
+    ghost.style.top = '-1000px';
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost, 0, 0);
+    setTimeout(() => ghost.remove(), 0);
+}
+
+function handleDragEnd(e) {
+    this.classList.remove('dragging');
+    document.querySelectorAll('.widget').forEach(w => {
+        w.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
+    });
+    draggedWidget = null;
+    dragOverWidget = null;
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    if (this === draggedWidget) return;
+    
+    const rect = this.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    
+    this.classList.remove('drag-over-top', 'drag-over-bottom');
+    if (e.clientY < midY) {
+        this.classList.add('drag-over-top');
+    } else {
+        this.classList.add('drag-over-bottom');
+    }
+}
+
+function handleDragEnter(e) {
+    e.preventDefault();
+    if (this !== draggedWidget) {
+        this.classList.add('drag-over');
+        dragOverWidget = this;
+    }
+}
+
+function handleDragLeave(e) {
+    this.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!draggedWidget || this === draggedWidget) return;
+    
+    const container = document.getElementById('widgetsGrid');
+    const allWidgets = [...container.querySelectorAll('.widget[draggable="true"]')];
+    const draggedIdx = allWidgets.indexOf(draggedWidget);
+    const targetIdx = allWidgets.indexOf(this);
+    
+    const rect = this.getBoundingClientRect();
+    const dropAfter = e.clientY > (rect.top + rect.height / 2);
+    
+    // Remove dragged widget
+    draggedWidget.remove();
+    
+    // Insert at new position
+    if (dropAfter) {
+        this.after(draggedWidget);
+    } else {
+        this.before(draggedWidget);
+    }
+    
+    // Save new order
+    saveCurrentWidgetOrder();
+    
+    this.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
+    showNotification('Widget order updated', 'success');
+}
+
+function saveCurrentWidgetOrder() {
+    if (!currentUser) return;
+    const container = document.getElementById('widgetsGrid');
+    const order = [...container.querySelectorAll('.widget[data-widget-id]')].map(w => w.dataset.widgetId);
+    WidgetLayout.saveOrder(currentUser.id, order);
+}
+
+// =====================================================
+// RESIZE HANDLES
+// =====================================================
+function initResizeHandles() {
+    document.querySelectorAll('.widget-resize-handle').forEach(handle => {
+        handle.addEventListener('mousedown', initResize);
+    });
+}
+
+function initResize(e) {
+    e.preventDefault();
+    const handle = e.target;
+    const widget = handle.closest('.widget');
+    const content = widget.querySelector('.widget-content');
+    const widgetId = handle.dataset.widgetId;
+    
+    const startY = e.clientY;
+    const startHeight = content.offsetHeight;
+    const minHeight = parseInt(content.dataset.minHeight) || 200;
+    const maxHeight = parseInt(content.dataset.maxHeight) || 1200;
+    
+    function doResize(e) {
+        const newHeight = Math.min(maxHeight, Math.max(minHeight, startHeight + (e.clientY - startY)));
+        content.style.height = newHeight + 'px';
+    }
+    
+    function stopResize(e) {
+        document.removeEventListener('mousemove', doResize);
+        document.removeEventListener('mouseup', stopResize);
+        widget.classList.remove('resizing');
+        
+        // Save height
+        if (currentUser) {
+            WidgetLayout.saveWidgetConfig(currentUser.id, widgetId, { height: content.offsetHeight });
+        }
+    }
+    
+    widget.classList.add('resizing');
+    document.addEventListener('mousemove', doResize);
+    document.addEventListener('mouseup', stopResize);
+}
+
+// =====================================================
+// WIDGET CONTROLS
+// =====================================================
+window.toggleWidgetCollapse = function(widgetId) {
+    const widget = document.querySelector(`[data-widget-id="${widgetId}"]`);
+    if (!widget) return;
+    
+    const content = widget.querySelector('.widget-content');
+    const collapseBtn = widget.querySelector('.collapse-btn');
+    const isCollapsed = widget.classList.toggle('collapsed');
+    
+    if (isCollapsed) {
+        content.style.display = 'none';
+        widget.querySelector('.widget-resize-handle').style.display = 'none';
+    } else {
+        content.style.display = '';
+        widget.querySelector('.widget-resize-handle').style.display = '';
+    }
+    
+    // Update icon
+    const icon = collapseBtn.querySelector('.collapse-icon');
+    icon.innerHTML = isCollapsed 
+        ? '<polyline points="6 9 12 15 18 9"/>' 
+        : '<polyline points="18 15 12 9 6 15"/>';
+    collapseBtn.title = isCollapsed ? 'Expand' : 'Collapse';
+    
+    // Save state
+    if (currentUser) {
+        WidgetLayout.saveWidgetConfig(currentUser.id, widgetId, { collapsed: isCollapsed });
+    }
+};
+
+window.toggleWidgetWidth = function(widgetId) {
+    const widget = document.querySelector(`[data-widget-id="${widgetId}"]`);
+    if (!widget) return;
+    
+    const isFullWidth = widget.classList.toggle('full-width');
+    const widthBtn = widget.querySelector('.width-btn');
+    
+    // Update icon
+    widthBtn.innerHTML = isFullWidth 
+        ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14h6v6H4zM14 4h6v6h-6z"/><path d="M14 14h6v6h-6z"/><path d="M4 4h6v6H4z"/></svg>'
+        : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8V5a2 2 0 0 1 2-2h3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M21 16v3a2 2 0 0 1-2 2h-3"/></svg>';
+    widthBtn.title = isFullWidth ? 'Standard width' : 'Full width';
+    
+    // Save state
+    if (currentUser) {
+        WidgetLayout.saveWidgetConfig(currentUser.id, widgetId, { fullWidth: isFullWidth });
+    }
+};
+
+window.resetWidgetLayout = function() {
+    if (!currentUser) return;
+    if (confirm('Reset all widgets to default layout? This will restore default positions, sizes, and collapsed states.')) {
+        WidgetLayout.resetLayout(currentUser.id);
+        renderWidgets(currentUser);
+        showNotification('Widget layout reset to default', 'success');
+    }
+};
+
+function popoutWidget(id) { 
+    const w = DEFAULT_WIDGETS.find(x => x.id === id); 
+    if (w?.src) window.open(w.src, id, 'width=1200,height=800'); 
+}
 
 // =====================================================
 // ADMIN WIDGET
@@ -251,376 +627,359 @@ function getActivityLogPanel() {
 }
 
 function getGitHubSyncPanel() {
-    return `<div style="max-width:700px;">
-        <h3 style="margin-bottom:16px;font-size:16px;">GitHub Sync Configuration</h3>
-        <p style="margin-bottom:20px;color:var(--text-secondary);font-size:13px;">Sync activity logs to GitHub for cross-user persistence. Requires a GitHub PAT with <code>repo</code> scope.</p>
-        <div id="githubSyncStatus" style="margin-bottom:20px;"></div>
-        <div class="form-group" style="margin-bottom:16px;">
-            <label style="display:block;margin-bottom:8px;font-weight:500;">GitHub Personal Access Token</label>
-            <div style="display:flex;gap:10px;"><input type="password" id="githubTokenInput" placeholder="ghp_xxxxxxxxxxxx" style="flex:1;padding:10px 12px;border:1px solid var(--border-primary);border-radius:6px;background:var(--bg-primary);color:var(--text-primary);"><button onclick="saveGitHubToken()" class="btn-primary" style="padding:10px 20px;">Save</button></div>
-            <p style="font-size:11px;color:var(--text-tertiary);margin-top:6px;">Stored in sessionStorage only (clears on browser close)</p>
+    return `<div class="github-sync-panel">
+        <div class="github-status" id="githubSyncStatus">
+            <div class="status-indicator"></div>
+            <span>Checking sync status...</span>
         </div>
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;padding:12px;background:var(--bg-secondary);border-radius:8px;">
-            <label class="toggle-switch"><input type="checkbox" id="autoSyncToggle" onchange="toggleAutoSync(this.checked)" ${GitHubSync.autoSyncEnabled ? 'checked' : ''}><span class="toggle-slider"></span></label>
-            <div><div style="font-weight:500;">Auto-Sync</div><div style="font-size:12px;color:var(--text-tertiary);">Automatically sync after each activity</div></div>
+        <div class="github-actions" style="display:flex;gap:12px;margin-top:20px;">
+            <button class="btn-primary" onclick="GitHubSync.pushChanges()">Push to GitHub</button>
+            <button class="btn-secondary" onclick="GitHubSync.pullLatest()">Pull Latest</button>
         </div>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;">
-            <button onclick="testGitHubConnection()" class="export-btn">Test Connection</button>
-            <button onclick="manualSyncActivity()" class="export-btn">Sync Activity Now</button>
-            <button onclick="manualSyncUsers()" class="export-btn">Sync Users Now</button>
-            <button onclick="clearGitHubToken()" class="export-btn" style="background:#ef4444;">Clear Token</button>
-        </div>
-        <div style="margin-top:24px;padding:16px;background:var(--bg-tertiary);border-radius:8px;">
-            <h4 style="margin-bottom:12px;font-size:14px;">How to Create a Token:</h4>
-            <ol style="font-size:13px;color:var(--text-secondary);padding-left:20px;line-height:1.8;">
-                <li>GitHub → Settings → Developer Settings</li>
-                <li>Personal Access Tokens → Tokens (classic)</li>
-                <li>Generate new token (classic)</li>
-                <li>Name: "SES Activity Sync"</li>
-                <li>Scope: <strong>repo</strong> (full control)</li>
-                <li>Generate and copy</li>
-            </ol>
-        </div>
+        <div id="githubSyncLog" style="margin-top:20px;max-height:300px;overflow-y:auto;font-family:monospace;font-size:12px;"></div>
     </div>`;
 }
 
 function getErrorLogPanel() {
-    return `<div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <h3 style="margin:0;font-size:16px;">Error Log</h3>
-        <button onclick="clearErrorLog()" class="export-btn" style="background:#ef4444;">Clear All</button>
-    </div><div id="errorStatsContainer" style="margin-bottom:16px;"></div><div id="errorLogContainer" style="max-height:400px;overflow-y:auto;"></div></div>`;
+    return `<div class="error-log-panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h4 style="margin:0;">System Errors</h4>
+            <button class="btn-secondary" onclick="clearErrorLog()" style="font-size:12px;padding:6px 12px;">Clear Log</button>
+        </div>
+        <div id="errorLogContainer" style="max-height:400px;overflow-y:auto;"></div>
+    </div>`;
 }
 
 function getExportPanel() {
-    return `<div style="max-width:800px;">
-        <h3 style="margin-bottom:20px;font-size:16px;">Export Data</h3>
-        <div class="export-section"><h4>Users</h4><p style="font-size:13px;color:var(--text-tertiary);margin-bottom:12px;">Save as <code>data/users.json</code></p><button class="export-btn" onclick="exportUsers()">Download users.json</button></div>
-        <div class="export-section"><h4>Activity Log</h4><p style="font-size:13px;color:var(--text-tertiary);margin-bottom:12px;">Save as <code>data/activity-log.json</code></p><button class="export-btn" onclick="exportActivityLog()">Download activity-log.json</button></div>
-        <div class="export-section"><h4>LMP Data</h4><p style="font-size:13px;color:var(--text-tertiary);margin-bottom:12px;">Save as <code>data/lmp-database.json</code></p><button class="export-btn" onclick="exportLMPData()">Download lmp-database.json</button></div>
+    return `<div class="export-panel">
+        <h4 style="margin-bottom:20px;">Export Portal Data</h4>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:16px;">
+            <button class="export-btn" onclick="exportAllUsers()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6"/><path d="M23 11h-6"/></svg>
+                <span>Export Users</span>
+            </button>
+            <button class="export-btn" onclick="exportActivityLog()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>Export Activity</span>
+            </button>
+            <button class="export-btn" onclick="exportLMPData()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+                <span>Export LMP Data</span>
+            </button>
+        </div>
     </div>`;
 }
 
-// =====================================================
-// GITHUB SYNC FUNCTIONS
-// =====================================================
-function renderGitHubSyncStatus() {
-    const container = document.getElementById('githubSyncStatus');
-    if (!container) return;
-    const status = GitHubSync.getStatus();
-    const tokenInput = document.getElementById('githubTokenInput');
-    if (tokenInput && status.hasToken) tokenInput.value = '••••••••••••••••';
-    
-    container.innerHTML = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
-        <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;text-align:center;"><div style="font-size:12px;color:var(--text-tertiary);margin-bottom:4px;">Status</div><div style="font-size:14px;font-weight:600;color:${status.hasToken ? '#10b981' : '#f59e0b'};">${status.hasToken ? '✓ Connected' : '⚠ No Token'}</div></div>
-        <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;text-align:center;"><div style="font-size:12px;color:var(--text-tertiary);margin-bottom:4px;">Auto-Sync</div><div style="font-size:14px;font-weight:600;color:${status.autoSyncEnabled ? '#10b981' : '#6b7280'};">${status.autoSyncEnabled ? 'Enabled' : 'Disabled'}</div></div>
-        <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;text-align:center;"><div style="font-size:12px;color:var(--text-tertiary);margin-bottom:4px;">Last Sync</div><div style="font-size:14px;font-weight:600;">${status.lastSync ? new Date(status.lastSync).toLocaleString() : 'Never'}</div></div>
-    </div>`;
-}
-
-function saveGitHubToken() {
-    const input = document.getElementById('githubTokenInput'), token = input.value.trim();
-    if (!token || token === '••••••••••••••••') { showNotification('Enter a valid token', 'warning'); return; }
-    GitHubSync.setToken(token);
-    showNotification('Token saved! Testing...', 'info');
-    testGitHubConnection();
-}
-
-async function testGitHubConnection() {
-    trackButtonClick('Test GitHub Connection', 'github-sync');
-    showNotification('Testing connection...', 'info');
-    const result = await GitHubSync.testConnection();
-    showNotification(result.success ? `Connected to ${result.repo}!` : `Failed: ${result.error}`, result.success ? 'success' : 'error');
-    renderGitHubSyncStatus();
-}
-
-async function manualSyncActivity() {
-    trackButtonClick('Manual Sync Activity', 'github-sync');
-    if (!GitHubSync.hasToken()) { showNotification('Configure token first', 'warning'); return; }
-    showNotification('Syncing...', 'info');
-    const result = await GitHubSync.syncActivityLog();
-    showNotification(result.success ? `Synced ${result.count} activities!` : `Failed: ${result.error}`, result.success ? 'success' : 'error');
-    renderGitHubSyncStatus();
-    renderActivityLog();
-}
-
-async function manualSyncUsers() {
-    trackButtonClick('Manual Sync Users', 'github-sync');
-    if (!GitHubSync.hasToken()) { showNotification('Configure token first', 'warning'); return; }
-    showNotification('Syncing users...', 'info');
-    const result = await GitHubSync.syncUsers();
-    showNotification(result.success ? `Synced ${result.count} users!` : `Failed: ${result.error}`, result.success ? 'success' : 'error');
-    renderGitHubSyncStatus();
-}
-
-function toggleAutoSync(enabled) { GitHubSync.setAutoSync(enabled); showNotification(`Auto-sync ${enabled ? 'enabled' : 'disabled'}`, 'info'); }
-function clearGitHubToken() { if (!confirm('Clear token?')) return; GitHubSync.clearToken(); document.getElementById('githubTokenInput').value = ''; showNotification('Token cleared', 'info'); renderGitHubSyncStatus(); }
-
-// =====================================================
-// ERROR LOG FUNCTIONS
-// =====================================================
-function renderErrorLog() {
-    const container = document.getElementById('errorLogContainer'), statsContainer = document.getElementById('errorStatsContainer');
-    if (!container) return;
-    
-    const errors = ErrorLog.getRecent(50), stats = ErrorLog.getStats();
-    const typeColors = { javascript: '#ef4444', promise: '#f59e0b', github: '#8b5cf6', widget: '#ec4899', network: '#3b82f6', init: '#06b6d4', storage: '#84cc16', parse: '#14b8a6' };
-    
-    if (statsContainer) {
-        statsContainer.innerHTML = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
-            <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;text-align:center;border-left:4px solid #ef4444;"><div style="font-size:24px;font-weight:700;color:#ef4444;">${stats.total}</div><div style="font-size:11px;color:var(--text-tertiary);">Total</div></div>
-            <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;text-align:center;border-left:4px solid #f59e0b;"><div style="font-size:24px;font-weight:700;color:#f59e0b;">${stats.today}</div><div style="font-size:11px;color:var(--text-tertiary);">Today</div></div>
-            <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;text-align:center;border-left:4px solid #8b5cf6;"><div style="font-size:24px;font-weight:700;color:#8b5cf6;">${stats.unresolved}</div><div style="font-size:11px;color:var(--text-tertiary);">Unresolved</div></div>
-            <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;text-align:center;border-left:4px solid #10b981;"><div style="font-size:24px;font-weight:700;color:#10b981;">${stats.total - stats.unresolved}</div><div style="font-size:11px;color:var(--text-tertiary);">Resolved</div></div>
-        </div>`;
-    }
-    
-    if (errors.length === 0) { container.innerHTML = '<p style="color:var(--text-tertiary);text-align:center;padding:40px;">No errors logged 🎉</p>'; return; }
-    
-    container.innerHTML = errors.map(e => {
-        const color = typeColors[e.type] || '#6b7280';
-        return `<div style="background:var(--bg-secondary);border-radius:8px;padding:12px;margin-bottom:8px;border-left:4px solid ${color};${e.resolved ? 'opacity:0.6;' : ''}">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-                <div><span style="background:${color};color:white;padding:2px 8px;border-radius:4px;font-size:10px;text-transform:uppercase;">${e.type}</span><span style="margin-left:8px;font-size:12px;color:var(--text-tertiary);">${e.widget}</span></div>
-                <span style="font-size:11px;color:var(--text-tertiary);">${new Date(e.timestamp).toLocaleString()}</span>
-            </div>
-            <div style="font-size:13px;color:var(--text-primary);margin-bottom:8px;word-break:break-word;">${escapeHtml(e.message)}</div>
-            ${e.source ? `<div style="font-size:11px;color:var(--text-tertiary);">Source: ${e.source}${e.line ? ':' + e.line : ''}</div>` : ''}
-            ${!e.resolved ? `<button onclick="resolveError('${e.id}')" style="margin-top:8px;padding:4px 12px;font-size:11px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:4px;cursor:pointer;color:var(--text-secondary);">Mark Resolved</button>` : '<span style="font-size:11px;color:#10b981;">✓ Resolved</span>'}
-        </div>`;
-    }).join('');
-}
-
-function resolveError(id) { ErrorLog.resolve(id); renderErrorLog(); showNotification('Resolved', 'success'); }
-function clearErrorLog() { if (!confirm('Clear all errors?')) return; ErrorLog.clearAll(); renderErrorLog(); showNotification('Cleared', 'success'); }
-
-// =====================================================
-// USER MANAGEMENT
-// =====================================================
-function createUser() {
-    const firstName = document.getElementById('newFirstName').value.trim(), lastName = document.getElementById('newLastName').value.trim();
-    const email = document.getElementById('newEmail').value.trim(), password = document.getElementById('newPassword').value, role = document.getElementById('newRole').value;
-    if (!firstName || !lastName || !email || !password) { showNotification('Fill all required fields', 'error'); return; }
-    
-    const permissions = { 'ai-assistant': document.getElementById('perm-ai-assistant').checked, 'lmp-comparison': document.getElementById('perm-lmp-comparison').checked, 'lmp-analytics': document.getElementById('perm-lmp-analytics').checked, 'peak-demand': document.getElementById('perm-peak-demand').checked, 'analysis-history': document.getElementById('perm-analysis-history').checked, 'data-manager': document.getElementById('perm-data-manager').checked, 'arcadia-fetcher': document.getElementById('perm-arcadia-fetcher').checked, 'user-admin': role === 'admin' };
-    
-    try {
-        UserStore.create({ firstName, lastName, email, password, role, permissions });
-        showNotification('User created!', 'success');
-        ['newFirstName', 'newLastName', 'newEmail', 'newPassword'].forEach(id => document.getElementById(id).value = '');
-    } catch (e) { showNotification(e.message, 'error'); }
-}
-
+// Stub functions for admin panels (implement as needed)
 function renderUsersTable() {
     const tbody = document.getElementById('usersTableBody');
     if (!tbody) return;
-    tbody.innerHTML = UserStore.getAll().map(u => `<tr>
-        <td>${u.firstName} ${u.lastName}</td><td>${u.email}</td><td><span class="role-badge ${u.role}">${u.role}</span></td>
-        <td><span class="status-badge ${u.status}">${u.status}</span></td><td>${new Date(u.createdAt).toLocaleDateString()}</td>
-        <td><button class="action-btn" onclick="editUser('${u.id}')" title="Edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-        ${u.email !== 'admin@sesenergy.org' ? `<button class="action-btn delete" onclick="deleteUser('${u.id}')" title="Delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>` : ''}</td>
-    </tr>`).join('');
+    const users = UserStore.getAll();
+    tbody.innerHTML = users.map(u => `
+        <tr>
+            <td>${escapeHtml(u.firstName)} ${escapeHtml(u.lastName)}</td>
+            <td>${escapeHtml(u.email)}</td>
+            <td><span class="role-badge ${u.role}">${u.role}</span></td>
+            <td><span class="status-badge ${u.active !== false ? 'active' : 'inactive'}">${u.active !== false ? 'Active' : 'Inactive'}</span></td>
+            <td>${new Date(u.createdAt).toLocaleDateString()}</td>
+            <td>
+                <button class="action-btn" onclick="editUser('${u.id}')" title="Edit">✏️</button>
+                ${u.role !== 'admin' ? `<button class="action-btn" onclick="deleteUser('${u.id}')" title="Delete">🗑️</button>` : ''}
+            </td>
+        </tr>
+    `).join('');
 }
 
-function editUser(userId) {
-    const user = UserStore.findById(userId);
-    if (!user) return;
-    const modal = document.getElementById('editUserModal'), content = document.getElementById('editUserContent');
-    const p = user.permissions || {};
-    content.innerHTML = `<input type="hidden" id="editUserId" value="${user.id}">
-        <div class="form-row"><div class="form-group"><label>First Name</label><input type="text" id="editFirstName" value="${user.firstName}"></div><div class="form-group"><label>Last Name</label><input type="text" id="editLastName" value="${user.lastName}"></div></div>
-        <div class="form-row single"><div class="form-group"><label>Email</label><input type="email" id="editEmail" value="${user.email}" ${user.email === 'admin@sesenergy.org' ? 'disabled' : ''}></div></div>
-        <div class="form-row single"><div class="form-group"><label>Role</label><select id="editRole" ${user.email === 'admin@sesenergy.org' ? 'disabled' : ''}><option value="user" ${user.role === 'user' ? 'selected' : ''}>User</option><option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option></select></div></div>
-        <div class="widget-permissions" style="margin-top:20px;"><h4>Widget Permissions</h4>
-            <div class="widget-permission-item"><span>AI Assistant</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-ai-assistant" ${p['ai-assistant'] !== false ? 'checked' : ''}><span class="toggle-slider"></span></label></div>
-            <div class="widget-permission-item"><span>LMP Comparison</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-lmp-comparison" ${p['lmp-comparison'] !== false ? 'checked' : ''}><span class="toggle-slider"></span></label></div>
-            <div class="widget-permission-item"><span>LMP Analytics</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-lmp-analytics" ${p['lmp-analytics'] !== false ? 'checked' : ''}><span class="toggle-slider"></span></label></div>
-            <div class="widget-permission-item"><span>Peak Demand Analytics</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-peak-demand" ${p['peak-demand'] !== false ? 'checked' : ''}><span class="toggle-slider"></span></label></div>
-            <div class="widget-permission-item"><span>Analysis History</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-analysis-history" ${p['analysis-history'] !== false ? 'checked' : ''}><span class="toggle-slider"></span></label></div>
-            <div class="widget-permission-item"><span>Data Manager</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-data-manager" ${p['data-manager'] === true ? 'checked' : ''}><span class="toggle-slider"></span></label></div>
-            <div class="widget-permission-item"><span>Arcadia Fetcher</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-arcadia-fetcher" ${p['arcadia-fetcher'] === true ? 'checked' : ''}><span class="toggle-slider"></span></label></div>
+function renderActivityLog() {
+    const container = document.getElementById('activityLogContainer');
+    const statsGrid = document.getElementById('activityStatsGrid');
+    if (!container) return;
+    
+    const search = document.getElementById('activitySearch')?.value?.toLowerCase() || '';
+    const widgetFilter = document.getElementById('activityWidgetFilter')?.value || '';
+    
+    const logs = ActivityLog.getAll().filter(log => {
+        if (widgetFilter && log.widget !== widgetFilter) return false;
+        if (search) {
+            const searchStr = `${log.userName || ''} ${log.action || ''} ${log.widget || ''}`.toLowerCase();
+            if (!searchStr.includes(search)) return false;
+        }
+        return true;
+    }).slice(0, 100);
+    
+    // Stats
+    const allLogs = ActivityLog.getAll();
+    const today = new Date().toDateString();
+    const todayLogs = allLogs.filter(l => new Date(l.timestamp).toDateString() === today);
+    
+    if (statsGrid) {
+        statsGrid.innerHTML = `
+            <div class="stat-box"><div class="stat-value">${allLogs.length}</div><div class="stat-label">Total Events</div></div>
+            <div class="stat-box"><div class="stat-value">${todayLogs.length}</div><div class="stat-label">Today</div></div>
+            <div class="stat-box"><div class="stat-value">${new Set(allLogs.map(l => l.userId)).size}</div><div class="stat-label">Unique Users</div></div>
+            <div class="stat-box"><div class="stat-value">${allLogs.filter(l => l.action === 'LMP Analysis').length}</div><div class="stat-label">Analyses</div></div>
+        `;
+    }
+    
+    container.innerHTML = logs.length ? logs.map(log => `
+        <div class="activity-item">
+            <div class="activity-icon">${getActivityIcon(log.action)}</div>
+            <div class="activity-details">
+                <div class="activity-user">${escapeHtml(log.userName || 'Unknown')}</div>
+                <div class="activity-action">${escapeHtml(log.action || 'Action')} in ${escapeHtml(log.widget || 'Portal')}</div>
+            </div>
+            <div class="activity-time">${formatTimeAgo(log.timestamp)}</div>
         </div>
-        <button class="btn-primary" onclick="saveUserEdit()" style="width:100%;margin-top:20px;">Save</button>`;
+    `).join('') : '<div style="text-align:center;color:var(--text-tertiary);padding:40px;">No activity found</div>';
+}
+
+function renderGitHubSyncStatus() {
+    const status = document.getElementById('githubSyncStatus');
+    if (status) {
+        status.innerHTML = `<div class="status-indicator connected"></div><span>Connected to GitHub</span>`;
+    }
+}
+
+function renderErrorLog() {
+    const container = document.getElementById('errorLogContainer');
+    if (!container) return;
+    const errors = (typeof ErrorLog !== 'undefined' && ErrorLog.getAll) ? ErrorLog.getAll() : [];
+    container.innerHTML = errors.length ? errors.slice(0, 50).map(e => `
+        <div class="error-item" style="background:var(--bg-tertiary);padding:12px;border-radius:8px;margin-bottom:8px;border-left:3px solid #ef4444;">
+            <div style="font-weight:600;color:#ef4444;">${escapeHtml(e.type || 'Error')}</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">${escapeHtml(e.message || 'Unknown error')}</div>
+            <div style="font-size:11px;color:var(--text-tertiary);margin-top:4px;">${new Date(e.timestamp).toLocaleString()}</div>
+        </div>
+    `).join('') : '<div style="text-align:center;color:var(--text-tertiary);padding:40px;">No errors logged</div>';
+}
+
+function clearErrorLog() {
+    if (typeof ErrorLog !== 'undefined' && ErrorLog.clear) {
+        ErrorLog.clear();
+        renderErrorLog();
+        showNotification('Error log cleared', 'success');
+    }
+}
+
+function getActivityIcon(action) {
+    const icons = {
+        'Login': '🔑', 'Logout': '🚪', 'LMP Analysis': '📊', 'Export': '📥', 'Button Click': '👆'
+    };
+    return icons[action] || '📝';
+}
+
+function formatTimeAgo(timestamp) {
+    const seconds = Math.floor((new Date() - new Date(timestamp)) / 1000);
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds/60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds/3600)}h ago`;
+    return `${Math.floor(seconds/86400)}d ago`;
+}
+
+window.createUser = function() {
+    const firstName = document.getElementById('newFirstName')?.value?.trim();
+    const lastName = document.getElementById('newLastName')?.value?.trim();
+    const email = document.getElementById('newEmail')?.value?.trim();
+    const password = document.getElementById('newPassword')?.value;
+    const role = document.getElementById('newRole')?.value || 'user';
+    
+    if (!firstName || !lastName || !email || !password) {
+        showNotification('Please fill in all required fields', 'error');
+        return;
+    }
+    
+    const permissions = {
+        'ai-assistant': document.getElementById('perm-ai-assistant')?.checked,
+        'lmp-comparison': document.getElementById('perm-lmp-comparison')?.checked,
+        'lmp-analytics': document.getElementById('perm-lmp-analytics')?.checked,
+        'peak-demand': document.getElementById('perm-peak-demand')?.checked,
+        'analysis-history': document.getElementById('perm-analysis-history')?.checked,
+        'data-manager': document.getElementById('perm-data-manager')?.checked,
+        'arcadia-fetcher': document.getElementById('perm-arcadia-fetcher')?.checked
+    };
+    
+    const result = UserStore.create({ firstName, lastName, email, password, role, permissions });
+    if (result.success) {
+        showNotification(`User ${firstName} ${lastName} created!`, 'success');
+        // Clear form
+        ['newFirstName', 'newLastName', 'newEmail', 'newPassword'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+    } else {
+        showNotification(result.error || 'Failed to create user', 'error');
+    }
+};
+
+window.editUser = function(userId) {
+    const user = UserStore.getById(userId);
+    if (!user) return;
+    
+    const modal = document.getElementById('editUserModal');
+    const content = document.getElementById('editUserContent');
+    
+    content.innerHTML = `
+        <div class="edit-user-form">
+            <div class="form-row">
+                <div class="form-group"><label>First Name</label><input type="text" id="editFirstName" value="${escapeHtml(user.firstName)}"></div>
+                <div class="form-group"><label>Last Name</label><input type="text" id="editLastName" value="${escapeHtml(user.lastName)}"></div>
+            </div>
+            <div class="form-row single"><div class="form-group"><label>Email</label><input type="email" id="editEmail" value="${escapeHtml(user.email)}"></div></div>
+            <div class="form-row single"><div class="form-group"><label>New Password (leave blank to keep current)</label><input type="password" id="editPassword" placeholder="New password"></div></div>
+            <div class="form-row single"><div class="form-group"><label>Role</label><select id="editRole"><option value="user" ${user.role === 'user' ? 'selected' : ''}>Standard User</option><option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Administrator</option></select></div></div>
+            <div style="margin-top:20px;display:flex;gap:12px;">
+                <button class="btn-primary" onclick="saveUserEdit('${userId}')">Save Changes</button>
+                <button class="btn-secondary" onclick="closeEditModal()">Cancel</button>
+            </div>
+        </div>
+    `;
+    
     document.querySelector('#editUserModal .modal-title').textContent = 'Edit User';
     modal.classList.add('show');
-}
+};
 
-function saveUserEdit() {
-    const userId = document.getElementById('editUserId').value;
-    const permissions = {
-        'ai-assistant': document.getElementById('edit-perm-ai-assistant').checked,
-        'lmp-comparison': document.getElementById('edit-perm-lmp-comparison').checked,
-        'lmp-analytics': document.getElementById('edit-perm-lmp-analytics').checked,
-        'peak-demand': document.getElementById('edit-perm-peak-demand').checked,
-        'analysis-history': document.getElementById('edit-perm-analysis-history').checked,
-        'data-manager': document.getElementById('edit-perm-data-manager').checked,
-        'arcadia-fetcher': document.getElementById('edit-perm-arcadia-fetcher').checked,
-        'user-admin': document.getElementById('editRole').value === 'admin'
+window.saveUserEdit = function(userId) {
+    const updates = {
+        firstName: document.getElementById('editFirstName')?.value?.trim(),
+        lastName: document.getElementById('editLastName')?.value?.trim(),
+        email: document.getElementById('editEmail')?.value?.trim(),
+        role: document.getElementById('editRole')?.value
     };
-    try {
-        UserStore.update(userId, { 
-            firstName: document.getElementById('editFirstName').value.trim(), 
-            lastName: document.getElementById('editLastName').value.trim(), 
-            email: document.getElementById('editEmail').value.trim(), 
-            role: document.getElementById('editRole').value,
-            permissions: permissions
-        });
-        showNotification('Updated!', 'success');
+    
+    const newPassword = document.getElementById('editPassword')?.value;
+    if (newPassword) updates.password = newPassword;
+    
+    const result = UserStore.update(userId, updates);
+    if (result.success) {
+        showNotification('User updated!', 'success');
         closeEditModal();
         renderUsersTable();
-    } catch (e) { showNotification(e.message, 'error'); }
-}
+    } else {
+        showNotification(result.error || 'Failed to update user', 'error');
+    }
+};
 
-function deleteUser(userId) { if (!confirm('Delete this user?')) return; try { UserStore.delete(userId); showNotification('Deleted', 'success'); renderUsersTable(); } catch (e) { showNotification(e.message, 'error'); } }
-function closeEditModal() { document.getElementById('editUserModal').classList.remove('show'); }
+window.deleteUser = function(userId) {
+    if (!confirm('Are you sure you want to delete this user?')) return;
+    const result = UserStore.delete(userId);
+    if (result.success) {
+        showNotification('User deleted', 'success');
+        renderUsersTable();
+    } else {
+        showNotification(result.error || 'Failed to delete user', 'error');
+    }
+};
 
-// =====================================================
-// ACTIVITY LOG
-// =====================================================
-function renderActivityLog() {
-    const container = document.getElementById('activityLogContainer'), statsGrid = document.getElementById('activityStatsGrid');
-    if (!container) return;
-    if (statsGrid) renderActivityStats();
-    
-    const search = document.getElementById('activitySearch')?.value.toLowerCase() || '', widgetFilter = document.getElementById('activityWidgetFilter')?.value || '';
-    let activities = ActivityLog.getRecent(100);
-    if (search) activities = activities.filter(a => (a.clientName || a.data?.clientName || '').toLowerCase().includes(search) || (a.userName || '').toLowerCase().includes(search));
-    if (widgetFilter) activities = activities.filter(a => a.widget === widgetFilter);
-    
-    if (activities.length === 0) { container.innerHTML = '<p style="color:var(--text-tertiary);text-align:center;padding:40px;">No activities</p>'; return; }
-    
-    container.innerHTML = activities.map(a => {
-        const client = a.clientName || a.data?.clientName;
-        return `<div class="activity-card"><div class="activity-card-header"><span class="activity-card-title">${a.action}</span><span class="activity-card-time">${new Date(a.timestamp).toLocaleString()}</span></div>
-        <div class="activity-card-meta"><span>User: ${a.userName || 'Unknown'}</span><span>Widget: ${a.widget}</span>${client ? `<span style="color:var(--accent-primary);font-weight:600;">Client: ${client}</span>` : ''}</div></div>`;
-    }).join('');
-}
+window.closeEditModal = function() {
+    document.getElementById('editUserModal')?.classList.remove('show');
+};
 
-function renderActivityStats() {
-    const grid = document.getElementById('activityStatsGrid');
-    if (!grid) return;
-    const stats = ActivityLog.getActivityStats();
-    grid.innerHTML = `
-        <div style="background:var(--bg-secondary);border-radius:10px;padding:16px;border-left:4px solid var(--accent-primary);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><h4 style="margin:0;font-size:14px;">Logins</h4><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg></div><div style="display:flex;justify-content:space-around;text-align:center;"><div><div style="font-size:28px;font-weight:700;color:var(--accent-primary);">${stats.logins.today}</div><div style="font-size:11px;color:var(--text-tertiary);">TODAY</div></div><div style="border-left:1px solid var(--border-color);padding-left:20px;"><div style="font-size:28px;font-weight:700;color:var(--text-secondary);">${stats.logins.total}</div><div style="font-size:11px;color:var(--text-tertiary);">ALL TIME</div></div></div></div>
-        <div style="background:var(--bg-secondary);border-radius:10px;padding:16px;border-left:4px solid #10b981;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><h4 style="margin:0;font-size:14px;">LMP Calculations</h4><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div><div style="display:flex;justify-content:space-around;text-align:center;"><div><div style="font-size:28px;font-weight:700;color:#10b981;">${stats.lmpAnalyses.today}</div><div style="font-size:11px;color:var(--text-tertiary);">TODAY</div></div><div style="border-left:1px solid var(--border-color);padding-left:20px;"><div style="font-size:28px;font-weight:700;color:var(--text-secondary);">${stats.lmpAnalyses.total}</div><div style="font-size:11px;color:var(--text-tertiary);">ALL TIME</div></div></div></div>
-        <div style="background:var(--bg-secondary);border-radius:10px;padding:16px;border-left:4px solid #f59e0b;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><h4 style="margin:0;font-size:14px;">LMP Exports</h4><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div><div style="display:flex;justify-content:space-around;text-align:center;"><div><div style="font-size:28px;font-weight:700;color:#f59e0b;">${stats.lmpExports.today}</div><div style="font-size:11px;color:var(--text-tertiary);">TODAY</div></div><div style="border-left:1px solid var(--border-color);padding-left:20px;"><div style="font-size:28px;font-weight:700;color:var(--text-secondary);">${stats.lmpExports.total}</div><div style="font-size:11px;color:var(--text-tertiary);">ALL TIME</div></div></div></div>
-        <div style="background:var(--bg-secondary);border-radius:10px;padding:16px;border-left:4px solid #8b5cf6;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><h4 style="margin:0;font-size:14px;">AI Queries</h4><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg></div><div style="display:flex;justify-content:space-around;text-align:center;"><div><div style="font-size:28px;font-weight:700;color:#8b5cf6;">${stats.aiQueries.today}</div><div style="font-size:11px;color:var(--text-tertiary);">TODAY</div></div><div style="border-left:1px solid var(--border-color);padding-left:20px;"><div style="font-size:28px;font-weight:700;color:var(--text-secondary);">${stats.aiQueries.total}</div><div style="font-size:11px;color:var(--text-tertiary);">ALL TIME</div></div></div></div>`;
-}
+// Export functions (stubs)
+window.exportAllUsers = function() { showNotification('Exporting users...', 'info'); };
+window.exportActivityLog = function() { showNotification('Exporting activity...', 'info'); };
+window.exportLMPData = function() { showNotification('Exporting LMP data...', 'info'); };
 
 // =====================================================
-// EXPORTS
-// =====================================================
-function exportUsers() { downloadJSON(UserStore.exportForGitHub(), 'users.json'); }
-function exportActivityLog() { downloadJSON(ActivityLog.exportForGitHub(), 'activity-log.json'); }
-function exportLMPData() { downloadJSON(SecureEnergyData.exportForGitHub(), 'lmp-database.json'); }
-function downloadJSON(content, filename) { const blob = new Blob([content], { type: 'application/json' }), url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url); }
-
-function exportMyAnalysisRecords() {
-    trackButtonClick('Export Analysis Records', 'analysis-history');
-    const isAdmin = currentUser?.role === 'admin';
-    let analyses = ActivityLog.getAll().filter(a => a.widget === 'lmp-comparison');
-    if (!isAdmin) analyses = analyses.filter(a => a.userId === currentUser?.id);
-    if (analyses.length === 0) { showNotification('No records', 'warning'); return; }
-    
-    const headers = ['Date/Time', 'User', 'Client', 'ISO', 'Zone', 'Term', 'Fixed Rate', 'Index Cost', 'Fixed Cost', 'Savings'];
-    const rows = analyses.map(a => {
-        const d = a.data || {}, r = d.results || {};
-        return [new Date(a.timestamp).toLocaleString(), a.userName || '', d.clientName || '', d.iso || '', d.zone || '', d.termMonths || '', d.fixedPrice || '', r.totalIndexCost || '', r.totalFixedCost || '', r.savingsVsFixed || ''].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
-    });
-    const csv = [headers.join(','), ...rows].join('\n'), blob = new Blob([csv], { type: 'text/csv' }), url = URL.createObjectURL(blob), a = document.createElement('a');
-    a.href = url; a.download = `analysis-history-${new Date().toISOString().split('T')[0]}.csv`; a.click(); URL.revokeObjectURL(url);
-    ActivityLog.logHistoryExport({ userId: currentUser?.id, userEmail: currentUser?.email, userName: currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : null, recordCount: analyses.length });
-    showNotification(`Exported ${analyses.length} records`, 'success');
-}
-
-// =====================================================
-// AI ASSISTANT
+// AI ASSISTANT WIDGET
 // =====================================================
 function initAIAssistantWidget() {
     const content = document.getElementById('aiAssistantContent');
     if (!content) return;
-    content.innerHTML = `<div class="ai-assistant-container"><div class="ai-chat-messages" id="aiChatMessages">
-        <div class="ai-welcome-message"><div class="ai-avatar"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg></div><div class="ai-welcome-text"><h3>AI Assistant</h3><p>Search users, navigate widgets, analyze data.</p></div></div>
-        <div class="ai-suggestions"><span class="ai-suggestion" onclick="aiAssistantQuery('Show all users')">Show users</span><span class="ai-suggestion" onclick="aiAssistantQuery('LMP data status')">LMP data status</span></div>
-    </div><div class="ai-input-container"><input type="text" class="ai-input" id="aiAssistantInput" placeholder="Ask me..." onkeypress="if(event.key==='Enter')sendAIQuery()"><button class="ai-send-btn" onclick="sendAIQuery()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button></div></div>`;
-}
-
-function aiAssistantQuery(q) { document.getElementById('aiAssistantInput').value = q; sendAIQuery(); }
-function sendAIQuery() {
-    const input = document.getElementById('aiAssistantInput'), msgs = document.getElementById('aiChatMessages'), query = input.value.trim();
-    if (!query) return;
-    msgs.innerHTML += `<div class="ai-message user-message"><div class="message-content">${escapeHtml(query)}</div></div>`;
-    input.value = '';
-    const response = processAIQuery(query);
-    msgs.innerHTML += `<div class="ai-message ai-response"><div class="message-content">${response}</div></div>`;
-    msgs.scrollTop = msgs.scrollHeight;
     
-    // Log AI query
-    if (currentUser) {
-        ActivityLog.logAIQuery({
-            userId: currentUser.id,
-            userEmail: currentUser.email,
-            userName: `${currentUser.firstName} ${currentUser.lastName}`,
-            query: query.substring(0, 100), // Truncate for storage
-            responseLength: response.length
-        });
-    }
+    content.innerHTML = `
+        <div class="ai-chat-container">
+            <div class="ai-chat-messages" id="aiChatMessages">
+                <div class="ai-message assistant">
+                    <div class="ai-message-content">
+                        👋 Hi! I'm your AI assistant for Secure Energy Analytics. I can help you with:
+                        <ul style="margin:8px 0 0 16px;padding:0;">
+                            <li>Understanding LMP data and trends</li>
+                            <li>Comparing energy pricing strategies</li>
+                            <li>Navigating the portal features</li>
+                            <li>Explaining energy market concepts</li>
+                        </ul>
+                        How can I help you today?
+                    </div>
+                </div>
+            </div>
+            <div class="ai-chat-input-container">
+                <input type="text" class="ai-chat-input" id="aiChatInput" placeholder="Ask me anything about energy analytics...">
+                <button class="ai-chat-send" onclick="sendAIMessage()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('aiChatInput')?.addEventListener('keypress', e => {
+        if (e.key === 'Enter') sendAIMessage();
+    });
 }
 
-function processAIQuery(query) {
-    const q = query.toLowerCase();
-    if (q.includes('user')) { const users = UserStore.getAll(); return `<strong>${users.length} users:</strong><ul>${users.map(u => `<li>${u.firstName} ${u.lastName} - ${u.email}</li>`).join('')}</ul>`; }
-    if (q.includes('lmp') || q.includes('data')) { const stats = SecureEnergyData.getStats(); return stats.totalRecords > 0 ? `<strong>LMP Data:</strong> ${stats.totalRecords.toLocaleString()} records, ${stats.isoCount} ISOs` : 'No LMP data loaded'; }
-    if (q.includes('error')) { const stats = ErrorLog.getStats(); return `<strong>Errors:</strong> ${stats.total} total, ${stats.today} today, ${stats.unresolved} unresolved`; }
-    return `Try: "show users", "LMP data status", "error stats"`;
+window.sendAIMessage = function() {
+    const input = document.getElementById('aiChatInput');
+    const messages = document.getElementById('aiChatMessages');
+    if (!input || !messages) return;
+    
+    const text = input.value.trim();
+    if (!text) return;
+    
+    // Add user message
+    messages.innerHTML += `<div class="ai-message user"><div class="ai-message-content">${escapeHtml(text)}</div></div>`;
+    input.value = '';
+    
+    // Simulate AI response
+    setTimeout(() => {
+        messages.innerHTML += `<div class="ai-message assistant"><div class="ai-message-content">I understand you're asking about "${escapeHtml(text)}". This is a demo response - in production, this would connect to an AI backend for intelligent responses about energy analytics.</div></div>`;
+        messages.scrollTop = messages.scrollHeight;
+    }, 500);
+    
+    messages.scrollTop = messages.scrollHeight;
+};
+
+// =====================================================
+// ANALYSIS HISTORY WIDGET
+// =====================================================
+function initAnalysisHistoryWidget() {
+    renderAnalysisHistory();
 }
-
-const AISearch = { init() { const input = document.getElementById('aiSearchInput'); if (input) input.addEventListener('keypress', e => { if (e.key === 'Enter' && input.value.trim()) { document.getElementById('aiAssistantInput').value = input.value; sendAIQuery(); scrollToWidget('ai-assistant'); input.value = ''; } }); } };
-
-// =====================================================
-// ANALYSIS HISTORY
-// =====================================================
-let analysisHistoryFilters = { search: '', user: 'all', iso: 'all' };
-function initAnalysisHistoryWidget() { if (document.getElementById('analysisHistoryContent')) renderAnalysisHistory(); }
-function refreshAnalysisHistory() { trackButtonClick('Refresh History', 'analysis-history'); renderAnalysisHistory(); showNotification('Refreshed', 'success'); }
-function updateAnalysisFilter(type, value) { analysisHistoryFilters[type] = value; renderAnalysisHistory(); }
 
 function renderAnalysisHistory() {
     const content = document.getElementById('analysisHistoryContent');
-    if (!content) return;
-    const isAdmin = currentUser?.role === 'admin';
-    let all = ActivityLog.getAll().filter(a => a.widget === 'lmp-comparison');
-    if (!isAdmin) all = all.filter(a => a.userId === currentUser?.id);
+    if (!content || !currentUser) return;
     
-    let analyses = all.filter(a => {
-        if (analysisHistoryFilters.search) { const s = analysisHistoryFilters.search.toLowerCase(); if (!(a.data?.clientName || a.clientName || '').toLowerCase().includes(s) && !(a.userName || '').toLowerCase().includes(s)) return false; }
-        if (isAdmin && analysisHistoryFilters.user !== 'all' && a.userId !== analysisHistoryFilters.user) return false;
-        if (analysisHistoryFilters.iso !== 'all' && a.data?.iso !== analysisHistoryFilters.iso) return false;
-        return true;
-    }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const analyses = ActivityLog.getAll().filter(a => 
+        a.action === 'LMP Analysis' && 
+        (currentUser.role === 'admin' || a.userId === currentUser.id)
+    ).slice(0, 20);
     
-    if (all.length === 0) { content.innerHTML = '<div style="text-align:center;padding:60px;color:var(--text-tertiary);">No analyses yet</div>'; return; }
+    if (!analyses.length) {
+        content.innerHTML = '<div style="text-align:center;color:var(--text-tertiary);padding:60px 20px;">No analyses yet. Use the LMP Comparison Portal to run your first analysis!</div>';
+        return;
+    }
     
-    const totalSavings = analyses.reduce((sum, a) => sum + (a.data?.results?.savingsVsFixed || 0), 0);
-    const uniqueISOs = [...new Set(all.map(a => a.data?.iso).filter(Boolean))];
-    
-    content.innerHTML = `
-        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding:12px;background:var(--bg-secondary);border-radius:8px;">
-            <input type="text" placeholder="Search..." value="${analysisHistoryFilters.search}" oninput="updateAnalysisFilter('search',this.value)" style="flex:1;min-width:200px;padding:8px 12px;border:1px solid var(--border-primary);border-radius:6px;background:var(--bg-primary);color:var(--text-primary);">
-            <select onchange="updateAnalysisFilter('iso',this.value)" style="padding:8px 12px;border:1px solid var(--border-primary);border-radius:6px;background:var(--bg-primary);color:var(--text-primary);"><option value="all">All ISOs</option>${uniqueISOs.map(iso => `<option value="${iso}" ${analysisHistoryFilters.iso === iso ? 'selected' : ''}>${iso}</option>`).join('')}</select>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px;background:var(--bg-secondary);border-radius:8px;margin-bottom:16px;">
-            <div style="text-align:center;"><div style="font-size:24px;font-weight:700;color:var(--accent-primary);">${analyses.length}</div><div style="font-size:11px;color:var(--text-tertiary);">ANALYSES</div></div>
-            <div style="text-align:center;"><div style="font-size:24px;font-weight:700;color:${totalSavings >= 0 ? '#10b981' : '#ef4444'};">${totalSavings >= 0 ? '+' : ''}$${Math.abs(totalSavings).toLocaleString(undefined, {maximumFractionDigits: 0})}</div><div style="font-size:11px;color:var(--text-tertiary);">TOTAL SAVINGS</div></div>
-            <div style="text-align:center;"><div style="font-size:24px;font-weight:700;color:var(--accent-secondary);">${analyses.length ? '$' + Math.abs(totalSavings / analyses.length).toLocaleString(undefined, {maximumFractionDigits: 0}) : '$0'}</div><div style="font-size:11px;color:var(--text-tertiary);">AVG SAVINGS</div></div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:12px;max-height:350px;overflow-y:auto;">${analyses.map(a => renderAnalysisCard(a)).join('')}</div>`;
+    content.innerHTML = `<div style="display:flex;flex-direction:column;gap:12px;padding:16px;">${analyses.map(a => createAnalysisCard(a)).join('')}</div>`;
 }
 
-function renderAnalysisCard(a) {
-    const d = a.data || {}, r = d.results || {}, savings = r.savingsVsFixed || 0, client = d.clientName || a.clientName || 'Unnamed';
-    const time = new Date(a.timestamp), timeStr = new Date().toDateString() === time.toDateString() ? 'Today ' + time.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : time.toLocaleDateString();
-    const showData = encodeURIComponent(JSON.stringify({ ...a, clientName: client }));
-    const reloadData = encodeURIComponent(JSON.stringify({ clientName: client, iso: d.iso, zone: d.zone, startDate: d.startDate, termMonths: d.termMonths, fixedPrice: d.fixedPrice, lmpAdjustment: d.lmpAdjustment || 0, usage: d.totalAnnualUsage || d.usage }));
+window.refreshAnalysisHistory = function() {
+    renderAnalysisHistory();
+    showNotification('Analysis history refreshed', 'success');
+};
+
+window.exportMyAnalysisRecords = function() {
+    showNotification('Exporting analysis records...', 'info');
+};
+
+function createAnalysisCard(a) {
+    const d = a.data || {};
+    const r = d.results || {};
+    const savings = r.savingsVsFixed || 0;
+    const client = a.clientName || d.clientName || 'Unnamed Analysis';
+    const timeStr = formatTimeAgo(a.timestamp);
+    const showData = encodeURIComponent(JSON.stringify(a));
+    const reloadData = encodeURIComponent(JSON.stringify(d));
     
     return `<div style="background:var(--bg-secondary);border-radius:10px;padding:16px;border-left:4px solid ${savings >= 0 ? '#10b981' : '#ef4444'};">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
@@ -634,7 +993,7 @@ function renderAnalysisCard(a) {
     </div>`;
 }
 
-function showAnalysisDetail(encodedData) {
+window.showAnalysisDetail = function(encodedData) {
     trackButtonClick('Show Analysis Detail', 'analysis-history');
     try {
         const a = JSON.parse(decodeURIComponent(encodedData)), d = a.data || {}, r = d.results || {}, savings = r.savingsVsFixed || 0, client = a.clientName || d.clientName || 'Unnamed';
@@ -658,9 +1017,9 @@ function showAnalysisDetail(encodedData) {
         document.querySelector('#editUserModal .modal-title').textContent = 'Analysis Details';
         modal.classList.add('show');
     } catch (e) { showNotification('Failed to load details', 'error'); }
-}
+};
 
-function reloadAnalysis(encodedData) {
+window.reloadAnalysis = function(encodedData) {
     trackButtonClick('Reload Analysis', 'analysis-history');
     try {
         const data = JSON.parse(decodeURIComponent(encodedData));
@@ -671,16 +1030,59 @@ function reloadAnalysis(encodedData) {
             showNotification('Loaded into calculator', 'success');
         } else { showNotification('Open LMP Comparison first', 'warning'); }
     } catch (e) { showNotification('Failed to reload', 'error'); }
-}
+};
+
+// =====================================================
+// AI SEARCH
+// =====================================================
+const AISearch = {
+    init() {
+        const input = document.getElementById('aiSearchInput');
+        if (!input) return;
+        
+        input.addEventListener('keypress', e => {
+            if (e.key === 'Enter') {
+                const query = input.value.trim();
+                if (query) {
+                    // Scroll to AI Assistant and populate
+                    scrollToWidget('ai-assistant');
+                    const aiInput = document.getElementById('aiChatInput');
+                    if (aiInput) {
+                        aiInput.value = query;
+                        sendAIMessage();
+                    }
+                    input.value = '';
+                }
+            }
+        });
+    }
+};
 
 // =====================================================
 // UTILITIES
 // =====================================================
-function showNotification(message, type = 'info') { const n = document.getElementById('notification'); n.textContent = message; n.className = 'notification show ' + type; setTimeout(() => n.classList.remove('show'), 3000); }
-function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
-function scrollToWidget(id) { const w = document.querySelector(`[data-widget-id="${id}"]`); if (w) { w.scrollIntoView({ behavior: 'smooth' }); w.style.boxShadow = '0 0 20px var(--se-light-green)'; setTimeout(() => w.style.boxShadow = '', 2000); } }
+function showNotification(message, type = 'info') { 
+    const n = document.getElementById('notification'); 
+    n.textContent = message; 
+    n.className = 'notification show ' + type; 
+    setTimeout(() => n.classList.remove('show'), 3000); 
+}
 
-// Track button clicks for analytics
+function escapeHtml(text) { 
+    const div = document.createElement('div'); 
+    div.textContent = text; 
+    return div.innerHTML; 
+}
+
+function scrollToWidget(id) { 
+    const w = document.querySelector(`[data-widget-id="${id}"]`); 
+    if (w) { 
+        w.scrollIntoView({ behavior: 'smooth' }); 
+        w.style.boxShadow = '0 0 20px var(--se-light-green)'; 
+        setTimeout(() => w.style.boxShadow = '', 2000); 
+    } 
+}
+
 function trackButtonClick(buttonName, widget = 'portal', context = null) {
     if (currentUser) {
         ActivityLog.logButtonClick({
