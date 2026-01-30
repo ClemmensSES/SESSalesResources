@@ -1,6 +1,6 @@
 /**
  * Secure Energy Analytics Portal - Help System Styles
- * Add this to your main.css or include as separate file
+ * Compatible with main.js v2.4
  */
 
 /* =====================================================
@@ -33,13 +33,6 @@
     display: block;
 }
 
-/* Ensure header can accommodate the icon */
-.widget-header {
-    display: flex;
-    align-items: center;
-    flex-wrap: nowrap;
-}
-
 /* =====================================================
    TOOLTIP
    ===================================================== */
@@ -47,11 +40,11 @@
     position: fixed;
     z-index: 10000;
     width: 280px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-primary);
+    background: var(--bg-secondary, #1a1a2e);
+    border: 1px solid var(--border-primary, rgba(255,255,255,0.1));
     border-radius: 10px;
     padding: 14px 16px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
     opacity: 0;
     visibility: hidden;
     transform: translateY(8px);
@@ -72,9 +65,9 @@
     left: 20px;
     width: 12px;
     height: 12px;
-    background: var(--bg-secondary);
-    border-left: 1px solid var(--border-primary);
-    border-top: 1px solid var(--border-primary);
+    background: var(--bg-secondary, #1a1a2e);
+    border-left: 1px solid var(--border-primary, rgba(255,255,255,0.1));
+    border-top: 1px solid var(--border-primary, rgba(255,255,255,0.1));
     transform: rotate(45deg);
 }
 
@@ -86,14 +79,14 @@
 
 .help-tooltip-title {
     font-weight: 600;
-    font-size: 13px;
-    color: var(--accent-primary);
-    margin-bottom: 6px;
+    font-size: 14px;
+    color: var(--accent-primary, #00c853);
+    margin-bottom: 8px;
 }
 
 .help-tooltip-desc {
-    font-size: 12px;
-    color: var(--text-secondary);
+    font-size: 13px;
+    color: var(--text-secondary, #ccc);
     line-height: 1.5;
 }
 
@@ -101,15 +94,80 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid var(--border-primary);
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-primary, rgba(255,255,255,0.1));
 }
 
 .tip-item {
-    font-size: 11px;
-    color: var(--text-tertiary);
+    font-size: 12px;
+    color: var(--text-tertiary, #888);
     line-height: 1.4;
+}
+
+/* =====================================================
+   QUICK ACTION BUTTONS BAR
+   ===================================================== */
+.quick-actions-bar {
+    padding: 10px 14px;
+    background: var(--bg-tertiary, rgba(255,255,255,0.05));
+    border-bottom: 1px solid var(--border-primary, rgba(255,255,255,0.1));
+}
+
+.quick-actions-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.quick-action-btn {
+    background: var(--bg-secondary, #1a1a2e);
+    border: 1px solid var(--border-primary, rgba(255,255,255,0.15));
+    color: var(--text-secondary, #ccc);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.quick-action-btn:hover {
+    background: var(--accent-primary, #00c853);
+    border-color: var(--accent-primary, #00c853);
+    color: #000;
+    transform: translateY(-1px);
+}
+
+.quick-action-btn:active {
+    transform: translateY(0);
+}
+
+/* =====================================================
+   AI HELP GRID (inside chat responses)
+   ===================================================== */
+.ai-help-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.ai-help-item {
+    background: var(--bg-tertiary, rgba(255,255,255,0.05));
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+    text-align: center;
+}
+
+.ai-help-item:hover {
+    background: var(--bg-secondary, #1a1a2e);
+    border-color: var(--accent-primary, #00c853);
+    transform: translateY(-2px);
 }
 
 /* =====================================================
@@ -128,27 +186,27 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: var(--bg-primary);
+    background: var(--bg-primary, #0d0d1a);
     border: 2px solid var(--se-green, #00c853);
     border-radius: 12px;
     padding: 20px;
-    width: 300px;
+    width: 320px;
     max-width: 90%;
     z-index: 101;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     text-align: center;
 }
 
 .tour-popup-title {
     font-weight: 700;
-    font-size: 15px;
+    font-size: 16px;
     color: var(--se-green, #00c853);
-    margin-bottom: 8px;
+    margin-bottom: 10px;
 }
 
 .tour-popup-msg {
-    font-size: 13px;
-    color: var(--text-secondary);
+    font-size: 14px;
+    color: var(--text-secondary, #ccc);
     line-height: 1.5;
     margin-bottom: 16px;
 }
@@ -157,18 +215,18 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 12px;
-    color: var(--text-tertiary);
+    font-size: 13px;
+    color: var(--text-tertiary, #888);
 }
 
 .tour-next-btn {
     background: var(--se-green, #00c853);
     color: #000;
     border: none;
-    padding: 8px 16px;
+    padding: 10px 20px;
     border-radius: 6px;
     font-weight: 600;
-    font-size: 12px;
+    font-size: 13px;
     cursor: pointer;
     transition: all 0.2s ease;
 }
@@ -179,113 +237,27 @@
 }
 
 /* =====================================================
-   QUICK ACTION BUTTONS BAR
+   AI MESSAGE ENHANCEMENTS
    ===================================================== */
-.quick-actions-bar {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 12px 14px;
-    background: var(--bg-tertiary, rgba(255,255,255,0.05));
-    border-bottom: 1px solid var(--border-primary, rgba(255,255,255,0.1));
-    margin-bottom: 0;
-}
-
-.quick-actions-label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--text-tertiary, #888);
-}
-
-.quick-actions-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-}
-
-.quick-action-btn {
-    background: var(--bg-secondary, #1a1a2e);
-    border: 1px solid var(--border-primary, rgba(255,255,255,0.1));
-    color: var(--text-secondary, #ccc);
-    padding: 6px 12px;
-    border-radius: 16px;
-    font-size: 12px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    white-space: nowrap;
-}
-
-.quick-action-btn:hover {
-    background: var(--accent-primary, #00c853);
-    border-color: var(--accent-primary, #00c853);
-    color: #000;
-    transform: translateY(-1px);
-}
-
-.quick-action-btn:active {
-    transform: translateY(0);
-}
-
-/* =====================================================
-   ENHANCED AI ASSISTANT STYLES
-   ===================================================== */
-.ai-help-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-    margin-top: 12px;
-}
-
-.ai-help-item {
-    background: var(--bg-tertiary);
-    padding: 10px 12px;
-    border-radius: 8px;
-    font-size: 12px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    border: 1px solid transparent;
-}
-
-.ai-help-item:hover {
-    background: var(--bg-secondary);
-    border-color: var(--accent-primary);
-    transform: translateY(-1px);
-}
-
-/* Improve existing AI message styling */
-.ai-message p {
-    margin: 8px 0;
-}
-
-.ai-message strong {
-    color: var(--accent-primary);
-}
-
-.ai-message a {
+.ai-message-content a {
     color: var(--se-green, #00c853);
     text-decoration: none;
 }
 
-.ai-message a:hover {
+.ai-message-content a:hover {
     text-decoration: underline;
 }
 
-/* Result lists in AI responses */
-.ai-result-list {
-    margin: 8px 0 8px 20px;
-    padding: 0;
+.ai-message-content strong {
+    color: var(--text-primary, #fff);
 }
 
-.ai-result-list li {
-    margin: 4px 0;
-    font-size: 13px;
-    line-height: 1.5;
+.ai-message-content em {
+    color: var(--text-tertiary, #888);
 }
 
 /* =====================================================
-   RESPONSIVE ADJUSTMENTS
+   RESPONSIVE
    ===================================================== */
 @media (max-width: 768px) {
     .help-tooltip {
@@ -299,6 +271,10 @@
     }
     
     .tour-popup {
-        width: 260px;
+        width: 280px;
+    }
+    
+    .quick-actions-buttons {
+        justify-content: center;
     }
 }
