@@ -1,9 +1,3 @@
-Here's the clean file. To fix it in GitHub:
-Go to your repo → .github/workflows/update-lmp-data.yml
-Click the pencil icon (Edit this file)
-Select all (Ctrl+A) and delete everything
-Download the file I just provided and copy its contents, OR copy from here:
-yaml
 name: Update LMP Data Monthly
 
 on:
