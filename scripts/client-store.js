@@ -236,12 +236,30 @@
             utility: clientData.utility || '',
             loadZone: clientData.loadZone || '',
             annualUsageMWh: clientData.annualUsageMWh || '',
+            annualUsageKwh: clientData.annualUsageKwh || '',
             contractEndDate: clientData.contractEndDate || '',
             currentSupplier: clientData.currentSupplier || '',
             rateType: clientData.rateType || '',
             
+            // Contract Details (from Salesforce)
+            parentAccountCustomer: clientData.parentAccountCustomer || '',
+            contractName: clientData.contractName || '',
+            contractStatus: clientData.contractStatus || '',
+            contractStartDate: clientData.contractStartDate || '',
+            signDate: clientData.signDate || '',
+            productCategory: clientData.productCategory || '',
+            numberOfMeters: clientData.numberOfMeters || '',
+            activeMeterCount: clientData.activeMeterCount || '',
+            contractMargin: clientData.contractMargin || '',
+            assignedGroup: clientData.assignedGroup || '',
+            budaEligible: clientData.budaEligible || '',
+            budaNotes: clientData.budaNotes || '',
+            
             // Locations (for multi-site clients)
             locations: clientData.locations || [],
+            
+            // Usage Profile (from Energy Utilization widget)
+            usageProfile: clientData.usageProfile || null,
             
             // Sales Info
             salesRepId: clientData.salesRepId || '',

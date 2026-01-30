@@ -641,6 +641,7 @@ function getCreateUserPanel() {
         <div class="form-row single"><div class="form-group"><label>Role</label><select id="newRole"><option value="user">Standard User</option><option value="admin">Administrator</option></select></div></div>
         <div class="widget-permissions"><h4>Widget Permissions</h4>
             <div class="widget-permission-item"><span>Client Lookup</span><label class="toggle-switch"><input type="checkbox" id="perm-client-lookup" checked><span class="toggle-slider"></span></label></div>
+            <div class="widget-permission-item"><span>Client Administration</span><label class="toggle-switch"><input type="checkbox" id="perm-client-admin" checked><span class="toggle-slider"></span></label><span style="font-size:0.7rem;color:var(--text-tertiary);margin-left:6px;">(Admin only)</span></div>
             <div class="widget-permission-item"><span>Energy Utilization</span><label class="toggle-switch"><input type="checkbox" id="perm-energy-utilization" checked><span class="toggle-slider"></span></label></div>
             <div class="widget-permission-item"><span>Bid Management</span><label class="toggle-switch"><input type="checkbox" id="perm-bid-management" checked><span class="toggle-slider"></span></label></div>
             <div class="widget-permission-item"><span>AI Assistant</span><label class="toggle-switch"><input type="checkbox" id="perm-ai-assistant" checked><span class="toggle-slider"></span></label></div>
@@ -826,6 +827,7 @@ window.createUser = function() {
     
     const permissions = {
         'client-lookup': document.getElementById('perm-client-lookup')?.checked,
+        'client-admin': document.getElementById('perm-client-admin')?.checked,
         'energy-utilization': document.getElementById('perm-energy-utilization')?.checked,
         'bid-management': document.getElementById('perm-bid-management')?.checked,
         'ai-assistant': document.getElementById('perm-ai-assistant')?.checked,
@@ -874,6 +876,7 @@ window.editUser = function(userId) {
             <div class="widget-permissions" style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border-color);">
                 <h4 style="margin-bottom:12px;color:var(--text-secondary);">Widget Permissions</h4>
                 <div class="widget-permission-item"><span>Client Lookup</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-client-lookup" ${getChecked('client-lookup')}><span class="toggle-slider"></span></label></div>
+                <div class="widget-permission-item"><span>Client Administration</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-client-admin" ${getChecked('client-admin')}><span class="toggle-slider"></span></label><span style="font-size:0.7rem;color:var(--text-tertiary);margin-left:6px;">(Admin only)</span></div>
                 <div class="widget-permission-item"><span>Energy Utilization</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-energy-utilization" ${getChecked('energy-utilization')}><span class="toggle-slider"></span></label></div>
                 <div class="widget-permission-item"><span>Bid Management</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-bid-management" ${getChecked('bid-management')}><span class="toggle-slider"></span></label></div>
                 <div class="widget-permission-item"><span>AI Assistant</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-ai-assistant" ${getChecked('ai-assistant')}><span class="toggle-slider"></span></label></div>
@@ -904,6 +907,7 @@ window.saveUserEdit = function(userId) {
         role: document.getElementById('editRole')?.value,
         permissions: {
             'client-lookup': document.getElementById('edit-perm-client-lookup')?.checked,
+            'client-admin': document.getElementById('edit-perm-client-admin')?.checked,
             'energy-utilization': document.getElementById('edit-perm-energy-utilization')?.checked,
             'bid-management': document.getElementById('edit-perm-bid-management')?.checked,
             'ai-assistant': document.getElementById('edit-perm-ai-assistant')?.checked,
