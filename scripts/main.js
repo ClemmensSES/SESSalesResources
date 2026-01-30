@@ -208,19 +208,53 @@ function showPortal(user) {
     renderWidgets(user);
 }
 
-document.getElementById('loginForm').addEventListener('submit', function(e) {
+document.getElementById('loginForm').addEventListener('submit', async function(e) {
     e.preventDefault();
-    const email = document.getElementById('loginEmail').value, password = document.getElementById('loginPassword').value;
-    const result = UserStore.authenticate(email, password);
-    if (result.success) {
-        currentUser = result.user;
-        UserStore.setCurrentUser(result.user);
-        showPortal(result.user);
-        showNotification('Welcome back, ' + result.user.firstName + '!', 'success');
-        ActivityLog.log({ userId: result.user.id, userEmail: result.user.email, userName: `${result.user.firstName} ${result.user.lastName}`, widget: 'portal', action: 'Login' });
-    } else {
-        document.getElementById('loginError').textContent = result.error;
-        document.getElementById('loginError').classList.add('show');
+    
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    const errorEl = document.getElementById('loginError');
+    const submitBtn = this.querySelector('button[type="submit"]');
+    
+    // Show loading state
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.dataset.originalText = submitBtn.textContent;
+        submitBtn.textContent = 'Signing in...';
+    }
+    if (errorEl) errorEl.classList.remove('show');
+    
+    try {
+        // CRITICAL: authenticate() is async and fetches fresh user data from GitHub
+        // This ensures users can log in from ANY device, not just where they were created
+        const result = await UserStore.authenticate(email, password);
+        
+        if (result.success) {
+            currentUser = result.user;
+            UserStore.setCurrentUser(result.user);
+            showPortal(result.user);
+            showNotification('Welcome back, ' + result.user.firstName + '!', 'success');
+            ActivityLog.log({ 
+                userId: result.user.id, 
+                userEmail: result.user.email, 
+                userName: `${result.user.firstName} ${result.user.lastName}`, 
+                widget: 'portal', 
+                action: 'Login' 
+            });
+        } else {
+            errorEl.textContent = result.error;
+            errorEl.classList.add('show');
+        }
+    } catch (err) {
+        console.error('[Login] Error:', err);
+        errorEl.textContent = 'Login error. Please try again.';
+        errorEl.classList.add('show');
+    } finally {
+        // Reset button state
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = submitBtn.dataset.originalText || 'Sign In';
+        }
     }
 });
 
