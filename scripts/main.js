@@ -1,5 +1,9 @@
 /**
- * Secure Energy Analytics Portal - Main Controller v2.6
+ * Secure Energy Analytics Portal - Main Controller v2.7
+ * 
+ * v2.7 Updates:
+ * - Added AE Intelligence (BUDA) widget integration via iframe
+ * - AE Intelligence permission controls added to User Administration
  * 
  * v2.6 Updates:
  * - User Administration widget is now double-height (1000px default) and displayed first
@@ -33,6 +37,7 @@ const DEFAULT_WIDGETS = [
     { id: 'user-admin', name: 'User Administration', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>', adminOnly: true, fullWidth: true, doubleHeight: true, embedded: true, defaultHeight: 1000, minHeight: 600, maxHeight: 1600 },
     { id: 'bid-management', name: 'Bid Management', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>', src: 'widgets/bid-management-widget.html', fullWidth: true, defaultHeight: 900, minHeight: 500, maxHeight: 1400 },
     { id: 'ai-assistant', name: 'AI Assistant', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>', fullWidth: true, embedded: true, defaultHeight: 500, minHeight: 300, maxHeight: 800 },
+    { id: 'aei-intelligence', name: 'AE Intelligence (BUDA)', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>', src: 'widgets/aei-widget.html', fullWidth: true, defaultHeight: 700, minHeight: 400, maxHeight: 1200 },
     { id: 'lmp-analytics', name: 'LMP Analytics Dashboard', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>', src: 'widgets/lmp-analytics.html', fullWidth: true, defaultHeight: 800, minHeight: 400, maxHeight: 1200 },
     { id: 'data-manager', name: 'LMP Data Manager', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>', src: 'widgets/lmp-data-manager.html', defaultHeight: 500, minHeight: 300, maxHeight: 900 },
     { id: 'arcadia-fetcher', name: 'Arcadia LMP Data Fetcher', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>', src: 'widgets/arcadia-lmp-fetcher.html', defaultHeight: 500, minHeight: 300, maxHeight: 800 },
@@ -102,7 +107,7 @@ function loadSavedTheme() { window.setTheme(localStorage.getItem('secureEnergy_t
 // INITIALIZATION
 // =====================================================
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('[Portal] Initializing v2.6...');
+    console.log('[Portal] Initializing v2.7...');
     loadSavedTheme();
     
     await UserStore.init();
@@ -673,6 +678,7 @@ function getCreateUserPanel() {
         <div class="widget-permissions"><h4>Widget Permissions</h4>
             <div class="widget-permission-item"><span>Bid Management</span><label class="toggle-switch"><input type="checkbox" id="perm-bid-management" checked><span class="toggle-slider"></span></label></div>
             <div class="widget-permission-item"><span>AI Assistant</span><label class="toggle-switch"><input type="checkbox" id="perm-ai-assistant" checked><span class="toggle-slider"></span></label></div>
+            <div class="widget-permission-item"><span>AE Intelligence (BUDA)</span><label class="toggle-switch"><input type="checkbox" id="perm-aei-intelligence" checked><span class="toggle-slider"></span></label></div>
             <div class="widget-permission-item"><span>LMP Comparison</span><label class="toggle-switch"><input type="checkbox" id="perm-lmp-comparison" checked><span class="toggle-slider"></span></label></div>
             <div class="widget-permission-item"><span>LMP Analytics</span><label class="toggle-switch"><input type="checkbox" id="perm-lmp-analytics" checked><span class="toggle-slider"></span></label></div>
             <div class="widget-permission-item"><span>Peak Demand Analytics</span><label class="toggle-switch"><input type="checkbox" id="perm-peak-demand" checked><span class="toggle-slider"></span></label></div>
@@ -857,6 +863,7 @@ window.createUser = function() {
     const permissions = {
         'bid-management': document.getElementById('perm-bid-management')?.checked,
         'ai-assistant': document.getElementById('perm-ai-assistant')?.checked,
+        'aei-intelligence': document.getElementById('perm-aei-intelligence')?.checked,
         'lmp-comparison': document.getElementById('perm-lmp-comparison')?.checked,
         'lmp-analytics': document.getElementById('perm-lmp-analytics')?.checked,
         'peak-demand': document.getElementById('perm-peak-demand')?.checked,
@@ -903,6 +910,7 @@ window.editUser = function(userId) {
                 <h4 style="margin-bottom:12px;color:var(--text-secondary);">Widget Permissions</h4>
                 <div class="widget-permission-item"><span>Bid Management</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-bid-management" ${getChecked('bid-management')}><span class="toggle-slider"></span></label></div>
                 <div class="widget-permission-item"><span>AI Assistant</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-ai-assistant" ${getChecked('ai-assistant')}><span class="toggle-slider"></span></label></div>
+                <div class="widget-permission-item"><span>AE Intelligence (BUDA)</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-aei-intelligence" ${getChecked('aei-intelligence')}><span class="toggle-slider"></span></label></div>
                 <div class="widget-permission-item"><span>LMP Comparison</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-lmp-comparison" ${getChecked('lmp-comparison')}><span class="toggle-slider"></span></label></div>
                 <div class="widget-permission-item"><span>LMP Analytics</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-lmp-analytics" ${getChecked('lmp-analytics')}><span class="toggle-slider"></span></label></div>
                 <div class="widget-permission-item"><span>Peak Demand Analytics</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-peak-demand" ${getChecked('peak-demand')}><span class="toggle-slider"></span></label></div>
@@ -937,6 +945,7 @@ window.saveUserEdit = async function(userId) {
         permissions: {
             'bid-management': document.getElementById('edit-perm-bid-management')?.checked,
             'ai-assistant': document.getElementById('edit-perm-ai-assistant')?.checked,
+            'aei-intelligence': document.getElementById('edit-perm-aei-intelligence')?.checked,
             'lmp-comparison': document.getElementById('edit-perm-lmp-comparison')?.checked,
             'lmp-analytics': document.getElementById('edit-perm-lmp-analytics')?.checked,
             'peak-demand': document.getElementById('edit-perm-peak-demand')?.checked,
