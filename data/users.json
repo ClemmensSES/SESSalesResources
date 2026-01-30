@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastUpdated": "2026-01-30T16:41:59.716Z",
+  "lastUpdated": "2026-01-30T16:42:05.727Z",
   "users": [
     {
       "id": "admin-001",
@@ -88,9 +88,10 @@
       "status": "active",
       "createdAt": "2026-01-27T15:32:53.957Z",
       "permissions": {
+        "client-lookup": true,
+        "energy-utilization": false,
         "bid-management": false,
         "ai-assistant": false,
-        "aei-intelligence": true,
         "lmp-comparison": true,
         "lmp-analytics": true,
         "peak-demand": true,
@@ -98,7 +99,7 @@
         "data-manager": false,
         "arcadia-fetcher": false
       },
-      "updatedAt": "2026-01-30T14:38:16.044Z"
+      "updatedAt": "2026-01-30T16:42:05.726Z"
     },
     {
       "id": "user-1769527996133",
