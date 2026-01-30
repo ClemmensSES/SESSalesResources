@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastUpdated": "2026-01-30T15:29:39.672Z",
+  "lastUpdated": "2026-01-30T16:53:17.045Z",
   "users": [
     {
       "id": "admin-001",
@@ -44,6 +44,9 @@
       "status": "active",
       "createdAt": "2026-01-27T14:48:52.324Z",
       "permissions": {
+        "client-lookup": true,
+        "client-admin": true,
+        "energy-utilization": true,
         "bid-management": true,
         "ai-assistant": true,
         "lmp-comparison": true,
@@ -53,7 +56,7 @@
         "data-manager": true,
         "arcadia-fetcher": true
       },
-      "updatedAt": "2026-01-29T18:18:17.158Z"
+      "updatedAt": "2026-01-30T16:53:17.045Z"
     },
     {
       "id": "user-1769527952869",
@@ -65,9 +68,10 @@
       "status": "active",
       "createdAt": "2026-01-27T15:32:32.869Z",
       "permissions": {
+        "client-lookup": false,
+        "energy-utilization": false,
         "bid-management": false,
         "ai-assistant": false,
-        "aei-intelligence": true,
         "lmp-comparison": true,
         "lmp-analytics": true,
         "peak-demand": true,
@@ -75,7 +79,7 @@
         "data-manager": false,
         "arcadia-fetcher": false
       },
-      "updatedAt": "2026-01-30T14:38:09.020Z"
+      "updatedAt": "2026-01-30T16:42:11.230Z"
     },
     {
       "id": "user-1769527973957",
@@ -87,9 +91,10 @@
       "status": "active",
       "createdAt": "2026-01-27T15:32:53.957Z",
       "permissions": {
+        "client-lookup": false,
+        "energy-utilization": false,
         "bid-management": false,
         "ai-assistant": false,
-        "aei-intelligence": true,
         "lmp-comparison": true,
         "lmp-analytics": true,
         "peak-demand": true,
@@ -97,7 +102,7 @@
         "data-manager": false,
         "arcadia-fetcher": false
       },
-      "updatedAt": "2026-01-30T14:38:16.044Z"
+      "updatedAt": "2026-01-30T16:42:15.508Z"
     },
     {
       "id": "user-1769527996133",
@@ -109,9 +114,10 @@
       "status": "active",
       "createdAt": "2026-01-27T15:33:16.133Z",
       "permissions": {
+        "client-lookup": false,
+        "energy-utilization": false,
         "bid-management": false,
         "ai-assistant": false,
-        "aei-intelligence": true,
         "lmp-comparison": true,
         "lmp-analytics": true,
         "peak-demand": true,
@@ -119,7 +125,7 @@
         "data-manager": false,
         "arcadia-fetcher": false
       },
-      "updatedAt": "2026-01-30T14:38:20.636Z"
+      "updatedAt": "2026-01-30T16:42:22.580Z"
     },
     {
       "id": "user-1769608099594",
@@ -131,9 +137,10 @@
       "status": "active",
       "createdAt": "2026-01-28T13:48:19.594Z",
       "permissions": {
+        "client-lookup": false,
+        "energy-utilization": false,
         "bid-management": false,
         "ai-assistant": false,
-        "aei-intelligence": true,
         "lmp-comparison": true,
         "lmp-analytics": true,
         "peak-demand": true,
@@ -141,7 +148,7 @@
         "data-manager": false,
         "arcadia-fetcher": false
       },
-      "updatedAt": "2026-01-30T14:38:27.038Z"
+      "updatedAt": "2026-01-30T16:42:27.989Z"
     },
     {
       "id": "user-1769696905370",
