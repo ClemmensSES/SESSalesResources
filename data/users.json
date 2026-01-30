@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastUpdated": "2026-01-30T14:38:27.038Z",
+  "lastUpdated": "2026-01-30T14:38:38.452Z",
   "users": [
     {
       "id": "admin-001",
@@ -153,6 +153,7 @@
       "permissions": {
         "bid-management": false,
         "ai-assistant": false,
+        "aei-intelligence": false,
         "lmp-comparison": false,
         "lmp-analytics": true,
         "peak-demand": false,
@@ -162,7 +163,7 @@
       },
       "status": "active",
       "createdAt": "2026-01-29T14:28:25.370Z",
-      "updatedAt": "2026-01-29T18:18:28.853Z"
+      "updatedAt": "2026-01-30T14:38:38.452Z"
     }
   ]
 }
