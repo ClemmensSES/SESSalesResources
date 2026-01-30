@@ -1,0 +1,16 @@
+{
+  "name": "lmp-data-automation",
+  "version": "1.0.0",
+  "description": "Automated LMP data fetching and database updates for Secure Energy Portal",
+  "private": true,
+  "scripts": {
+    "fetch": "node fetch-lmp-data.js",
+    "update": "node update-lmp-database.js",
+    "fetch-and-update": "npm run fetch && npm run update"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "Secure Energy Services",
+  "license": "UNLICENSED"
+}
