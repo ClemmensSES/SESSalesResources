@@ -1,0 +1,281 @@
+/* =====================================================
+   ADMIN-WIDE WIDGET STYLES - Add to your existing CSS
+   =====================================================
+   These styles make User Admin and Client Admin widgets 
+   nearly full screen width for better admin usability
+   ===================================================== */
+
+/* Admin-wide widgets take up almost the full screen */
+.widget.admin-wide {
+    grid-column: 1 / -1;  /* Span all columns */
+    max-width: 100%;
+    width: calc(100vw - 80px);  /* Full viewport minus margins */
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* On larger screens, constrain slightly for readability */
+@media (min-width: 1600px) {
+    .widget.admin-wide {
+        width: calc(100vw - 120px);
+        max-width: 1800px;
+    }
+}
+
+/* On smaller screens, use full width with smaller margins */
+@media (max-width: 1200px) {
+    .widget.admin-wide {
+        width: calc(100vw - 40px);
+    }
+}
+
+@media (max-width: 768px) {
+    .widget.admin-wide {
+        width: calc(100vw - 20px);
+    }
+}
+
+/* Ensure admin-wide overrides full-width when both are present */
+.widget.admin-wide.full-width {
+    grid-column: 1 / -1;
+    width: calc(100vw - 80px);
+}
+
+/* Activity stats grid improvements for wider admin widget */
+.widget.admin-wide .activity-stats-grid {
+    grid-template-columns: repeat(6, 1fr);
+}
+
+@media (max-width: 1200px) {
+    .widget.admin-wide .activity-stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .widget.admin-wide .activity-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Improved stat boxes for the wider layout */
+.stat-box {
+    background: var(--bg-tertiary);
+    padding: 16px;
+    border-radius: 10px;
+    text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-box:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stat-box .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent-primary);
+    line-height: 1.2;
+}
+
+.stat-box .stat-label {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Error stats with color coding */
+.stat-box .stat-value[style*="color:#ef4444"] {
+    color: #ef4444 !important;
+}
+
+.stat-box .stat-value[style*="color:#f59e0b"] {
+    color: #f59e0b !important;
+}
+
+/* Activity filters with better spacing in wide layout */
+.widget.admin-wide .activity-filters {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.widget.admin-wide .activity-filters input,
+.widget.admin-wide .activity-filters select {
+    min-width: 180px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.widget.admin-wide .activity-filters input:focus,
+.widget.admin-wide .activity-filters select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(var(--accent-primary-rgb), 0.15);
+}
+
+/* Activity items in wider layout */
+.widget.admin-wide .activity-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 18px;
+    background: var(--bg-tertiary);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    transition: background 0.2s;
+}
+
+.widget.admin-wide .activity-item:hover {
+    background: var(--bg-secondary);
+}
+
+/* Error log items in wider layout */
+.widget.admin-wide .error-item {
+    padding: 16px;
+    border-radius: 10px;
+}
+
+/* Users table improvements for wide layout */
+.widget.admin-wide .users-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.widget.admin-wide .users-table th,
+.widget.admin-wide .users-table td {
+    padding: 14px 18px;
+    text-align: left;
+}
+
+.widget.admin-wide .users-table th {
+    background: var(--bg-tertiary);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    color: var(--text-tertiary);
+}
+
+.widget.admin-wide .users-table tbody tr {
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.2s;
+}
+
+.widget.admin-wide .users-table tbody tr:hover {
+    background: var(--bg-tertiary);
+}
+
+/* Admin tabs for wider layout */
+.widget.admin-wide .admin-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+    flex-wrap: wrap;
+}
+
+.widget.admin-wide .admin-tab {
+    padding: 12px 24px;
+    background: var(--bg-tertiary);
+    border: none;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.widget.admin-wide .admin-tab:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.widget.admin-wide .admin-tab.active {
+    background: var(--accent-primary);
+    color: white;
+}
+
+/* Create user form in wider layout - 3 column grid */
+.widget.admin-wide .create-user-form {
+    max-width: 900px;
+}
+
+.widget.admin-wide .create-user-form .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 16px;
+}
+
+.widget.admin-wide .create-user-form .form-row.single {
+    grid-template-columns: 1fr;
+    max-width: 450px;
+}
+
+/* Widget permissions grid in wider layout */
+.widget.admin-wide .widget-permissions {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+}
+
+.widget.admin-wide .widget-permissions h4 {
+    grid-column: 1 / -1;
+    margin-bottom: 8px;
+}
+
+.widget.admin-wide .widget-permission-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+}
+
+/* Export panel in wider layout */
+.widget.admin-wide .export-panel {
+    max-width: 800px;
+}
+
+.widget.admin-wide .export-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 24px;
+    background: var(--bg-tertiary);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.widget.admin-wide .export-btn:hover {
+    border-color: var(--accent-primary);
+    background: var(--bg-secondary);
+    transform: translateY(-2px);
+}
+
+.widget.admin-wide .export-btn svg {
+    color: var(--accent-primary);
+}
+
+.widget.admin-wide .export-btn span {
+    font-weight: 500;
+    color: var(--text-primary);
+}
