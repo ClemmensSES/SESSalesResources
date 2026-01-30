@@ -1,5 +1,12 @@
 /**
- * Secure Energy Analytics Portal - Main Controller v2.4
+ * Secure Energy Analytics Portal - Main Controller v2.5
+ * 
+ * v2.5 Updates:
+ * - Added Client Administration widget (2x2 size, admin only)
+ * - Added Client Lookup widget (compact, all users)
+ * - Portal-wide active client context
+ * - All widgets now integrate with client selection
+ * - Analyses and bids link to selected client
  * 
  * v2.4 Updates:
  * - Added Bid Management System widget
@@ -18,7 +25,9 @@
 let currentUser = null;
 
 const DEFAULT_WIDGETS = [
-    { id: 'user-admin', name: 'User Administration', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>', adminOnly: true, fullWidth: true, embedded: true, defaultHeight: 700, minHeight: 400, maxHeight: 1200 },
+    { id: 'user-admin', name: 'User Administration', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>', adminOnly: true, fullWidth: true, embedded: true, defaultHeight: 700, minHeight: 400, maxHeight: 1200, doubleHeight: true },
+    { id: 'client-admin', name: 'Client Administration', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>', src: 'widgets/client-admin-widget.html', adminOnly: true, fullWidth: true, defaultHeight: 700, minHeight: 500, maxHeight: 1200, doubleHeight: true },
+    { id: 'client-lookup', name: 'Client Lookup', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>', src: 'widgets/client-lookup-widget.html', fullWidth: false, defaultHeight: 220, minHeight: 180, maxHeight: 350 },
     { id: 'bid-management', name: 'Bid Management', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>', src: 'widgets/bid-management-widget.html', fullWidth: true, defaultHeight: 900, minHeight: 500, maxHeight: 1400 },
     { id: 'ai-assistant', name: 'AI Assistant', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>', fullWidth: true, embedded: true, defaultHeight: 500, minHeight: 300, maxHeight: 800 },
     { id: 'lmp-analytics', name: 'LMP Analytics Dashboard', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>', src: 'widgets/lmp-analytics.html', fullWidth: true, defaultHeight: 800, minHeight: 400, maxHeight: 1200 },
@@ -90,18 +99,28 @@ function loadSavedTheme() { window.setTheme(localStorage.getItem('secureEnergy_t
 // INITIALIZATION
 // =====================================================
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('[Portal] Initializing v2.4...');
+    console.log('[Portal] Initializing v2.5...');
     loadSavedTheme();
     
     await UserStore.init();
     await ActivityLog.init();
     await SecureEnergyData.init();
     
-    // Initialize Bid Management stores (if available)
+    // Initialize Client Store (required for client administration)
     if (typeof SecureEnergyClients !== 'undefined') {
         SecureEnergyClients.init();
         console.log('[Portal] Client store initialized');
+        
+        // Subscribe to active client changes to broadcast to all widgets
+        SecureEnergyClients.subscribe((event, data) => {
+            if (event === 'activeClientChanged') {
+                broadcastActiveClientToWidgets(data.client);
+                updateGlobalClientIndicator();
+            }
+        });
     }
+    
+    // Initialize Bid Management stores (if available)
     if (typeof SecureEnergySuppliers !== 'undefined') {
         SecureEnergySuppliers.init();
         console.log('[Portal] Supplier store initialized');
@@ -279,8 +298,9 @@ function createWidgetElement(widget, user) {
     const isCollapsed = savedConfig.collapsed || false;
     const isFullWidth = savedConfig.fullWidth !== undefined ? savedConfig.fullWidth : widget.fullWidth;
     const currentHeight = savedConfig.height || widget.defaultHeight || 500;
+    const isDoubleHeight = widget.doubleHeight || false;
     
-    div.className = 'widget' + (isFullWidth ? ' full-width' : '') + (isCollapsed ? ' collapsed' : '');
+    div.className = 'widget' + (isFullWidth ? ' full-width' : '') + (isCollapsed ? ' collapsed' : '') + (isDoubleHeight ? ' double-height' : '');
     div.dataset.widgetId = widget.id;
     div.draggable = true;
     
@@ -1155,7 +1175,7 @@ function handleWidgetMessage(event) {
     if (event.data?.type === 'LMP_DATA_UPDATE' || event.data?.type === 'LMP_BULK_UPDATE') { updateDataStatus(); showNotification('Data updated!', 'success'); }
     if (event.data?.type === 'LMP_ANALYSIS_COMPLETE' && currentUser) {
         const d = event.data.data || {};
-        ActivityLog.logLMPAnalysis({ userId: currentUser.id, userEmail: currentUser.email, userName: `${currentUser.firstName} ${currentUser.lastName}`, clientName: d.clientName, ...d });
+        ActivityLog.logLMPAnalysis({ userId: currentUser.id, userEmail: currentUser.email, userName: `${currentUser.firstName} ${currentUser.lastName}`, clientName: d.clientName, clientId: d.clientId, ...d });
         if (document.getElementById('analysisHistoryContent')) renderAnalysisHistory();
         showNotification(`Analysis logged: ${d.clientName || 'Unnamed'}`, 'success');
     }
@@ -1191,6 +1211,106 @@ function handleWidgetMessage(event) {
             details: event.data.data
         });
         showNotification('Bid sheet generated!', 'success');
+    }
+    
+    // ========================================
+    // CLIENT CONTEXT HANDLERS
+    // ========================================
+    
+    // Widget requesting current active client
+    if (event.data?.type === 'REQUEST_ACTIVE_CLIENT' && event.source) {
+        const client = window.SecureEnergyClients?.getActiveClient?.();
+        event.source.postMessage({
+            type: 'ACTIVE_CLIENT_RESPONSE',
+            client: client,
+            clientId: client?.id || null
+        }, '*');
+    }
+    
+    // Widget requesting to link an analysis to the active client
+    if (event.data?.type === 'LINK_LMP_TO_CLIENT' && event.data.analysis) {
+        if (window.SecureEnergyClients) {
+            const activeId = SecureEnergyClients.getActiveClientId();
+            if (activeId) {
+                SecureEnergyClients.linkAnalysis(activeId, event.data.analysis);
+                console.log('[Portal] Analysis linked to client:', activeId);
+            }
+        }
+    }
+    
+    // Widget requesting to link a bid to the active client
+    if (event.data?.type === 'LINK_BID_TO_CLIENT' && event.data.bid) {
+        if (window.SecureEnergyClients) {
+            const activeId = SecureEnergyClients.getActiveClientId();
+            if (activeId) {
+                SecureEnergyClients.linkBid(activeId, event.data.bid);
+                console.log('[Portal] Bid linked to client:', activeId);
+            }
+        }
+    }
+    
+    // Widget requesting to scroll to another widget (e.g., client lookup)
+    if (event.data?.type === 'SCROLL_TO_WIDGET' && event.data.widgetId) {
+        scrollToWidget(event.data.widgetId);
+    }
+    
+    // Widget requesting current user info
+    if (event.data?.type === 'REQUEST_CURRENT_USER' && event.source) {
+        event.source.postMessage({
+            type: 'CURRENT_USER_RESPONSE',
+            user: currentUser ? {
+                id: currentUser.id,
+                email: currentUser.email,
+                name: `${currentUser.firstName} ${currentUser.lastName}`,
+                firstName: currentUser.firstName,
+                lastName: currentUser.lastName,
+                role: currentUser.role
+            } : null
+        }, '*');
+    }
+}
+
+// =====================================================
+// CLIENT CONTEXT FUNCTIONS
+// =====================================================
+
+/**
+ * Broadcast active client change to all widget iframes
+ */
+function broadcastActiveClientToWidgets(client) {
+    document.querySelectorAll('iframe').forEach(iframe => {
+        try {
+            iframe.contentWindow.postMessage({
+                type: 'ACTIVE_CLIENT_CHANGED',
+                client: client,
+                clientId: client?.id || null
+            }, '*');
+        } catch (e) {
+            // Ignore cross-origin errors
+        }
+    });
+}
+
+/**
+ * Update the global client indicator in the header (if present)
+ */
+function updateGlobalClientIndicator() {
+    const indicator = document.getElementById('globalClientIndicator');
+    if (!indicator) return;
+    
+    const client = window.SecureEnergyClients?.getActiveClient?.();
+    const nameEl = indicator.querySelector('.client-indicator-name');
+    
+    if (nameEl) {
+        if (client) {
+            nameEl.textContent = client.name;
+            nameEl.classList.add('has-client');
+            indicator.classList.add('has-client');
+        } else {
+            nameEl.textContent = 'None';
+            nameEl.classList.remove('has-client');
+            indicator.classList.remove('has-client');
+        }
     }
 }
 

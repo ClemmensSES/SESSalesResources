@@ -103,6 +103,25 @@
             align-items: center;
         }
 
+        /* Client Context */
+        .client-context-bar {
+            background: linear-gradient(135deg, rgba(40, 167, 69, 0.12) 0%, rgba(40, 167, 69, 0.06) 100%);
+            border: 1px solid rgba(40, 167, 69, 0.35);
+            border-radius: 10px;
+            padding: 10px 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .client-context-bar svg { color: #28a745; flex-shrink: 0; }
+        .client-context-bar .info { flex: 1; }
+        .client-context-bar .label { font-size: 0.65rem; color: #28a745; text-transform: uppercase; letter-spacing: 0.5px; }
+        .client-context-bar .name { font-weight: 600; color: #28a745; font-size: 0.95rem; }
+        .client-context-bar .badge { background: rgba(62, 180, 137, 0.2); color: var(--se-light-green); padding: 4px 10px; border-radius: 5px; font-size: 0.75rem; font-weight: 600; }
+        .no-client-bar { background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.25); border-radius: 10px; padding: 10px 16px; margin-bottom: 16px; text-align: center; color: #d4a200; font-size: 0.85rem; }
+        .no-client-bar a { color: #f59e0b; text-decoration: underline; cursor: pointer; }
+
         .control-group {
             display: flex;
             flex-direction: column;
@@ -523,6 +542,9 @@
                 </div>
             </div>
         </div>
+
+        <!-- Client Context Banner -->
+        <div id="clientContextBanner"></div>
 
         <!-- Controls -->
         <div class="controls-bar">
@@ -1883,6 +1905,74 @@
             
             setTimeout(loadData, 500);
         }
+        
+        // ========================================
+        // CLIENT CONTEXT INTEGRATION
+        // ========================================
+        let activeClient = null;
+        
+        function initClientContext() {
+            if (window.parent !== window) {
+                window.parent.postMessage({ type: 'REQUEST_ACTIVE_CLIENT' }, '*');
+            }
+            window.addEventListener('message', handleClientMessage);
+        }
+        
+        function handleClientMessage(event) {
+            const data = event.data;
+            if (!data) return;
+            
+            if (data.type === 'ACTIVE_CLIENT_CHANGED' || data.type === 'ACTIVE_CLIENT_RESPONSE') {
+                activeClient = data.client;
+                renderClientContextBanner();
+            }
+        }
+        
+        function renderClientContextBanner() {
+            const container = document.getElementById('clientContextBanner');
+            if (!container) return;
+            
+            if (activeClient) {
+                container.innerHTML = `
+                    <div class="client-context-bar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                            <polyline points="22 4 12 14.01 9 11.01"/>
+                        </svg>
+                        <div class="info">
+                            <div class="label">Analyzing data for</div>
+                            <div class="name">${activeClient.name}</div>
+                        </div>
+                        ${activeClient.iso ? `<span class="badge">${activeClient.iso}</span>` : ''}
+                    </div>
+                `;
+                
+                // Auto-filter by client's ISO if they have one
+                if (activeClient.iso) {
+                    const isoSelect = document.getElementById('isoSelect');
+                    const isoValue = activeClient.iso === 'ISO-NE' ? 'ISONE' : activeClient.iso;
+                    if (isoSelect && Array.from(isoSelect.options).some(o => o.value === isoValue)) {
+                        isoSelect.value = isoValue;
+                        onISOChange();
+                    }
+                }
+            } else {
+                container.innerHTML = `
+                    <div class="no-client-bar">
+                        <strong>No client selected</strong> — <a onclick="requestClientSelection()">Select a client</a> to auto-filter by their ISO.
+                    </div>
+                `;
+            }
+        }
+        
+        function requestClientSelection() {
+            if (window.parent !== window) {
+                window.parent.postMessage({ type: 'SCROLL_TO_WIDGET', widgetId: 'client-lookup' }, '*');
+            }
+        }
+        
+        // Initialize client context on load
+        document.addEventListener('DOMContentLoaded', initClientContext);
     </script>
 </body>
 </html>

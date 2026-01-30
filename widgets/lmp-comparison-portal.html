@@ -73,6 +73,76 @@
             color: #065f46;
         }
 
+        /* Client Context Banner */
+        .client-context-banner {
+            margin-bottom: 20px;
+        }
+
+        .client-context-active {
+            background: linear-gradient(135deg, rgba(40, 167, 69, 0.12) 0%, rgba(40, 167, 69, 0.05) 100%);
+            border: 2px solid rgba(40, 167, 69, 0.4);
+            border-radius: 12px;
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .client-context-active svg {
+            color: #28a745;
+            flex-shrink: 0;
+        }
+
+        .client-context-info {
+            flex: 1;
+        }
+
+        .client-context-label {
+            font-size: 0.7rem;
+            color: #28a745;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .client-context-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #065f46;
+        }
+
+        .client-context-meta {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-top: 2px;
+        }
+
+        .client-context-badge {
+            background: rgba(13, 148, 136, 0.15);
+            color: #065f46;
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .client-context-none {
+            background: rgba(255, 193, 7, 0.1);
+            border: 2px solid rgba(255, 193, 7, 0.35);
+            border-radius: 12px;
+            padding: 14px 18px;
+            text-align: center;
+            color: #92400e;
+            font-size: 0.9rem;
+        }
+
+        .client-context-none a {
+            color: #d97706;
+            text-decoration: underline;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
         .header p {
             font-size: 18px;
             color: #4b5563;
@@ -972,13 +1042,16 @@
 
         <!-- INPUT CONFIGURATION -->
         <div class="card">
+            <!-- Client Context Banner -->
+            <div id="clientContextBanner" class="client-context-banner"></div>
+            
             <div class="section-title">📋 Basic Parameters</div>
             
-            <!-- Client Name Input - for tracking -->
+            <!-- Client Name Input - linked to client context OR manual entry -->
             <div class="input-grid" style="margin-bottom: 20px;">
                 <div class="input-group" style="grid-column: span 2;">
-                    <label>👤 Client / Project Name</label>
-                    <input type="text" class="input-field" id="clientName" placeholder="Enter client or project name for tracking..." style="font-size: 16px;">
+                    <label>👤 Client / Project Name <span id="clientSourceLabel" style="font-weight: 400; color: #10b981; font-size: 11px;"></span></label>
+                    <input type="text" class="input-field" id="clientName" placeholder="Auto-filled from selected client or enter manually..." style="font-size: 16px;">
                 </div>
             </div>
             
@@ -2153,10 +2226,11 @@
             
             // Send to parent window for logging
             if (window.parent !== window) {
-                window.parent.postMessage({
+                const analysisData = {
                     type: 'LMP_ANALYSIS_COMPLETE',
                     data: {
                         clientName: clientName,
+                        clientId: activeClient ? activeClient.id : null,
                         iso: iso,
                         zone: zone,
                         startDate: startDate,
@@ -2173,7 +2247,34 @@
                         },
                         timestamp: new Date().toISOString()
                     }
-                }, '*');
+                };
+                
+                window.parent.postMessage(analysisData, '*');
+                
+                // Link analysis to client if one is selected
+                if (activeClient) {
+                    window.parent.postMessage({
+                        type: 'LINK_LMP_TO_CLIENT',
+                        analysis: {
+                            id: 'LMP-' + Date.now(),
+                            type: 'LMP Comparison',
+                            iso: iso,
+                            zone: zone,
+                            years: [startDate.split('-')[0]],
+                            fixedRate: fixedPrice,
+                            usage: totalAnnualUsage,
+                            results: {
+                                indexTotal: totalIndexCost,
+                                fixedTotal: totalFixedCost,
+                                savings: savingsVsFixed,
+                                avgBlendedRate: avgBlendedRate
+                            },
+                            timestamp: new Date().toISOString()
+                        }
+                    }, '*');
+                    
+                    console.log('[LMP Portal] Analysis linked to client:', activeClient.name);
+                }
                 
                 console.log('[LMP Portal] Analysis logged:', clientName);
             }
@@ -3900,8 +4001,91 @@
         if (window.parent !== window) {
             setTimeout(() => {
                 window.parent.postMessage({ type: 'REQUEST_LMP_DATA' }, '*');
+                window.parent.postMessage({ type: 'REQUEST_ACTIVE_CLIENT' }, '*');
             }, 500);
         }
+        
+        // ========================================
+        // CLIENT CONTEXT INTEGRATION
+        // ========================================
+        let activeClient = null;
+        
+        function handleClientMessage(event) {
+            const data = event.data;
+            if (!data) return;
+            
+            if (data.type === 'ACTIVE_CLIENT_CHANGED' || data.type === 'ACTIVE_CLIENT_RESPONSE') {
+                activeClient = data.client;
+                renderClientContextBanner();
+                
+                // Auto-fill client name if we have a client
+                if (activeClient) {
+                    const clientNameInput = document.getElementById('clientName');
+                    const clientSourceLabel = document.getElementById('clientSourceLabel');
+                    if (clientNameInput && !clientNameInput.value) {
+                        clientNameInput.value = activeClient.name;
+                    }
+                    if (clientSourceLabel) {
+                        clientSourceLabel.textContent = '(from Client Administration)';
+                    }
+                    
+                    // Auto-select ISO if client has one
+                    if (activeClient.iso) {
+                        const isoSelect = document.getElementById('iso');
+                        const isoValue = activeClient.iso === 'ISO-NE' ? 'ISONE' : activeClient.iso;
+                        if (isoSelect && Array.from(isoSelect.options).some(o => o.value === isoValue)) {
+                            isoSelect.value = isoValue;
+                            updateZoneOptions();
+                        }
+                    }
+                }
+            }
+        }
+        
+        function renderClientContextBanner() {
+            const container = document.getElementById('clientContextBanner');
+            if (!container) return;
+            
+            if (activeClient) {
+                container.innerHTML = `
+                    <div class="client-context-active">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                            <polyline points="22 4 12 14.01 9 11.01"/>
+                        </svg>
+                        <div class="client-context-info">
+                            <div class="client-context-label">Analysis for Client</div>
+                            <div class="client-context-name">${activeClient.name}</div>
+                            <div class="client-context-meta">
+                                ${activeClient.city ? activeClient.city + ', ' + activeClient.state : ''}
+                                ${activeClient.annualUsageMWh ? ' • ' + Number(activeClient.annualUsageMWh).toLocaleString() + ' MWh/yr' : ''}
+                            </div>
+                        </div>
+                        ${activeClient.iso ? `<span class="client-context-badge">${activeClient.iso}</span>` : ''}
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="client-context-none">
+                        <strong>No client selected</strong> — Results will be tracked but not linked to a client record.
+                        <a onclick="requestClientSelection()">Select a client in Client Lookup</a>
+                    </div>
+                `;
+            }
+        }
+        
+        function requestClientSelection() {
+            if (window.parent !== window) {
+                window.parent.postMessage({ type: 'SCROLL_TO_WIDGET', widgetId: 'client-lookup' }, '*');
+            }
+        }
+        
+        function getActiveClient() {
+            return activeClient;
+        }
+        
+        // Add listener for client messages
+        window.addEventListener('message', handleClientMessage);
         
         // Initialize data on page load
         document.addEventListener('DOMContentLoaded', function() {
