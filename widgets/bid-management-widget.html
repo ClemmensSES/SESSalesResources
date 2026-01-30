@@ -338,9 +338,113 @@ function handlePricingUpload(e){const f=e.target.files[0];if(!f||!currentBid){sh
 
 function processParsedPricing(parsed,fn){if(!parsed?.length){showToast('No data found','warning');return}if(!BidStore)return;let added=0;parsed.forEach(item=>{if(item.terms?.length){BidStore.addSupplierQuote(currentBid.id,{supplierId:document.getElementById('upload-supplier').value,supplierName:item.supplierName||'From File',productName:item.productName||document.getElementById('upload-product').value,commodity:currentBid.commodityType,terms:item.terms,sourceType:'file',sourceFile:fn});added++}});if(added){showToast(`Added ${added} quote(s)`,'success');currentBid=BidStore.getBid(currentBid.id);renderQuotesList();updateGenerateButton()}}
 
-function generateBidSheet(){if(!currentBid?.selectedQuotes?.length){showToast('Select quotes','error');return}if(!BidStore){showToast('Bid store not available','error');return}const data=BidStore.prepareBidSheetData(currentBid.id);if(!data.success)return;const d=data.data;const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,createSheet(d,'Aggregated'),'Aggregated Client (all)');d.locations.forEach((l,i)=>XLSX.utils.book_append_sheet(wb,createSheet(d,l.name,l),(l.name||'Location '+(i+1)).substring(0,31)));XLSX.writeFile(wb,`BidSheet_${d.clientName.replace(/[^a-zA-Z0-9]/g,'_')}_${d.bidDate}.xlsx`);showToast('Generated!','success');BidStore.updateBid(currentBid.id,{bidSheetGenerated:true});window.parent.postMessage({type:'BIDSHEET_GENERATED',data:{bidId:currentBid.id,clientName:d.clientName}},'*')}
+function generateBidSheet(){if(!currentBid?.selectedQuotes?.length){showToast('Select quotes','error');return}if(!BidStore){showToast('Bid store not available','error');return}const data=BidStore.prepareBidSheetData(currentBid.id);if(!data.success)return;const d=data.data;const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,createSheet(d,'Aggregated Client (all)',null),'Aggregated Client (all)');d.locations.forEach((l,i)=>XLSX.utils.book_append_sheet(wb,createSheet(d,l.name||'Location '+(i+1),l),(l.name||'Location '+(i+1)).substring(0,31)));XLSX.writeFile(wb,`BidSheet_${d.clientName.replace(/[^a-zA-Z0-9]/g,'_')}_${d.bidDate}.xlsx`);showToast('Generated!','success');BidStore.updateBid(currentBid.id,{bidSheetGenerated:true});window.parent.postMessage({type:'BIDSHEET_GENERATED',data:{bidId:currentBid.id,clientName:d.clientName}},'*')}
 
-function createSheet(d,title,loc=null){const rows=[];for(let i=0;i<11;i++)rows.push(Array(14).fill(''));rows.push(['','','','','','','','','','','','','','1-800-655-9818']);rows.push(['','','','','','','','','','','','','','www.sesenergy.org']);rows.push(['QUOTE FORM']);rows.push([]);rows.push(['Customer Name:  '+d.clientName]);rows.push(['Date Prepared: '+new Date(d.bidDate).toLocaleDateString()]);rows.push([]);rows.push(["Please note: Prices executable until COB today; contracts valid when countersigned."]);rows.push([]);rows.push([]);d.quoteGroups.forEach(q=>{const srow=['Supplier/Product:','','','','','','','',q.supplierName,'',q.productName||'','',q.swingType||'',''];rows.push(srow);const trow=['Term: (months)','','','','','','',''];q.terms.forEach(t=>trow.push(t.term));while(trow.length<14)trow.push('');rows.push(trow);const prow=['Price:','','x',d.commodityType==='electric'?'Elec.($/kWh)':'Gas($/DTH)','','','',''];q.terms.forEach(t=>prow.push(t.price));while(prow.length<14)prow.push('');rows.push(prow);rows.push([])});const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:70},{wch:3},{wch:3},{wch:16},{wch:3},{wch:3},{wch:14},{wch:3},{wch:16},{wch:10},{wch:16},{wch:10},{wch:14},{wch:14}];return ws}
+function createSheet(d,sheetTitle,loc=null){
+    // Build rows matching template exactly
+    const rows=[];
+    // Rows 0-10: Empty (logo area)
+    for(let i=0;i<11;i++)rows.push(Array(16).fill(''));
+    // Row 11: Phone number in column N (index 13)
+    const r11=Array(16).fill('');r11[13]='1-800-655-9818';rows.push(r11);
+    // Row 12: Website in column N
+    const r12=Array(16).fill('');r12[13]='www.sesenergy.org';rows.push(r12);
+    // Row 13: QUOTE FORM (merged A:N)
+    rows.push(['QUOTE FORM','','','','','','','','','','','','','','','']);
+    // Row 14: Empty
+    rows.push(Array(16).fill(''));
+    // Row 15: Customer Name (merged A:N)
+    const custName=loc?.name?d.clientName+' - '+loc.name:d.clientName;
+    rows.push(['Customer Name:  '+custName,'','','','','','','','','','','','','','','']);
+    // Row 16: Date Prepared (merged A:N)
+    const dateStr=new Date(d.bidDate).toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'numeric'});
+    rows.push(['Date Prepared: '+dateStr,'','','','','','','','','','','','','','','']);
+    // Row 17: Empty
+    rows.push(Array(16).fill(''));
+    // Row 18-19: Disclaimer (merged A:N each)
+    rows.push(['Please note: Prices are executable until close of business (5:00 PM) today (day of pricing); however,   ','','','','','','','','','','','','','','','']);
+    rows.push(['  due to market volatility, executed contracts are not valid until accepted and countersigned by your chosen supplier.','','','','','','','','','','','','','','','']);
+    // Row 20-21: Empty
+    rows.push(Array(16).fill(''));
+    rows.push(Array(16).fill(''));
+    // Quote groups starting at row 22
+    d.quoteGroups.forEach(q=>{
+        // Supplier/Product row - merged A:G, supplier in I, product in K, swing in M
+        const srow=Array(16).fill('');
+        srow[0]='Supplier/Product:';
+        srow[8]=q.supplierName+(q.productName?' '+q.productName:'');
+        srow[12]=q.swingType||'';
+        rows.push(srow);
+        // Term row - merged A:G, terms start at column I (8)
+        const trow=Array(16).fill('');
+        trow[0]='Term: (months)';
+        q.terms.forEach((t,i)=>{if(i<6)trow[8+i]=t.term});
+        rows.push(trow);
+        // Price row - x in C, unit label in D, prices start at column I
+        const prow=Array(16).fill('');
+        prow[0]='Price:';
+        prow[2]='x';
+        prow[3]=d.commodityType==='electric'?'Elec.(dollars/kWh)':'Gas(dollars/DTH)';
+        prow[6]=d.commodityType==='electric'?'Gas(dollars/DTH)':'Elec.(dollars/kWh)';
+        q.terms.forEach((t,i)=>{if(i<6)prow[8+i]=t.price});
+        rows.push(prow);
+        // Empty row between suppliers
+        rows.push(Array(16).fill(''));
+    });
+    // Create worksheet
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    // Column widths matching template (in characters)
+    ws['!cols']=[
+        {wch:8},   // A
+        {wch:1.4}, // B
+        {wch:4.4}, // C
+        {wch:13.3},// D
+        {wch:1.4}, // E
+        {wch:4.7}, // F
+        {wch:13.7},// G
+        {wch:1},   // H
+        {wch:13.9},// I - terms/prices start
+        {wch:13.9},// J
+        {wch:13.9},// K
+        {wch:13.9},// L
+        {wch:13.9},// M
+        {wch:13.9},// N
+        {wch:8.4}, // O
+        {wch:8.4}  // P
+    ];
+    // Row heights (in points)
+    ws['!rows']=[
+        {hpt:15},{hpt:15},{hpt:15},{hpt:15},{hpt:15},{hpt:15},{hpt:15},{hpt:15},{hpt:15},{hpt:15},{hpt:15},
+        {hpt:30.8}, // Row 11 - phone
+        {hpt:18.9}, // Row 12 - website
+        {hpt:36.8}, // Row 13 - QUOTE FORM
+        {hpt:6.8},  // Row 14 - empty
+        {hpt:25.8}, // Row 15 - customer
+        {hpt:25.8}, // Row 16 - date
+        {hpt:25.5}, // Row 17 - empty
+        {hpt:15.8}, // Row 18 - disclaimer 1
+        {hpt:15.8}, // Row 19 - disclaimer 2
+        {hpt:15},   // Row 20
+        {hpt:6}     // Row 21
+    ];
+    // Merged cells matching template
+    ws['!merges']=[
+        {s:{r:13,c:0},e:{r:13,c:13}}, // QUOTE FORM
+        {s:{r:15,c:0},e:{r:15,c:13}}, // Customer Name
+        {s:{r:16,c:0},e:{r:16,c:13}}, // Date Prepared
+        {s:{r:18,c:0},e:{r:18,c:13}}, // Disclaimer 1
+        {s:{r:19,c:0},e:{r:19,c:13}}  // Disclaimer 2
+    ];
+    // Add merges for each quote group (A:G merged for labels)
+    let rowIdx=22;
+    d.quoteGroups.forEach(()=>{
+        ws['!merges'].push({s:{r:rowIdx,c:0},e:{r:rowIdx,c:6}});   // Supplier/Product
+        ws['!merges'].push({s:{r:rowIdx+1,c:0},e:{r:rowIdx+1,c:6}}); // Term
+        ws['!merges'].push({s:{r:rowIdx+2,c:0},e:{r:rowIdx+2,c:1}}); // Price (just A:B)
+        rowIdx+=4;
+    });
+    return ws;
+}
 
 function closeModal(id){document.getElementById(id).classList.remove('active')}
 function showToast(m,t='info'){const el=document.createElement('div');el.className='toast '+t;el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),3500)}

@@ -222,3 +222,80 @@ if (window.SecureEnergyClients && clientId) {
 ## Version History
 
 - **v1.0.0** - Initial release with client, supplier, and bid management
+
+## Excel Bid Sheet Format Details
+
+The generated bid sheet matches the company template with:
+
+### Layout Structure
+| Row | Content |
+|-----|---------|
+| 1-11 | Empty (logo area) |
+| 12 | Phone: 1-800-655-9818 (column N) |
+| 13 | Website: www.sesenergy.org (column N) |
+| 14 | "QUOTE FORM" title (merged A:N) |
+| 15 | Empty |
+| 16 | Customer Name (merged A:N) |
+| 17 | Date Prepared (merged A:N) |
+| 18 | Empty |
+| 19-20 | Disclaimer text (merged A:N) |
+| 21-22 | Empty |
+| 23+ | Supplier quotes (3 rows per supplier + blank) |
+
+### Supplier Quote Block (repeats for each supplier)
+```
+Row N:   Supplier/Product: [merged A:G]  |  [Supplier Name] (col I)  |  [Swing Type] (col M)
+Row N+1: Term: (months) [merged A:G]     |  12    18    24    30    36    48  (cols I-N)
+Row N+2: Price: | x | Elec.($/kWh) |     |  0.11813  0.12329  ...  (cols I-N)
+Row N+3: [empty row]
+```
+
+### Column Widths
+| Column | Width (chars) | Purpose |
+|--------|--------------|---------|
+| A | 8 | Labels |
+| B | 1.4 | Spacer |
+| C | 4.4 | "x" marker |
+| D | 13.3 | Electric unit label |
+| E | 1.4 | Spacer |
+| F | 4.7 | Spacer |
+| G | 13.7 | Gas unit label |
+| H | 1 | Spacer |
+| I-N | 13.9 | Term/Price columns |
+| O-P | 8.4 | Buffer |
+
+## Adding Logo to Generated Files
+
+The browser-based generator cannot embed images due to JavaScript limitations. To add the Secure Energy logo:
+
+### Option 1: Manual (Quick)
+1. Generate the bid sheet from the widget
+2. Open the downloaded Excel file
+3. Go to Insert > Pictures > This Device
+4. Select the logo file (logo-20th.jpg)
+5. Position and resize to fit rows 1-11, columns A-H
+
+### Option 2: Python Enhancement Script (Automated)
+Use the included `enhance-bid-sheet.py` script for full formatting:
+
+```bash
+# Install requirement
+pip install openpyxl
+
+# Enhance a generated bid sheet (overwrites original)
+python scripts/enhance-bid-sheet.py BidSheet_ClientName_2026-01-30.xlsx
+
+# Or specify a different output file
+python scripts/enhance-bid-sheet.py input.xlsx output_enhanced.xlsx
+```
+
+The enhancement script will:
+- Download and insert the Secure Energy logo
+- Apply Secure Energy brand colors (PANTONE 3308 C, 7465 C)
+- Add proper fonts (bold titles, styled headers)
+- Format pricing cells with number format (0.00000)
+- Add light green background to price cells
+- Style phone number and website
+
+### Logo URL
+`https://www.sesenergy.org/assets/images/logo-20th.jpg`
