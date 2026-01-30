@@ -607,7 +607,34 @@ function formatTimeAgo(timestamp) {
     if (seconds < 86400) return Math.floor(seconds/3600) + 'h ago';
     return Math.floor(seconds/86400) + 'd ago';
 }
- + ';">' + (savings >= 0 ? '+' : '') + '$' + Math.abs(savings).toLocaleString(undefined, {maximumFractionDigits: 0}) + '</div><div style="font-size:11px;color:var(--text-tertiary);">savings</div></div></div><div style="display:flex;justify-content:space-between;align-items:center;"><div style="display:flex;gap:8px;"><button onclick="showAnalysisDetail(\'' + showData + '\')" style="background:var(--accent-secondary);color:white;border:none;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer;">Show</button><button onclick="reloadAnalysis(\'' + reloadData + '\')" style="background:var(--accent-primary);color:white;border:none;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer;">Reload</button></div><span style="font-size:11px;color:var(--text-tertiary);">' + timeStr + '</span></div></div>';
+
+function createAnalysisCard(a) {
+    const d = a.data || {};
+    const r = d.results || {};
+    const savings = r.savingsVsFixed || 0;
+    const client = a.clientName || d.clientName || 'Unnamed Analysis';
+    const timeStr = formatTimeAgo(a.timestamp);
+    const showData = encodeURIComponent(JSON.stringify(a));
+    const reloadData = encodeURIComponent(JSON.stringify(d));
+    const savingsColor = savings >= 0 ? '#10b981' : '#ef4444';
+    const savingsSign = savings >= 0 ? '+' : '';
+    const savingsAmount = Math.abs(savings).toLocaleString(undefined, {maximumFractionDigits: 0});
+    
+    var html = '<div style="background:var(--bg-secondary);border-radius:10px;padding:16px;border-left:4px solid ' + savingsColor + ';">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">';
+    html += '<div><div style="font-weight:600;font-size:15px;">' + escapeHtml(client) + '</div>';
+    html += '<div style="font-size:12px;color:var(--text-tertiary);">' + (d.iso || 'N/A') + ' • ' + (d.zone || 'N/A') + ' • ' + (d.termMonths || 0) + 'mo</div>';
+    if (currentUser && currentUser.role === 'admin' && a.userName) {
+        html += '<div style="font-size:11px;color:var(--accent-primary);margin-top:4px;">👤 ' + escapeHtml(a.userName) + '</div>';
+    }
+    html += '</div>';
+    html += '<div style="text-align:right;"><div style="font-size:18px;font-weight:700;color:' + savingsColor + ';">' + savingsSign + '$' + savingsAmount + '</div>';
+    html += '<div style="font-size:11px;color:var(--text-tertiary);">savings</div></div></div>';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;"><div style="display:flex;gap:8px;">';
+    html += '<button onclick="showAnalysisDetail(\'' + showData + '\')" style="background:var(--accent-secondary);color:white;border:none;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer;">Show</button>';
+    html += '<button onclick="reloadAnalysis(\'' + reloadData + '\')" style="background:var(--accent-primary);color:white;border:none;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer;">Reload</button>';
+    html += '</div><span style="font-size:11px;color:var(--text-tertiary);">' + timeStr + '</span></div></div>';
+    return html;
 }
 
 window.showAnalysisDetail = function(encodedData) {
