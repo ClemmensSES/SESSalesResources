@@ -549,15 +549,26 @@
         
         let records = [];
         
+        console.log('[ClientStore] importFromSalesforce called with:', typeof data, Array.isArray(data) ? data.length + ' records' : data);
+        
         // Parse input data
         if (typeof data === 'string') {
             // CSV format
+            console.log('[ClientStore] Parsing as CSV string');
             records = parseCSV(data);
         } else if (Array.isArray(data)) {
+            console.log('[ClientStore] Data is array with', data.length, 'records');
             records = data;
         } else if (data && typeof data === 'object') {
             // Single record
+            console.log('[ClientStore] Data is single object');
             records = [data];
+        }
+        
+        console.log('[ClientStore] Processing', records.length, 'records');
+        if (records.length > 0) {
+            console.log('[ClientStore] First record keys:', Object.keys(records[0]));
+            console.log('[ClientStore] First record:', records[0]);
         }
         
         const currentUser = window.UserStore?.getCurrentUser?.();
@@ -567,9 +578,12 @@
                 // Map Salesforce fields to internal fields
                 const mappedData = mapSalesforceFields(record);
                 
+                console.log(`[ClientStore] Row ${index + 1}: mappedData.name = "${mappedData.name}"`);
+                
                 if (!mappedData.name) {
                     results.skipped++;
-                    results.errors.push(`Row ${index + 1}: Missing required field 'Name'`);
+                    results.errors.push(`Row ${index + 1}: Missing required field 'Name' (mapped from 'Parent Account: Account Name')`);
+                    console.log(`[ClientStore] Row ${index + 1}: SKIPPED - no name field`);
                     return;
                 }
                 
@@ -591,19 +605,23 @@
                             updatedBy: currentUser?.email || ''
                         });
                         results.updated++;
+                        console.log(`[ClientStore] Row ${index + 1}: UPDATED existing client ${existingClient.id}`);
                     } else {
                         results.skipped++;
+                        console.log(`[ClientStore] Row ${index + 1}: SKIPPED - already exists`);
                     }
                 } else {
                     // Create new client
-                    createClient({
+                    const newClient = createClient({
                         ...mappedData,
                         source: 'Salesforce',
                         createdBy: currentUser?.email || ''
                     });
                     results.imported++;
+                    console.log(`[ClientStore] Row ${index + 1}: IMPORTED new client ${newClient.id}`);
                 }
             } catch (e) {
+                console.error(`[ClientStore] Row ${index + 1}: ERROR -`, e);
                 results.errors.push(`Row ${index + 1}: ${e.message}`);
             }
         });
@@ -617,18 +635,25 @@
     function mapSalesforceFields(record) {
         const mapped = {};
         
+        console.log('[ClientStore] Mapping record:', record);
+        
         Object.entries(record).forEach(([key, value]) => {
+            // Trim the key in case of whitespace
+            const trimmedKey = key.trim();
+            
             // Check if we have a mapping for this field
-            const internalField = SALESFORCE_FIELD_MAP[key];
+            const internalField = SALESFORCE_FIELD_MAP[trimmedKey];
             if (internalField) {
                 mapped[internalField] = value;
-            } else if (key.endsWith('__c')) {
+                console.log(`[ClientStore] Mapped: "${trimmedKey}" -> ${internalField} = "${value}"`);
+            } else if (trimmedKey.endsWith('__c')) {
                 // Custom field - store in customFields
                 if (!mapped.customFields) mapped.customFields = {};
-                mapped.customFields[key] = value;
+                mapped.customFields[trimmedKey] = value;
             }
         });
         
+        console.log('[ClientStore] Final mapped data:', mapped);
         return mapped;
     }
 

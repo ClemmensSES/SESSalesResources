@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Client Administration</title>
+    <!-- SheetJS for Excel parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root {
             --primary: #003366;
@@ -750,41 +752,161 @@
         function handleFileSelect(e) { if (e.target.files.length) handleFile(e.target.files[0]); }
         
         function handleFile(file) {
+            console.log('[ClientAdmin] handleFile called with:', file.name, file.type, file.size, 'bytes');
+            
+            const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+            const isCSV = file.name.endsWith('.csv');
+            const isJSON = file.name.endsWith('.json');
+            
+            console.log('[ClientAdmin] File type detection:', { isExcel, isCSV, isJSON });
+            
             const r = new FileReader();
             r.onload = (e) => {
                 try {
                     let data;
-                    if (file.name.endsWith('.json')) {
+                    
+                    if (isJSON) {
+                        // Parse JSON directly
                         data = JSON.parse(e.target.result);
+                        console.log('[ClientAdmin] Parsed JSON:', data);
+                    } else if (isExcel) {
+                        // Parse Excel using SheetJS
+                        console.log('[ClientAdmin] Parsing Excel file...');
+                        const workbook = XLSX.read(e.target.result, { type: 'array' });
+                        console.log('[ClientAdmin] Workbook sheets:', workbook.SheetNames);
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        // Convert to JSON array with headers
+                        data = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+                        console.log('[ClientAdmin] Parsed Excel, rows:', data.length);
+                        if (data.length > 0) {
+                            console.log('[ClientAdmin] Headers:', Object.keys(data[0]));
+                            console.log('[ClientAdmin] First row data:', data[0]);
+                        } else {
+                            console.log('[ClientAdmin] WARNING: No data rows found in Excel file!');
+                        }
+                    } else if (isCSV) {
+                        // Parse CSV using SheetJS for consistency
+                        console.log('[ClientAdmin] Parsing CSV file...');
+                        const workbook = XLSX.read(e.target.result, { type: 'string' });
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        data = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+                        console.log('[ClientAdmin] Parsed CSV, rows:', data.length);
                     } else {
+                        // Try to parse as CSV text fallback
+                        console.log('[ClientAdmin] Unknown file type, treating as text');
                         data = e.target.result;
                     }
+                    
                     pendingImportData = data;
-                    const count = Array.isArray(data) ? data.length : (typeof data === 'string' ? data.split('\n').length - 1 : 1);
+                    const count = Array.isArray(data) ? data.length : 1;
+                    
+                    console.log('[ClientAdmin] pendingImportData set with', count, 'records');
+                    
+                    // Show preview with field mapping info
+                    let fieldPreview = '';
+                    if (Array.isArray(data) && data.length > 0) {
+                        const headers = Object.keys(data[0]);
+                        fieldPreview = '<div style="margin-top:10px;font-size:0.8rem;color:var(--text-secondary);">' +
+                            '<strong>Detected columns:</strong> ' + headers.slice(0, 5).join(', ') + 
+                            (headers.length > 5 ? '... (+' + (headers.length - 5) + ' more)' : '') +
+                            '</div>';
+                    } else if (count === 0) {
+                        fieldPreview = '<div style="margin-top:10px;font-size:0.8rem;color:#dc3545;">' +
+                            '<strong>Warning:</strong> No data rows found in file. Make sure your file has data below the header row.' +
+                            '</div>';
+                    }
+                    
                     document.getElementById('importPreview').innerHTML = '<div style="padding:12px;background:var(--bg-input);border-radius:6px;">' +
-                        '<strong>Ready to import:</strong> ' + count + ' records<br>' +
-                        '<button class="btn btn-primary" style="margin-top:10px;" onclick="executeImport()">Import Now</button> ' +
-                        '<button class="btn btn-secondary" style="margin-top:10px;" onclick="cancelImport()">Cancel</button></div>';
+                        '<strong>' + (count > 0 ? '✓' : '⚠') + ' Ready to import:</strong> ' + count + ' records from ' + file.name + fieldPreview +
+                        '<div style="margin-top:12px;">' +
+                        '<button class="btn btn-primary" onclick="executeImport()"' + (count === 0 ? ' disabled' : '') + '>Import Now</button> ' +
+                        '<button class="btn btn-secondary" onclick="cancelImport()">Cancel</button></div></div>';
                     document.getElementById('importPreview').style.display = 'block';
                 } catch (err) {
-                    showToast('Error parsing file', 'error');
+                    console.error('[ClientAdmin] Parse error:', err);
+                    showToast('Error parsing file: ' + err.message, 'error');
                 }
             };
-            r.readAsText(file);
+            
+            r.onerror = (err) => {
+                console.error('[ClientAdmin] FileReader error:', err);
+                showToast('Error reading file', 'error');
+            };
+            
+            // Read as ArrayBuffer for Excel, text for others
+            if (isExcel) {
+                console.log('[ClientAdmin] Reading as ArrayBuffer');
+                r.readAsArrayBuffer(file);
+            } else {
+                console.log('[ClientAdmin] Reading as Text');
+                r.readAsText(file);
+            }
         }
         
         function executeImport() {
-            if (!pendingImportData || !ClientStore) return;
+            console.log('[ClientAdmin] executeImport called');
+            console.log('[ClientAdmin] pendingImportData:', pendingImportData);
+            console.log('[ClientAdmin] ClientStore:', ClientStore);
+            
+            if (!pendingImportData) {
+                showToast('No data to import', 'error');
+                return;
+            }
+            
+            if (!ClientStore) {
+                showToast('Client store not available - try refreshing the page', 'error');
+                return;
+            }
+            
             const opts = {
                 updateExisting: document.getElementById('optUpdateExisting').checked,
                 matchByName: document.getElementById('optMatchByName').checked
             };
-            const r = ClientStore.importFromSalesforce(pendingImportData, opts);
-            document.getElementById('importResults').innerHTML = '<div style="padding:12px;background:var(--bg-input);border-radius:6px;">' +
-                '<strong>Import Complete</strong><br>Imported: ' + r.imported + '<br>Updated: ' + r.updated + '<br>Skipped: ' + r.skipped +
-                (r.errors.length ? '<br>Errors: ' + r.errors.length : '') + '</div>';
-            document.getElementById('importResults').style.display = 'block';
-            document.getElementById('importPreview').style.display = 'none';
+            
+            console.log('[ClientAdmin] Import options:', opts);
+            console.log('[ClientAdmin] Calling importFromSalesforce with', Array.isArray(pendingImportData) ? pendingImportData.length : 1, 'records');
+            
+            try {
+                const r = ClientStore.importFromSalesforce(pendingImportData, opts);
+                
+                console.log('[ClientAdmin] Import result:', r);
+                
+                let resultHtml = '<div style="padding:12px;background:var(--bg-input);border-radius:6px;">' +
+                    '<strong>Import Complete</strong><br>' +
+                    'Imported: ' + r.imported + '<br>' +
+                    'Updated: ' + r.updated + '<br>' +
+                    'Skipped: ' + r.skipped;
+                
+                if (r.errors && r.errors.length > 0) {
+                    resultHtml += '<br><br><strong style="color:#dc3545;">Errors (' + r.errors.length + '):</strong><br>';
+                    resultHtml += '<div style="max-height:150px;overflow-y:auto;font-size:0.8rem;color:#dc3545;">';
+                    r.errors.forEach(err => {
+                        resultHtml += err + '<br>';
+                    });
+                    resultHtml += '</div>';
+                }
+                
+                resultHtml += '</div>';
+                
+                document.getElementById('importResults').innerHTML = resultHtml;
+                document.getElementById('importResults').style.display = 'block';
+                document.getElementById('importPreview').style.display = 'none';
+                
+                // Refresh client list to show newly imported clients
+                loadClients();
+                updateStats();
+                
+                if (r.imported > 0 || r.updated > 0) {
+                    showToast('Imported ' + r.imported + ' new, updated ' + r.updated, 'success');
+                } else if (r.skipped > 0) {
+                    showToast('All ' + r.skipped + ' records skipped - check errors', 'warning');
+                }
+                
+            } catch (e) {
+                console.error('[ClientAdmin] Import error:', e);
+                showToast('Import failed: ' + e.message, 'error');
+            }
+            
             pendingImportData = null;
             document.getElementById('importFile').value = '';
         }
