@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AE Intelligence - BUDA</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        .widget-container {
+            background: #16213e;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .widget-header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #2a2a4a;
+            flex-shrink: 0;
+        }
+
+        .widget-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .widget-title i {
+            color: #4fc3f7;
+        }
+
+        .widget-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .control-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #b0b0b0;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .control-btn:hover {
+            background: rgba(79, 195, 247, 0.2);
+            color: #4fc3f7;
+        }
+
+        .control-btn.active {
+            background: rgba(79, 195, 247, 0.3);
+            color: #4fc3f7;
+        }
+
+        .widget-content {
+            flex: 1;
+            position: relative;
+            background: #0d1117;
+            overflow: hidden;
+        }
+
+        .iframe-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        .iframe-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #0d1117;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #2a2a4a;
+            border-top-color: #4fc3f7;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            margin-top: 16px;
+            color: #b0b0b0;
+            font-size: 14px;
+        }
+
+        .error-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #b0b0b0;
+            display: none;
+        }
+
+        .error-message i {
+            font-size: 48px;
+            color: #ff6b6b;
+            margin-bottom: 16px;
+        }
+
+        .error-message h3 {
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+
+        .error-message p {
+            margin-bottom: 16px;
+            max-width: 400px;
+        }
+
+        .error-message button {
+            background: #4fc3f7;
+            color: #1a1a2e;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s ease;
+        }
+
+        .error-message button:hover {
+            background: #81d4fa;
+        }
+
+        /* Status indicator */
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #b0b0b0;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ffa726;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: #66bb6a;
+            animation: none;
+        }
+
+        .status-dot.error {
+            background: #ff6b6b;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Fullscreen mode */
+        .widget-container.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 9999;
+            border-radius: 0;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .widget-header {
+                padding: 10px 12px;
+            }
+
+            .widget-title {
+                font-size: 14px;
+            }
+
+            .control-btn {
+                width: 28px;
+                height: 28px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="widget-container" id="widgetContainer">
+        <div class="widget-header">
+            <div class="widget-title">
+                <i class="fas fa-chart-line"></i>
+                <span>AE Intelligence - BUDA</span>
+            </div>
+            <div class="widget-controls">
+                <div class="status-indicator">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="statusText">Connecting...</span>
+                </div>
+                <button class="control-btn" id="refreshBtn" title="Refresh">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <button class="control-btn" id="newTabBtn" title="Open in New Tab">
+                    <i class="fas fa-external-link-alt"></i>
+                </button>
+                <button class="control-btn" id="fullscreenBtn" title="Toggle Fullscreen">
+                    <i class="fas fa-expand"></i>
+                </button>
+            </div>
+        </div>
+        <div class="widget-content">
+            <div class="loading-overlay" id="loadingOverlay">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">Loading AE Intelligence...</div>
+            </div>
+            <div class="error-message" id="errorMessage">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Unable to Load</h3>
+                <p>The AE Intelligence portal couldn't be loaded in the iframe. This may be due to security restrictions.</p>
+                <button onclick="openInNewTab()">Open in New Tab</button>
+            </div>
+            <div class="iframe-container" id="iframeContainer">
+                <iframe 
+                    id="aeiFrame"
+                    src="https://www.aeintelligence.com/secure/phplogin/index.php"
+                    allow="clipboard-write; clipboard-read"
+                    sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+                    loading="lazy">
+                </iframe>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const iframe = document.getElementById('aeiFrame');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const errorMessage = document.getElementById('errorMessage');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const widgetContainer = document.getElementById('widgetContainer');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const newTabBtn = document.getElementById('newTabBtn');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+        const AEI_URL = 'https://www.aeintelligence.com/secure/phplogin/index.php';
+
+        // Track load state
+        let loadTimeout;
+        let isLoaded = false;
+
+        // Handle iframe load
+        iframe.addEventListener('load', function() {
+            clearTimeout(loadTimeout);
+            isLoaded = true;
+            loadingOverlay.classList.add('hidden');
+            statusDot.classList.add('connected');
+            statusDot.classList.remove('error');
+            statusText.textContent = 'Connected';
+        });
+
+        // Handle iframe error
+        iframe.addEventListener('error', function() {
+            showError();
+        });
+
+        // Set a timeout for loading
+        loadTimeout = setTimeout(() => {
+            if (!isLoaded) {
+                // Check if iframe might have loaded but we can't detect it
+                // (cross-origin restrictions prevent us from checking)
+                loadingOverlay.classList.add('hidden');
+                statusDot.classList.add('connected');
+                statusText.textContent = 'Connected';
+            }
+        }, 5000);
+
+        function showError() {
+            clearTimeout(loadTimeout);
+            loadingOverlay.classList.add('hidden');
+            errorMessage.style.display = 'block';
+            statusDot.classList.add('error');
+            statusDot.classList.remove('connected');
+            statusText.textContent = 'Error';
+        }
+
+        function openInNewTab() {
+            window.open(AEI_URL, '_blank');
+        }
+
+        // Refresh button
+        refreshBtn.addEventListener('click', function() {
+            isLoaded = false;
+            loadingOverlay.classList.remove('hidden');
+            errorMessage.style.display = 'none';
+            statusDot.classList.remove('connected', 'error');
+            statusText.textContent = 'Connecting...';
+            
+            // Reload iframe
+            iframe.src = iframe.src;
+            
+            // Reset timeout
+            clearTimeout(loadTimeout);
+            loadTimeout = setTimeout(() => {
+                if (!isLoaded) {
+                    loadingOverlay.classList.add('hidden');
+                    statusDot.classList.add('connected');
+                    statusText.textContent = 'Connected';
+                }
+            }, 5000);
+        });
+
+        // New tab button
+        newTabBtn.addEventListener('click', openInNewTab);
+
+        // Fullscreen toggle
+        fullscreenBtn.addEventListener('click', function() {
+            widgetContainer.classList.toggle('fullscreen');
+            const icon = fullscreenBtn.querySelector('i');
+            if (widgetContainer.classList.contains('fullscreen')) {
+                icon.classList.remove('fa-expand');
+                icon.classList.add('fa-compress');
+            } else {
+                icon.classList.remove('fa-compress');
+                icon.classList.add('fa-expand');
+            }
+        });
+
+        // Escape key to exit fullscreen
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && widgetContainer.classList.contains('fullscreen')) {
+                widgetContainer.classList.remove('fullscreen');
+                const icon = fullscreenBtn.querySelector('i');
+                icon.classList.remove('fa-compress');
+                icon.classList.add('fa-expand');
+            }
+        });
+
+        // Check if we're in an iframe ourselves (embedded in portal)
+        if (window.self !== window.top) {
+            // We're embedded, adjust styles if needed
+            document.body.style.margin = '0';
+            document.body.style.padding = '0';
+        }
+    </script>
+</body>
+</html>
