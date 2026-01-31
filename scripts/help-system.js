@@ -7,6 +7,70 @@
  */
 
 // =====================================================
+// KEY CONCEPTS - Energy Market Terminology
+// =====================================================
+const KEY_CONCEPTS = {
+    'lmp': {
+        term: 'Locational Marginal Pricing (LMP)',
+        short: 'Cost of electricity at specific grid locations',
+        definition: 'Locational Marginal Pricing (LMP) is a pricing mechanism used in wholesale electricity markets to determine the cost of supplying the next unit of energy at specific locations on the grid. It reflects the true cost of delivering electricity, accounting for factors such as generation costs, demand, and the physical limitations of the transmission system.',
+        components: [
+            { name: 'Energy Component', desc: 'The base cost of generating electricity' },
+            { name: 'Congestion Component', desc: 'Additional costs when transmission lines are constrained' },
+            { name: 'Loss Component', desc: 'Costs from energy lost during transmission' }
+        ],
+        icon: '⚡'
+    },
+    'peak-demand': {
+        term: 'Peak Demand',
+        short: 'Highest electricity usage periods',
+        definition: 'Peak demand refers to the periods when electricity consumption reaches its highest levels, typically during hot summer afternoons or cold winter mornings. During these times, utilities must activate additional generation resources, often at higher costs. Understanding and managing peak demand is crucial for cost optimization and grid reliability.',
+        components: [
+            { name: 'On-Peak', desc: 'Highest usage hours, typically weekday business hours' },
+            { name: 'Off-Peak', desc: 'Lower usage periods, nights and weekends' },
+            { name: 'Shoulder', desc: 'Transitional periods between peak and off-peak' }
+        ],
+        icon: '📈'
+    },
+    'capacity': {
+        term: 'Capacity & Demand Charges',
+        short: 'Costs based on maximum power draw',
+        definition: 'Capacity charges are fees based on the maximum amount of power a customer can draw from the grid, measured in kilowatts (kW). These charges ensure that sufficient generation and transmission infrastructure exists to meet peak demand, even if that capacity is rarely used.',
+        components: [
+            { name: 'Demand Charge', desc: 'Based on your highest 15-minute usage in a billing period' },
+            { name: 'Capacity Tag', desc: 'Your contribution to system peak, set annually' },
+            { name: 'Transmission', desc: 'Costs for moving power across the grid' }
+        ],
+        icon: '🔌'
+    },
+    'iso': {
+        term: 'Independent System Operators (ISOs)',
+        short: 'Regional grid operators and markets',
+        definition: 'Independent System Operators are organizations that coordinate, control, and monitor the electric grid within their regions. They operate wholesale electricity markets and ensure reliable power delivery. Each ISO has different rules, pricing structures, and market mechanisms.',
+        components: [
+            { name: 'PJM', desc: 'Mid-Atlantic & Midwest (13 states + DC)' },
+            { name: 'ISO-NE', desc: 'New England (6 states)' },
+            { name: 'NYISO', desc: 'New York State' },
+            { name: 'ERCOT', desc: 'Texas (independent grid)' },
+            { name: 'CAISO', desc: 'California' },
+            { name: 'MISO', desc: 'Central US (15 states)' }
+        ],
+        icon: '🗺️'
+    },
+    'index-vs-fixed': {
+        term: 'Index vs Fixed Pricing',
+        short: 'Variable market rates vs locked-in prices',
+        definition: 'Energy buyers can choose between index pricing (paying real-time market rates that fluctuate) or fixed pricing (locking in a set rate for a contract term). Index pricing offers potential savings when markets are low but carries risk of price spikes. Fixed pricing provides budget certainty but may cost more than average market prices.',
+        components: [
+            { name: 'Index/Variable', desc: 'Pay market price - lower average but volatile' },
+            { name: 'Fixed', desc: 'Locked rate - predictable but includes risk premium' },
+            { name: 'Block & Index', desc: 'Hybrid approach - fixed base with market exposure' }
+        ],
+        icon: '💰'
+    }
+};
+
+// =====================================================
 // HELP CONTENT DATABASE
 // =====================================================
 const HELP_CONTENT = {
@@ -312,6 +376,23 @@ const EnhancedAI = {
     },
     
     matchGlossary(q) {
+        // First check KEY_CONCEPTS for detailed responses
+        for (const [key, concept] of Object.entries(KEY_CONCEPTS)) {
+            const searchTerms = [key, ...concept.term.toLowerCase().split(' ')];
+            if (searchTerms.some(term => q.includes(term))) {
+                let html = `<strong>${concept.icon} ${concept.term}</strong><br><br>`;
+                html += `${concept.definition}<br><br>`;
+                if (concept.components) {
+                    html += `<strong>Key Components:</strong><br>`;
+                    concept.components.forEach(c => {
+                        html += `• <strong>${c.name}:</strong> ${c.desc}<br>`;
+                    });
+                }
+                return html;
+            }
+        }
+        
+        // Fall back to simple glossary
         for (const [key, item] of Object.entries(HELP_CONTENT.glossary)) {
             if (q.includes(key)) {
                 return `<strong>📖 ${item.term}</strong><br><br>${item.definition}`;
@@ -497,8 +578,7 @@ const QuickActions = {
     buttons: [
         { label: '🚀 Tour', query: 'tour', title: 'Take a guided tour' },
         { label: '❓ Help', query: 'help', title: 'Show help options' },
-        { label: '📊 Status', query: 'data status', title: 'Check data status' },
-        { label: '📖 LMP?', query: 'what is lmp', title: 'Learn about LMP' }
+        { label: '📊 Status', query: 'data status', title: 'Check data status' }
     ],
     injected: false,
     
@@ -524,21 +604,58 @@ const QuickActions = {
         if (!chatContainer) return;
         if (chatContainer.querySelector('.quick-actions-bar')) return;
         
+        // Build Key Concepts HTML
+        const conceptsHtml = Object.entries(KEY_CONCEPTS).map(([key, concept]) => `
+            <div class="concept-card" data-concept="${key}">
+                <div class="concept-header">
+                    <span class="concept-icon">${concept.icon}</span>
+                    <span class="concept-title">${concept.term}</span>
+                    <span class="concept-toggle">▼</span>
+                </div>
+                <div class="concept-preview">${concept.short}</div>
+                <div class="concept-details">
+                    <p class="concept-definition">${concept.definition}</p>
+                    ${concept.components ? `
+                        <div class="concept-components">
+                            ${concept.components.map(c => `
+                                <div class="concept-component">
+                                    <strong>${c.name}:</strong> ${c.desc}
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `).join('');
+        
         const bar = document.createElement('div');
         bar.className = 'quick-actions-bar';
         bar.innerHTML = `
-            <div class="quick-actions-buttons">
-                ${this.buttons.map(btn => `
-                    <button class="quick-action-btn" 
-                            data-query="${btn.query}" 
-                            title="${btn.title}">
-                        ${btn.label}
-                    </button>
-                `).join('')}
+            <div class="key-concepts-section">
+                <div class="key-concepts-header" id="keyConceptsToggle">
+                    <span>📚 Key Energy Concepts</span>
+                    <span class="key-concepts-toggle-icon">▼</span>
+                </div>
+                <div class="key-concepts-grid" id="keyConceptsGrid">
+                    ${conceptsHtml}
+                </div>
+            </div>
+            <div class="quick-actions-divider"></div>
+            <div class="quick-actions-row">
+                <span class="quick-actions-label">Quick Actions:</span>
+                <div class="quick-actions-buttons">
+                    ${this.buttons.map(btn => `
+                        <button class="quick-action-btn" 
+                                data-query="${btn.query}" 
+                                title="${btn.title}">
+                            ${btn.label}
+                        </button>
+                    `).join('')}
+                </div>
             </div>
         `;
         
-        // Add click handlers
+        // Add click handlers for quick action buttons
         bar.querySelectorAll('.quick-action-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const query = btn.dataset.query;
@@ -546,8 +663,35 @@ const QuickActions = {
             });
         });
         
+        // Add toggle for key concepts section
+        const toggle = bar.querySelector('#keyConceptsToggle');
+        const grid = bar.querySelector('#keyConceptsGrid');
+        toggle.addEventListener('click', () => {
+            grid.classList.toggle('collapsed');
+            toggle.querySelector('.key-concepts-toggle-icon').textContent = 
+                grid.classList.contains('collapsed') ? '▶' : '▼';
+        });
+        
+        // Add click handlers for concept cards
+        bar.querySelectorAll('.concept-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                // Don't collapse if clicking a link
+                if (e.target.tagName === 'A') return;
+                
+                const wasExpanded = card.classList.contains('expanded');
+                
+                // Collapse all others
+                bar.querySelectorAll('.concept-card').forEach(c => c.classList.remove('expanded'));
+                
+                // Toggle this one
+                if (!wasExpanded) {
+                    card.classList.add('expanded');
+                }
+            });
+        });
+        
         chatContainer.insertBefore(bar, chatContainer.firstChild);
-        console.log('[HelpSystem] Quick action buttons injected');
+        console.log('[HelpSystem] Quick actions and Key Concepts injected');
     },
     
     execute(query) {
