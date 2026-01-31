@@ -2,7 +2,7 @@
  * Client Store - Centralized Client Management
  * Provides unique client identifiers (CID) across all portal widgets
  * Supports Salesforce data import and cross-widget client context
- * Version: 2.1.0 - Added account tree structure support
+ * Version: 2.2.0 - Added active account (child) selection support for parent/child context
  */
 
 (function() {
@@ -10,10 +10,12 @@
 
     const STORAGE_KEY = 'secureEnergy_clients';
     const ACTIVE_CLIENT_KEY = 'secureEnergy_activeClient';
+    const ACTIVE_ACCOUNT_KEY = 'secureEnergy_activeAccount';
     const GITHUB_FILE = 'data/clients.json';
     
     let clients = {};
     let activeClientId = null;
+    let activeAccountId = null;  // Track active child account under the active client
     let subscribers = [];
 
     // ========================================
@@ -166,8 +168,24 @@
     function loadActiveClient() {
         try {
             activeClientId = localStorage.getItem(ACTIVE_CLIENT_KEY) || null;
+            activeAccountId = localStorage.getItem(ACTIVE_ACCOUNT_KEY) || null;
+            
+            // Validate that active account belongs to active client
+            if (activeAccountId && activeClientId) {
+                const client = clients[activeClientId];
+                if (!client?.accounts?.find(a => a.id === activeAccountId)) {
+                    console.log('[ClientStore] Active account no longer valid, clearing');
+                    activeAccountId = null;
+                    localStorage.removeItem(ACTIVE_ACCOUNT_KEY);
+                }
+            } else if (activeAccountId && !activeClientId) {
+                // Can't have active account without active client
+                activeAccountId = null;
+                localStorage.removeItem(ACTIVE_ACCOUNT_KEY);
+            }
         } catch (e) {
             activeClientId = null;
+            activeAccountId = null;
         }
     }
 
@@ -254,8 +272,10 @@
         if (confirm('Are you sure you want to delete ALL client data? This cannot be undone!')) {
             clients = {};
             activeClientId = null;
+            activeAccountId = null;
             localStorage.removeItem(STORAGE_KEY);
             localStorage.removeItem(ACTIVE_CLIENT_KEY);
+            localStorage.removeItem(ACTIVE_ACCOUNT_KEY);
             notifySubscribers('cleared', {});
             console.log('[ClientStore] All client data cleared');
             return true;
@@ -270,8 +290,14 @@
             } else {
                 localStorage.removeItem(ACTIVE_CLIENT_KEY);
             }
+            
+            if (activeAccountId) {
+                localStorage.setItem(ACTIVE_ACCOUNT_KEY, activeAccountId);
+            } else {
+                localStorage.removeItem(ACTIVE_ACCOUNT_KEY);
+            }
         } catch (e) {
-            console.error('[ClientStore] Save active client error:', e);
+            console.error('[ClientStore] Save active client/account error:', e);
         }
     }
 
@@ -298,24 +324,36 @@
         }
         
         const previousClient = activeClientId;
+        const previousAccount = activeAccountId;
         activeClientId = clientId;
+        
+        // Clear active account when switching clients
+        if (previousClient !== clientId) {
+            activeAccountId = null;
+        }
+        
         saveActiveClient();
         
         // Notify all widgets of client change
         notifySubscribers('activeClientChanged', {
             previous: previousClient,
             current: clientId,
-            client: clientId ? clients[clientId] : null
+            client: clientId ? clients[clientId] : null,
+            previousAccountId: previousAccount,
+            accountId: null,
+            account: null
         });
         
         // Post message to all iframes (widgets)
         broadcastToWidgets({
             type: 'ACTIVE_CLIENT_CHANGED',
             clientId: clientId,
-            client: clientId ? clients[clientId] : null
+            client: clientId ? clients[clientId] : null,
+            accountId: null,
+            account: null
         });
         
-        console.log('[ClientStore] Active client set to:', clientId);
+        console.log('[ClientStore] Active client set to:', clientId, '(account cleared)');
         return true;
     }
 
@@ -329,6 +367,87 @@
 
     function clearActiveClient() {
         setActiveClient(null);
+    }
+
+    // ========================================
+    // Active Account Management (Child Context under Active Client)
+    // ========================================
+    function setActiveAccount(accountId) {
+        // Must have active client to set active account
+        if (!activeClientId) {
+            console.warn('[ClientStore] Cannot set active account without active client');
+            return false;
+        }
+        
+        // Validate account exists under active client
+        const client = clients[activeClientId];
+        if (accountId && !client?.accounts?.find(a => a.id === accountId)) {
+            console.warn('[ClientStore] Account not found under active client:', accountId);
+            return false;
+        }
+        
+        const previousAccount = activeAccountId;
+        activeAccountId = accountId;
+        saveActiveClient();
+        
+        const account = accountId ? client.accounts.find(a => a.id === accountId) : null;
+        
+        // Notify all widgets of account change
+        notifySubscribers('activeAccountChanged', {
+            previous: previousAccount,
+            current: accountId,
+            account: account,
+            clientId: activeClientId,
+            client: client
+        });
+        
+        // Post message to all iframes (widgets)
+        broadcastToWidgets({
+            type: 'ACTIVE_ACCOUNT_CHANGED',
+            clientId: activeClientId,
+            client: client,
+            accountId: accountId,
+            account: account
+        });
+        
+        console.log('[ClientStore] Active account set to:', accountId);
+        return true;
+    }
+
+    function getActiveAccount() {
+        if (!activeClientId || !activeAccountId) return null;
+        const client = clients[activeClientId];
+        return client?.accounts?.find(a => a.id === activeAccountId) || null;
+    }
+
+    function getActiveAccountId() {
+        return activeAccountId;
+    }
+
+    function clearActiveAccount() {
+        setActiveAccount(null);
+    }
+
+    // Get the full active context (client + account)
+    function getActiveContext() {
+        const client = getActiveClient();
+        const account = getActiveAccount();
+        return {
+            clientId: activeClientId,
+            client: client,
+            clientName: client?.name || null,
+            accountId: activeAccountId,
+            account: account,
+            accountName: account?.accountName || null,
+            // Helper for generating storage keys
+            contextKey: activeAccountId 
+                ? `${activeClientId}_${activeAccountId}` 
+                : (activeClientId || 'none'),
+            // Display string for UI
+            displayName: account 
+                ? `${client?.name} → ${account.accountName}` 
+                : (client?.name || 'No selection')
+        };
     }
 
     function broadcastToWidgets(message) {
@@ -1275,6 +1394,13 @@
         getActiveClient,
         getActiveClientId,
         clearActiveClient,
+        
+        // Active Account (Child Context under Active Client)
+        setActiveAccount,
+        getActiveAccount,
+        getActiveAccountId,
+        clearActiveAccount,
+        getActiveContext,  // Returns full client+account context with helper methods
         
         // CRUD
         generateClientId,

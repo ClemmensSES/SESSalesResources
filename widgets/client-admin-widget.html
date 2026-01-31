@@ -172,7 +172,69 @@
         .badge-prospect { background: rgba(255,193,7,0.2); color: var(--warning); }
         .badge-inactive { background: rgba(108,117,125,0.2); color: #6c757d; }
         .badge-iso { background: rgba(0,51,102,0.3); color: #4da6ff; }
+        .badge-account { background: rgba(59,130,246,0.2); color: #3b82f6; }
         .set-active-badge { font-size: 0.6rem; padding: 2px 5px; background: var(--success); color: white; border-radius: 3px; }
+        /* Account List Styles */
+        .accounts-section {
+            margin-top: 16px;
+            border-top: 1px solid var(--border);
+            padding-top: 12px;
+        }
+        .accounts-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .accounts-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #3b82f6;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .account-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        .account-card {
+            padding: 10px 12px;
+            background: var(--bg-input);
+            border-radius: 6px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .account-card:hover { border-color: rgba(59,130,246,0.5); background: rgba(59,130,246,0.05); }
+        .account-card.active-account { border-color: #3b82f6; background: rgba(59,130,246,0.15); }
+        .account-name { font-weight: 500; font-size: 0.85rem; margin-bottom: 2px; display: flex; align-items: center; gap: 6px; }
+        .account-meta { font-size: 0.7rem; color: var(--text-secondary); display: flex; gap: 8px; flex-wrap: wrap; }
+        .account-actions { display: flex; gap: 4px; margin-top: 6px; }
+        /* Active Context Banner */
+        .active-account-indicator {
+            background: rgba(59,130,246,0.15);
+            border: 1px solid #3b82f6;
+            border-radius: 6px;
+            padding: 6px 10px;
+            margin-top: 8px;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .active-account-indicator svg { color: #3b82f6; }
+        .context-breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        .context-breadcrumb .separator { color: var(--accent); }
         .import-zone {
             border: 2px dashed var(--border);
             border-radius: 8px;
@@ -338,7 +400,24 @@
                         <div class="active-client-meta" id="activeClientMeta">Active for all widgets</div>
                     </div>
                 </div>
-                <button class="btn btn-secondary btn-sm" onclick="clearActiveClient()">Clear</button>
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <button class="btn btn-secondary btn-sm" onclick="clearActiveClient()">Clear</button>
+                </div>
+            </div>
+            <!-- Active Account Indicator (shown when account is selected) -->
+            <div id="activeAccountBanner" class="active-account-indicator" style="display:none;margin:0 12px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="8.5" cy="7" r="4"/>
+                    <path d="M20 8v6M23 11h-6"/>
+                </svg>
+                <div style="flex:1;">
+                    <span style="color:#3b82f6;font-weight:500;" id="activeAccountName">-</span>
+                    <span class="context-breadcrumb">
+                        <span class="separator">←</span> child of <span id="activeAccountParent">-</span>
+                    </span>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="clearActiveAccount()" style="font-size:0.7rem;padding:3px 8px;">Clear Account</button>
             </div>
             <div class="split-layout">
                 <div class="panel">
@@ -573,7 +652,15 @@
                     loadClients();
                     updateStats();
                     updateActiveClientBanner();
-                    ClientStore.subscribe((e) => { loadClients(); updateStats(); updateActiveClientBanner(); });
+                    updateActiveAccountBanner();
+                    ClientStore.subscribe((e) => { 
+                        loadClients(); 
+                        updateStats(); 
+                        updateActiveClientBanner(); 
+                        updateActiveAccountBanner();
+                        // Re-render details if we have a selection
+                        if (selectedClientId) showClientDetails(selectedClientId);
+                    });
                 }
                 initTabs();
                 initSearch();
@@ -582,7 +669,17 @@
         });
         
         window.addEventListener('message', function(e) {
-            if (e.data?.type === 'ACTIVE_CLIENT_CHANGED') { updateActiveClientBanner(); loadClients(); }
+            if (e.data?.type === 'ACTIVE_CLIENT_CHANGED') { 
+                updateActiveClientBanner(); 
+                loadClients(); 
+                // Re-render details if we have a selection
+                if (selectedClientId) showClientDetails(selectedClientId);
+            }
+            if (e.data?.type === 'ACTIVE_ACCOUNT_CHANGED') { 
+                updateActiveAccountBanner(); 
+                // Re-render details to show updated active state
+                if (selectedClientId) showClientDetails(selectedClientId);
+            }
         });
         
         function initTabs() {
@@ -696,33 +793,59 @@
             
             // Build accounts tree if present
             let accountsTree = '';
+            const activeAccountId = ClientStore?.getActiveAccountId?.() || null;
+            const isActiveClient = ClientStore?.getActiveClientId?.() === c.id;
+            
             if (c.accounts && c.accounts.length > 0) {
-                accountsTree = '<div class="detail-section"><div class="detail-section-title">🏢 Accounts/Locations (' + c.accounts.length + ')</div>' +
-                    '<div style="max-height:200px;overflow-y:auto;">';
+                accountsTree = '<div class="accounts-section">' +
+                    '<div class="accounts-header">' +
+                    '<div class="accounts-title">' +
+                    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+                    '<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/>' +
+                    '</svg>' +
+                    'Accounts / Locations (' + c.accounts.length + ')' +
+                    '</div>' +
+                    '</div>' +
+                    '<div class="account-list">';
                 
                 c.accounts.forEach((acc, idx) => {
-                    accountsTree += '<div style="background:var(--bg-input);border-radius:6px;padding:10px;margin-bottom:8px;border-left:3px solid #3b82f6;">' +
-                        '<div style="display:flex;justify-content:space-between;align-items:start;">' +
-                        '<div>' +
-                        '<strong style="font-size:0.9rem;">' + (acc.accountName || 'Account ' + (idx + 1)) + '</strong>' +
-                        (acc.accountNumber ? '<span style="font-size:0.75rem;color:var(--text-secondary);margin-left:8px;">#' + acc.accountNumber + '</span>' : '') +
+                    const isActiveAccount = activeAccountId === acc.id;
+                    accountsTree += '<div class="account-card' + (isActiveAccount ? ' active-account' : '') + '">' +
+                        '<div class="account-name">' +
+                        (acc.accountName || 'Account ' + (idx + 1)) +
+                        (acc.accountNumber ? '<span class="client-badge badge-account">#' + acc.accountNumber + '</span>' : '') +
+                        (isActiveAccount ? '<span class="client-badge badge-active">ACTIVE</span>' : '') +
                         '</div>' +
-                        '<button onclick="removeAccount(\'' + c.id + '\',\'' + acc.id + '\')" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:0.8rem;" title="Remove">✕</button>' +
-                        '</div>' +
-                        '<div style="font-size:0.8rem;color:var(--text-secondary);margin-top:4px;">' +
-                        (acc.serviceZip ? '📍 ' + acc.serviceZip + ' ' : '') +
-                        (acc.electricUtility ? '⚡ ' + acc.electricUtility + ' ' : '') +
-                        (acc.gasUtility ? '🔥 ' + acc.gasUtility : '') +
+                        '<div class="account-meta">' +
+                        (acc.serviceZip ? '<span>📍 ' + acc.serviceZip + '</span>' : '') +
+                        (acc.electricUtility ? '<span>⚡ ' + acc.electricUtility + '</span>' : '') +
+                        (acc.gasUtility ? '<span>🔥 ' + acc.gasUtility + '</span>' : '') +
                         '</div>' +
                         (acc.supplierAnnualKwh || acc.supplierAnnualDth ? 
-                            '<div style="font-size:0.75rem;margin-top:4px;">' +
-                            (acc.supplierAnnualKwh ? '<span style="color:#10b981;">' + Number(acc.supplierAnnualKwh).toLocaleString() + ' kWh</span> ' : '') +
+                            '<div class="account-meta" style="margin-top:4px;">' +
+                            (acc.supplierAnnualKwh ? '<span style="color:#10b981;">' + Number(acc.supplierAnnualKwh).toLocaleString() + ' kWh</span>' : '') +
                             (acc.supplierAnnualDth ? '<span style="color:#f59e0b;">' + Number(acc.supplierAnnualDth).toLocaleString() + ' Dth</span>' : '') +
                             '</div>' : '') +
+                        '<div class="account-actions">' +
+                        (isActiveClient && !isActiveAccount ? 
+                            '<button class="btn btn-success btn-sm" onclick="setAccountAsActive(\'' + acc.id + '\')" style="font-size:0.7rem;padding:3px 8px;">Set Active</button>' : '') +
+                        (isActiveAccount ? 
+                            '<button class="btn btn-secondary btn-sm" onclick="clearActiveAccount()" style="font-size:0.7rem;padding:3px 8px;">Clear Active</button>' : '') +
+                        '<button class="btn btn-danger btn-sm" onclick="removeAccount(\'' + c.id + '\',\'' + acc.id + '\')" style="font-size:0.7rem;padding:3px 8px;">Remove</button>' +
+                        '</div>' +
                         '</div>';
                 });
                 
-                accountsTree += '</div></div>';
+                accountsTree += '</div>';
+                
+                // Add note if client is not active
+                if (!isActiveClient) {
+                    accountsTree += '<div style="margin-top:10px;padding:8px;background:rgba(255,193,7,0.15);border-radius:6px;font-size:0.75rem;color:#d4a200;">' +
+                        '💡 Set this client as active to select an account for use in other widgets.' +
+                        '</div>';
+                }
+                
+                accountsTree += '</div>';
             }
             
             d.innerHTML = aggregateInfo +
@@ -800,6 +923,23 @@
             } else {
                 b.style.display = 'none';
             }
+            // Also update account banner
+            updateActiveAccountBanner();
+        }
+        
+        function updateActiveAccountBanner() {
+            if (!ClientStore) return;
+            const acc = ClientStore.getActiveAccount();
+            const client = ClientStore.getActiveClient();
+            const b = document.getElementById('activeAccountBanner');
+            
+            if (acc && client) {
+                document.getElementById('activeAccountName').textContent = acc.accountName || acc.id;
+                document.getElementById('activeAccountParent').textContent = client.name;
+                b.style.display = 'flex';
+            } else {
+                b.style.display = 'none';
+            }
         }
         
         function setSelectedAsActive() {
@@ -816,10 +956,34 @@
             }
         }
         
+        function setAccountAsActive(accountId) {
+            if (ClientStore && accountId) {
+                ClientStore.setActiveAccount(accountId);
+                updateActiveAccountBanner();
+                // Re-render accounts list to show active state
+                if (selectedClientId) {
+                    showClientDetails(selectedClientId);
+                }
+                showToast('Account set as active', 'success');
+            }
+        }
+        
         function clearActiveClient() {
             if (ClientStore) {
                 ClientStore.clearActiveClient();
                 showToast('Active client cleared', 'info');
+            }
+        }
+        
+        function clearActiveAccount() {
+            if (ClientStore) {
+                ClientStore.clearActiveAccount();
+                updateActiveAccountBanner();
+                // Re-render accounts list to show cleared state
+                if (selectedClientId) {
+                    showClientDetails(selectedClientId);
+                }
+                showToast('Active account cleared', 'info');
             }
         }
         
