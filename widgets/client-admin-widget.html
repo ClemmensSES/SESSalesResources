@@ -540,6 +540,7 @@
         let ClientStore = null;
         let selectedClientId = null;
         let pendingImportData = null;
+        let pendingAccountData = null;
         
         function initStores() {
             if (window.parent?.SecureEnergyClients) ClientStore = window.parent.SecureEnergyClients;
@@ -1023,7 +1024,6 @@
         // ========================================
         // Account Enrichment Import
         // ========================================
-        let pendingAccountData = null;
         
         function handleAccountFileSelect(e) { 
             if (e.target.files.length) handleAccountFile(e.target.files[0]); 
