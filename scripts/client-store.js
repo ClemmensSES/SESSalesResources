@@ -2,13 +2,7 @@
  * Client Store - Centralized Client Management
  * Provides unique client identifiers (CID) across all portal widgets
  * Supports Salesforce data import and cross-widget client context
- * Version: 2.1.0
- * 
- * v2.1.0 Updates:
- * - GitHub-first initialization for cross-device sync
- * - Automatic GitHub sync on create/update/delete operations
- * - Smart merge comparing updatedAt timestamps
- * - Usage profiles stored in client records now sync across devices
+ * Version: 2.1.0 - Added account tree structure support
  */
 
 (function() {
@@ -17,15 +11,13 @@
     const STORAGE_KEY = 'secureEnergy_clients';
     const ACTIVE_CLIENT_KEY = 'secureEnergy_activeClient';
     const GITHUB_FILE = 'data/clients.json';
-    const GITHUB_RAW_URL = 'https://raw.githubusercontent.com/SecureEnergyServicesLLC/SESSalesResources/main/data/clients.json';
     
     let clients = {};
     let activeClientId = null;
     let subscribers = [];
-    let _initialized = false;
 
     // ========================================
-    // Salesforce Field Mappings (customizable)
+    // Salesforce Field Mappings - PARENT LEVEL (Contract Report)
     // Maps Salesforce export column headers to internal fields
     // ========================================
     const SALESFORCE_FIELD_MAP = {
@@ -91,103 +83,43 @@
     };
 
     // ========================================
-    // Initialization (GitHub-First for Cross-Device Sync)
+    // Salesforce Field Mappings - ACCOUNT/LOCATION LEVEL (Child Records)
+    // For enrichment import that adds accounts under parent clients
     // ========================================
-    async function init() {
-        console.log('[ClientStore] Initializing...');
-        
-        // Load local clients first (baseline)
+    const ACCOUNT_FIELD_MAP = {
+        'Account Owner': 'accountOwner',
+        'Account Name': 'accountName',
+        'Billing State/Province': 'billingState',
+        'Billing Zip/Postal Code': 'billingZip',
+        'Service Zip/Postal Code': 'serviceZip',
+        'Supplier Applied Payment Number': 'supplierPaymentNumber',
+        'Account Number': 'accountNumber',
+        'Last Activity': 'lastActivity',
+        'Type': 'accountType',
+        'Rating': 'rating',
+        'Last Modified Date': 'lastModifiedDate',
+        'Latest Sign Date': 'latestSignDate',
+        'Contract Start Date': 'contractStartDate',
+        'Contract End Date': 'contractEndDate',
+        'Current Supplier': 'currentSupplier',
+        'Gas Utility': 'gasUtility',
+        'Electric Utility': 'electricUtility',
+        'Supplier Annual KWH': 'supplierAnnualKwh',
+        'Supplier Annual DTH': 'supplierAnnualDth',
+        'Parent Account': 'parentAccountName'
+    };
+
+    // ========================================
+    // Initialization
+    // ========================================
+    function init() {
         loadFromStorage();
         loadActiveClient();
-        
-        // Try to fetch from GitHub and MERGE (GitHub-first approach)
-        try {
-            const githubLoaded = await fetchFromGitHub(true); // true = merge mode
-            if (githubLoaded) {
-                console.log('[ClientStore] Merged with GitHub data');
-            }
-        } catch (e) {
-            console.warn('[ClientStore] GitHub fetch failed, using local data:', e.message);
-        }
-        
-        // Save merged result to localStorage
-        saveToStorage();
-        _initialized = true;
-        
         console.log('[ClientStore] Initialized with', Object.keys(clients).length, 'clients');
         if (activeClientId) {
             console.log('[ClientStore] Active client:', activeClientId);
         }
         return getStats();
-    }
-    
-    // Fetch clients from GitHub (for cross-device sync)
-    async function fetchFromGitHub(mergeMode = false) {
-        try {
-            console.log('[ClientStore] Fetching clients from GitHub...');
-            const response = await fetch(GITHUB_RAW_URL + '?t=' + Date.now());
-            
-            if (!response.ok) {
-                if (response.status === 404) {
-                    console.log('[ClientStore] clients.json not found on GitHub (will be created on first save)');
-                }
-                return false;
-            }
-            
-            const data = await response.json();
-            
-            // Handle both array and object formats
-            let loadedClients = {};
-            if (Array.isArray(data)) {
-                data.forEach(c => { if (c.id) loadedClients[c.id] = c; });
-            } else if (data && typeof data === 'object') {
-                // Could be { clients: [...] } or direct object map
-                if (data.clients && Array.isArray(data.clients)) {
-                    data.clients.forEach(c => { if (c.id) loadedClients[c.id] = c; });
-                } else {
-                    loadedClients = data;
-                }
-            }
-            
-            if (Object.keys(loadedClients).length === 0) {
-                return false;
-            }
-            
-            if (mergeMode && Object.keys(clients).length > 0) {
-                // Smart merge: compare updatedAt timestamps
-                let added = 0, updated = 0;
-                
-                Object.entries(loadedClients).forEach(([id, githubClient]) => {
-                    const localClient = clients[id];
-                    
-                    if (!localClient) {
-                        // Client only in GitHub - add it
-                        clients[id] = githubClient;
-                        added++;
-                    } else {
-                        // Client exists in both - keep newer version
-                        const localTime = new Date(localClient.updatedAt || localClient.createdAt || 0).getTime();
-                        const githubTime = new Date(githubClient.updatedAt || githubClient.createdAt || 0).getTime();
-                        
-                        if (githubTime > localTime) {
-                            clients[id] = githubClient;
-                            updated++;
-                        }
-                    }
-                });
-                
-                console.log(`[ClientStore] Smart merge: ${added} added, ${updated} updated from GitHub`);
-            } else {
-                // Replace mode
-                clients = loadedClients;
-                console.log(`[ClientStore] Loaded ${Object.keys(clients).length} clients from GitHub`);
-            }
-            
-            return true;
-        } catch (e) {
-            console.warn('[ClientStore] GitHub fetch failed:', e.message);
-            return false;
-        }
     }
 
     function loadFromStorage() {
@@ -388,9 +320,6 @@
         saveToStorage();
         notifySubscribers('create', client);
         
-        // Sync to GitHub for cross-device availability
-        scheduleSyncToGitHub();
-        
         return client;
     }
 
@@ -417,9 +346,6 @@
                 client: clients[clientId]
             });
         }
-        
-        // Sync to GitHub for cross-device availability
-        scheduleSyncToGitHub();
         
         return clients[clientId];
     }
@@ -514,9 +440,6 @@
         saveToStorage();
         notifySubscribers('delete', client);
         
-        // Sync to GitHub for cross-device availability
-        scheduleSyncToGitHub();
-        
         return true;
     }
 
@@ -547,7 +470,6 @@
         clients[clientId].locations.push(loc);
         clients[clientId].updatedAt = new Date().toISOString();
         saveToStorage();
-        scheduleSyncToGitHub();
         
         return loc;
     }
@@ -566,7 +488,6 @@
         
         clients[clientId].updatedAt = new Date().toISOString();
         saveToStorage();
-        scheduleSyncToGitHub();
         
         return clients[clientId].locations[locIndex];
     }
@@ -580,7 +501,6 @@
         clients[clientId].locations.splice(locIndex, 1);
         clients[clientId].updatedAt = new Date().toISOString();
         saveToStorage();
-        scheduleSyncToGitHub();
         
         return true;
     }
@@ -607,7 +527,6 @@
         clients[clientId].linkedAnalyses.push(linkedAnalysis);
         clients[clientId].updatedAt = new Date().toISOString();
         saveToStorage();
-        scheduleSyncToGitHub();
         
         notifySubscribers('analysisLinked', { clientId, analysis: linkedAnalysis });
         
@@ -630,7 +549,6 @@
         clients[clientId].linkedBids.push(linkedBid);
         clients[clientId].updatedAt = new Date().toISOString();
         saveToStorage();
-        scheduleSyncToGitHub();
         
         notifySubscribers('bidLinked', { clientId, bid: linkedBid });
         
@@ -766,6 +684,217 @@
         return mapped;
     }
 
+    // ========================================
+    // Account/Location Import (Enrichment)
+    // Adds child accounts to existing parent clients
+    // ========================================
+    function importAccounts(data, options = {}) {
+        const results = {
+            imported: 0,
+            updated: 0,
+            skipped: 0,
+            orphaned: 0,
+            errors: []
+        };
+        
+        let records = [];
+        
+        console.log('[ClientStore] importAccounts called with:', typeof data, Array.isArray(data) ? data.length + ' records' : data);
+        
+        // Parse input data
+        if (typeof data === 'string') {
+            records = parseCSV(data);
+        } else if (Array.isArray(data)) {
+            records = data;
+        } else if (data && typeof data === 'object') {
+            records = [data];
+        }
+        
+        console.log('[ClientStore] Processing', records.length, 'account records');
+        if (records.length > 0) {
+            console.log('[ClientStore] First record keys:', Object.keys(records[0]));
+        }
+        
+        records.forEach((record, index) => {
+            try {
+                // Map account fields
+                const mappedAccount = mapAccountFields(record);
+                
+                // Must have a parent account name to link
+                if (!mappedAccount.parentAccountName) {
+                    results.skipped++;
+                    console.log(`[ClientStore] Row ${index + 1}: SKIPPED - no Parent Account`);
+                    return;
+                }
+                
+                // Find parent client by name
+                const parentClient = getClientByName(mappedAccount.parentAccountName);
+                
+                if (!parentClient) {
+                    results.orphaned++;
+                    if (options.createOrphans) {
+                        // Optionally create parent if doesn't exist
+                        const newParent = createClient({
+                            name: mappedAccount.parentAccountName,
+                            source: 'Auto-created from Account Import'
+                        });
+                        addAccountToClient(newParent.id, mappedAccount);
+                        results.imported++;
+                        console.log(`[ClientStore] Row ${index + 1}: Created parent and added account`);
+                    } else {
+                        results.errors.push(`Row ${index + 1}: Parent "${mappedAccount.parentAccountName}" not found`);
+                        console.log(`[ClientStore] Row ${index + 1}: ORPHANED - parent not found`);
+                    }
+                    return;
+                }
+                
+                // Check if this account already exists under the parent
+                const existingAccount = findAccountInClient(parentClient.id, mappedAccount);
+                
+                if (existingAccount) {
+                    if (options.updateExisting) {
+                        updateAccountInClient(parentClient.id, existingAccount.id, mappedAccount);
+                        results.updated++;
+                        console.log(`[ClientStore] Row ${index + 1}: UPDATED account in ${parentClient.name}`);
+                    } else {
+                        results.skipped++;
+                        console.log(`[ClientStore] Row ${index + 1}: SKIPPED - account exists`);
+                    }
+                } else {
+                    // Add new account to parent
+                    addAccountToClient(parentClient.id, mappedAccount);
+                    results.imported++;
+                    console.log(`[ClientStore] Row ${index + 1}: ADDED account to ${parentClient.name}`);
+                }
+                
+            } catch (e) {
+                console.error(`[ClientStore] Row ${index + 1}: ERROR -`, e);
+                results.errors.push(`Row ${index + 1}: ${e.message}`);
+            }
+        });
+        
+        console.log('[ClientStore] Account import results:', results);
+        notifySubscribers('accountImport', results);
+        
+        return results;
+    }
+
+    function mapAccountFields(record) {
+        const mapped = {};
+        
+        Object.entries(record).forEach(([key, value]) => {
+            const trimmedKey = key.trim();
+            const internalField = ACCOUNT_FIELD_MAP[trimmedKey];
+            if (internalField) {
+                mapped[internalField] = value;
+            }
+        });
+        
+        // Generate a unique ID for the account
+        mapped.id = 'ACC-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
+        mapped.importedAt = new Date().toISOString();
+        
+        return mapped;
+    }
+
+    function addAccountToClient(clientId, accountData) {
+        if (!clients[clientId]) return null;
+        
+        // Initialize accounts array if doesn't exist
+        if (!clients[clientId].accounts) {
+            clients[clientId].accounts = [];
+        }
+        
+        const account = {
+            ...accountData,
+            addedAt: new Date().toISOString()
+        };
+        
+        clients[clientId].accounts.push(account);
+        clients[clientId].updatedAt = new Date().toISOString();
+        
+        // Update aggregate stats
+        updateClientAggregates(clientId);
+        
+        saveToStorage();
+        notifySubscribers('accountAdded', { clientId, account });
+        
+        return account;
+    }
+
+    function findAccountInClient(clientId, accountData) {
+        if (!clients[clientId]?.accounts) return null;
+        
+        // Match by account number or account name + zip
+        return clients[clientId].accounts.find(acc => 
+            (accountData.accountNumber && acc.accountNumber === accountData.accountNumber) ||
+            (acc.accountName === accountData.accountName && acc.serviceZip === accountData.serviceZip)
+        );
+    }
+
+    function updateAccountInClient(clientId, accountId, updates) {
+        if (!clients[clientId]?.accounts) return null;
+        
+        const accountIndex = clients[clientId].accounts.findIndex(acc => acc.id === accountId);
+        if (accountIndex === -1) return null;
+        
+        clients[clientId].accounts[accountIndex] = {
+            ...clients[clientId].accounts[accountIndex],
+            ...updates,
+            updatedAt: new Date().toISOString()
+        };
+        
+        clients[clientId].updatedAt = new Date().toISOString();
+        updateClientAggregates(clientId);
+        
+        saveToStorage();
+        return clients[clientId].accounts[accountIndex];
+    }
+
+    function removeAccountFromClient(clientId, accountId) {
+        if (!clients[clientId]?.accounts) return false;
+        
+        const initialLength = clients[clientId].accounts.length;
+        clients[clientId].accounts = clients[clientId].accounts.filter(acc => acc.id !== accountId);
+        
+        if (clients[clientId].accounts.length < initialLength) {
+            clients[clientId].updatedAt = new Date().toISOString();
+            updateClientAggregates(clientId);
+            saveToStorage();
+            notifySubscribers('accountRemoved', { clientId, accountId });
+            return true;
+        }
+        return false;
+    }
+
+    function updateClientAggregates(clientId) {
+        if (!clients[clientId]) return;
+        
+        const accounts = clients[clientId].accounts || [];
+        
+        // Calculate totals from child accounts
+        let totalKwh = 0;
+        let totalDth = 0;
+        let accountCount = accounts.length;
+        
+        accounts.forEach(acc => {
+            if (acc.supplierAnnualKwh) totalKwh += parseFloat(acc.supplierAnnualKwh) || 0;
+            if (acc.supplierAnnualDth) totalDth += parseFloat(acc.supplierAnnualDth) || 0;
+        });
+        
+        clients[clientId].aggregates = {
+            accountCount,
+            totalAnnualKwh: totalKwh,
+            totalAnnualDth: totalDth,
+            totalAnnualMWh: totalKwh / 1000,
+            lastCalculated: new Date().toISOString()
+        };
+    }
+
+    function getClientAccounts(clientId) {
+        return clients[clientId]?.accounts || [];
+    }
+
     function parseCSV(csvString) {
         const lines = csvString.split('\n');
         if (lines.length < 2) return [];
@@ -867,28 +996,16 @@
     }
 
     // ========================================
-    // GitHub Sync (Cross-Device Persistence)
+    // GitHub Sync
     // ========================================
     async function syncToGitHub() {
-        // Check if GitHubSync is available and has a token
-        if (typeof GitHubSync === 'undefined' || !GitHubSync.hasToken || !GitHubSync.hasToken()) {
-            console.warn('[ClientStore] GitHubSync not available or no token configured');
-            return false;
-        }
-        
-        if (!GitHubSync.autoSyncEnabled) {
-            console.log('[ClientStore] Auto-sync disabled, skipping GitHub sync');
+        if (typeof GitHubSync === 'undefined') {
+            console.warn('[ClientStore] GitHubSync not available');
             return false;
         }
         
         try {
-            const content = JSON.stringify({
-                version: '2.0.0',
-                lastUpdated: new Date().toISOString(),
-                clients: clients
-            }, null, 2);
-            
-            await GitHubSync._updateFile(GITHUB_FILE, content, 'Update clients data');
+            await GitHubSync.saveFile(GITHUB_FILE, JSON.stringify(clients, null, 2));
             console.log('[ClientStore] Synced to GitHub');
             return true;
         } catch (e) {
@@ -898,26 +1015,29 @@
     }
 
     async function loadFromGitHub() {
-        // This is the manual load - uses fetchFromGitHub with replace mode
-        return await fetchFromGitHub(false);
-    }
-    
-    // Schedule GitHub sync (debounced for bulk operations)
-    let _syncTimeout = null;
-    function scheduleSyncToGitHub(immediate = false) {
-        if (typeof GitHubSync === 'undefined' || !GitHubSync.hasToken || !GitHubSync.hasToken()) {
-            return;
+        if (typeof GitHubSync === 'undefined') {
+            console.warn('[ClientStore] GitHubSync not available');
+            return false;
         }
         
-        clearTimeout(_syncTimeout);
-        
-        if (immediate) {
-            syncToGitHub().catch(e => console.warn('[ClientStore] Sync failed:', e.message));
-        } else {
-            _syncTimeout = setTimeout(() => {
-                syncToGitHub().catch(e => console.warn('[ClientStore] Sync failed:', e.message));
-            }, 2000);
+        try {
+            const data = await GitHubSync.loadFile(GITHUB_FILE);
+            if (data) {
+                const loaded = JSON.parse(data);
+                // Merge with existing (GitHub wins for conflicts)
+                Object.entries(loaded).forEach(([id, client]) => {
+                    if (!clients[id] || new Date(client.updatedAt) > new Date(clients[id]?.updatedAt)) {
+                        clients[id] = client;
+                    }
+                });
+                saveToStorage();
+                console.log('[ClientStore] Loaded from GitHub');
+                return true;
+            }
+        } catch (e) {
+            console.error('[ClientStore] GitHub load error:', e);
         }
+        return false;
     }
 
     // ========================================
@@ -1016,6 +1136,13 @@
         updateLocation,
         removeLocation,
         
+        // Accounts (Child Records / Tree Structure)
+        importAccounts,
+        addAccountToClient,
+        updateAccountInClient,
+        removeAccountFromClient,
+        getClientAccounts,
+        
         // Links
         linkAnalysis,
         linkBid,
@@ -1029,7 +1156,6 @@
         // GitHub Sync
         syncToGitHub,
         loadFromGitHub,
-        fetchFromGitHub,
         
         // Utilities
         subscribe,
@@ -1037,7 +1163,8 @@
         getClientDropdownOptions,
         
         // Field mappings (for customization)
-        SALESFORCE_FIELD_MAP
+        SALESFORCE_FIELD_MAP,
+        ACCOUNT_FIELD_MAP
     };
 
 })();

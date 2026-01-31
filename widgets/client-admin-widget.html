@@ -378,26 +378,60 @@
         </div>
         
         <div class="tab-content" id="tab-import">
-            <div class="panel-body" style="max-width:700px;margin:0 auto;">
-                <h3 style="margin-bottom:12px;font-size:1.1rem;">Import Salesforce Data</h3>
-                <p style="color:var(--text-secondary);margin-bottom:16px;font-size:0.85rem;">
-                    Upload a CSV or JSON export from Salesforce to bulk import client records.
-                </p>
-                <div class="import-zone" id="importZone" onclick="document.getElementById('importFile').click()">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-secondary);margin-bottom:8px;">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-                    </svg>
-                    <p><strong>Click to upload</strong> or drag and drop</p>
-                    <p style="font-size:0.8rem;">CSV or JSON files from Salesforce</p>
-                    <input type="file" id="importFile" accept=".csv,.json" style="display:none;" onchange="handleFileSelect(event)">
+            <div class="panel-body" style="max-width:800px;margin:0 auto;">
+                <!-- Parent Client Import -->
+                <div style="margin-bottom:30px;padding-bottom:24px;border-bottom:1px solid var(--border);">
+                    <h3 style="margin-bottom:12px;font-size:1.1rem;">
+                        <span style="background:var(--accent);color:white;padding:2px 8px;border-radius:4px;font-size:0.7rem;margin-right:8px;">1</span>
+                        Import Parent Clients
+                    </h3>
+                    <p style="color:var(--text-secondary);margin-bottom:16px;font-size:0.85rem;">
+                        Upload contract-level data from Salesforce to create parent client records.
+                    </p>
+                    <div class="import-zone" id="importZone" onclick="document.getElementById('importFile').click()">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-secondary);margin-bottom:8px;">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        <p><strong>Click to upload</strong> or drag and drop</p>
+                        <p style="font-size:0.8rem;">Excel, CSV or JSON - Contract/Parent level data</p>
+                        <input type="file" id="importFile" accept=".xlsx,.xls,.csv,.json" style="display:none;" onchange="handleFileSelect(event)">
+                    </div>
+                    <div class="import-options">
+                        <label class="import-option"><input type="checkbox" id="optUpdateExisting" checked> Update existing</label>
+                        <label class="import-option"><input type="checkbox" id="optMatchByName"> Match by name</label>
+                    </div>
+                    <div id="importPreview" style="display:none;margin-top:16px;"></div>
+                    <div id="importResults" style="display:none;margin-top:16px;"></div>
                 </div>
-                <div class="import-options">
-                    <label class="import-option"><input type="checkbox" id="optUpdateExisting" checked> Update existing</label>
-                    <label class="import-option"><input type="checkbox" id="optMatchByName"> Match by name</label>
+                
+                <!-- Account Enrichment Import -->
+                <div>
+                    <h3 style="margin-bottom:12px;font-size:1.1rem;">
+                        <span style="background:#3b82f6;color:white;padding:2px 8px;border-radius:4px;font-size:0.7rem;margin-right:8px;">2</span>
+                        Import Account Tree (Enrichment)
+                    </h3>
+                    <p style="color:var(--text-secondary);margin-bottom:16px;font-size:0.85rem;">
+                        Upload account-level data to add child locations/accounts under parent clients. 
+                        <strong>Requires "Parent Account" column</strong> to match existing clients.
+                    </p>
+                    <div class="import-zone" id="accountImportZone" onclick="document.getElementById('accountImportFile').click()" style="border-color:#3b82f6;">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#3b82f6;margin-bottom:8px;">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="8.5" cy="7" r="4"/>
+                            <path d="M20 8v6M23 11h-6"/>
+                        </svg>
+                        <p><strong>Click to upload</strong> account/location data</p>
+                        <p style="font-size:0.8rem;">Excel, CSV or JSON - Account level with Parent Account column</p>
+                        <input type="file" id="accountImportFile" accept=".xlsx,.xls,.csv,.json" style="display:none;" onchange="handleAccountFileSelect(event)">
+                    </div>
+                    <div class="import-options">
+                        <label class="import-option"><input type="checkbox" id="optAcctUpdateExisting" checked> Update existing accounts</label>
+                        <label class="import-option"><input type="checkbox" id="optCreateOrphans"> Create missing parents</label>
+                    </div>
+                    <div id="accountImportPreview" style="display:none;margin-top:16px;"></div>
+                    <div id="accountImportResults" style="display:none;margin-top:16px;"></div>
                 </div>
-                <div id="importPreview" style="display:none;margin-top:16px;"></div>
-                <div id="importResults" style="display:none;margin-top:16px;"></div>
             </div>
         </div>
         
@@ -549,6 +583,25 @@
         }
         
         function initDragDrop() {
+            // Parent import zone
+            const z = document.getElementById('importZone');
+            ['dragenter','dragover'].forEach(e => z.addEventListener(e, ev => { ev.preventDefault(); z.classList.add('dragover'); }));
+            ['dragleave','drop'].forEach(e => z.addEventListener(e, ev => { ev.preventDefault(); z.classList.remove('dragover'); }));
+            z.addEventListener('drop', ev => { if (ev.dataTransfer.files.length) handleFile(ev.dataTransfer.files[0]); });
+            
+            // Account import zone
+            const az = document.getElementById('accountImportZone');
+            if (az) {
+                ['dragenter','dragover'].forEach(e => az.addEventListener(e, ev => { ev.preventDefault(); az.classList.add('dragover'); }));
+                ['dragleave','drop'].forEach(e => az.addEventListener(e, ev => { ev.preventDefault(); az.classList.remove('dragover'); }));
+                az.addEventListener('drop', ev => { if (ev.dataTransfer.files.length) handleAccountFile(ev.dataTransfer.files[0]); });
+            }
+        }
+            let t;
+            s.oninput = () => { clearTimeout(t); t = setTimeout(() => loadClients(s.value), 200); };
+        }
+        
+        function initDragDrop() {
             const z = document.getElementById('importZone');
             ['dragenter','dragover'].forEach(e => z.addEventListener(e, ev => { ev.preventDefault(); z.classList.add('dragover'); }));
             ['dragleave','drop'].forEach(e => z.addEventListener(e, ev => { ev.preventDefault(); z.classList.remove('dragover'); }));
@@ -570,9 +623,12 @@
             list.innerHTML = clients.map(c => {
                 const sel = c.id === selectedClientId;
                 const act = c.id === activeId;
+                const accountCount = c.accounts?.length || 0;
                 // Format usage
                 let usageStr = '';
-                if (c.annualUsageMWh) {
+                if (c.aggregates?.totalAnnualKwh) {
+                    usageStr = Number(c.aggregates.totalAnnualKwh).toLocaleString() + ' kWh (agg)';
+                } else if (c.annualUsageMWh) {
                     usageStr = Number(c.annualUsageMWh).toLocaleString() + ' MWh/yr';
                 } else if (c.annualUsageKwh) {
                     usageStr = Number(c.annualUsageKwh).toLocaleString() + ' kWh/yr';
@@ -581,6 +637,7 @@
                     '<div class="client-name">' + c.name +
                     ' <span class="client-badge badge-' + ((c.contractStatus || c.status || 'active').toLowerCase().replace(/\s+/g, '-')) + '">' + (c.contractStatus || c.status || 'Active') + '</span>' +
                     (c.productCategory ? ' <span class="client-badge badge-iso">' + c.productCategory + '</span>' : '') +
+                    (accountCount > 0 ? ' <span class="client-badge" style="background:#3b82f6;color:white;">' + accountCount + ' acct' + (accountCount > 1 ? 's' : '') + '</span>' : '') +
                     (act ? ' <span class="set-active-badge">ACTIVE</span>' : '') +
                     '</div><div class="client-meta">' +
                     (c.currentSupplier ? '<span>Supplier: ' + c.currentSupplier + '</span>' : '') +
@@ -610,13 +667,59 @@
                 usageDisplay = Number(c.annualUsageKwh).toLocaleString() + ' kWh';
             }
             
-            d.innerHTML = '<div class="detail-section"><div class="detail-section-title">Account Info</div>' +
+            // Check for aggregates from child accounts
+            let aggregateInfo = '';
+            if (c.aggregates && c.aggregates.accountCount > 0) {
+                aggregateInfo = '<div class="detail-section" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:8px;padding:12px;margin-bottom:16px;">' +
+                    '<div class="detail-section-title" style="color:#3b82f6;">📊 Aggregated from ' + c.aggregates.accountCount + ' Accounts</div>' +
+                    '<div class="detail-grid">' +
+                    '<div class="detail-item"><div class="detail-label">Total kWh</div><div class="detail-value">' + (c.aggregates.totalAnnualKwh?.toLocaleString() || 0) + '</div></div>' +
+                    '<div class="detail-item"><div class="detail-label">Total MWh</div><div class="detail-value">' + (c.aggregates.totalAnnualMWh?.toLocaleString(undefined, {maximumFractionDigits: 1}) || 0) + '</div></div>' +
+                    '<div class="detail-item"><div class="detail-label">Total Dth</div><div class="detail-value">' + (c.aggregates.totalAnnualDth?.toLocaleString() || 0) + '</div></div>' +
+                    '</div></div>';
+            }
+            
+            // Build accounts tree if present
+            let accountsTree = '';
+            if (c.accounts && c.accounts.length > 0) {
+                accountsTree = '<div class="detail-section"><div class="detail-section-title">🏢 Accounts/Locations (' + c.accounts.length + ')</div>' +
+                    '<div style="max-height:200px;overflow-y:auto;">';
+                
+                c.accounts.forEach((acc, idx) => {
+                    accountsTree += '<div style="background:var(--bg-input);border-radius:6px;padding:10px;margin-bottom:8px;border-left:3px solid #3b82f6;">' +
+                        '<div style="display:flex;justify-content:space-between;align-items:start;">' +
+                        '<div>' +
+                        '<strong style="font-size:0.9rem;">' + (acc.accountName || 'Account ' + (idx + 1)) + '</strong>' +
+                        (acc.accountNumber ? '<span style="font-size:0.75rem;color:var(--text-secondary);margin-left:8px;">#' + acc.accountNumber + '</span>' : '') +
+                        '</div>' +
+                        '<button onclick="removeAccount(\'' + c.id + '\',\'' + acc.id + '\')" style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:0.8rem;" title="Remove">✕</button>' +
+                        '</div>' +
+                        '<div style="font-size:0.8rem;color:var(--text-secondary);margin-top:4px;">' +
+                        (acc.serviceZip ? '📍 ' + acc.serviceZip + ' ' : '') +
+                        (acc.electricUtility ? '⚡ ' + acc.electricUtility + ' ' : '') +
+                        (acc.gasUtility ? '🔥 ' + acc.gasUtility : '') +
+                        '</div>' +
+                        (acc.supplierAnnualKwh || acc.supplierAnnualDth ? 
+                            '<div style="font-size:0.75rem;margin-top:4px;">' +
+                            (acc.supplierAnnualKwh ? '<span style="color:#10b981;">' + Number(acc.supplierAnnualKwh).toLocaleString() + ' kWh</span> ' : '') +
+                            (acc.supplierAnnualDth ? '<span style="color:#f59e0b;">' + Number(acc.supplierAnnualDth).toLocaleString() + ' Dth</span>' : '') +
+                            '</div>' : '') +
+                        '</div>';
+                });
+                
+                accountsTree += '</div></div>';
+            }
+            
+            d.innerHTML = aggregateInfo +
+                '<div class="detail-section"><div class="detail-section-title">Account Info</div>' +
                 '<div class="detail-grid">' +
                 '<div class="detail-item"><div class="detail-label">Client ID</div><div class="detail-value">' + c.id + '</div></div>' +
                 '<div class="detail-item"><div class="detail-label">Salesforce ID</div><div class="detail-value ' + (!c.salesforceId ? 'empty' : '') + '">' + (c.salesforceId || 'Not linked') + '</div></div>' +
                 '<div class="detail-item"><div class="detail-label">Parent Account</div><div class="detail-value">' + (c.parentAccountCustomer || c.name || 'N/A') + '</div></div>' +
                 '<div class="detail-item"><div class="detail-label">Status</div><div class="detail-value">' + (c.contractStatus || c.status || 'Active') + '</div></div>' +
                 '</div></div>' +
+                
+                accountsTree +
                 
                 '<div class="detail-section"><div class="detail-section-title">Contract Details</div>' +
                 '<div class="detail-grid">' +
@@ -652,6 +755,16 @@
                 
                 (c.notes ? '<div class="detail-section"><div class="detail-section-title">Notes</div><div style="padding:8px;background:var(--bg-input);border-radius:5px;font-size:0.85rem;">' + c.notes + '</div></div>' : '') +
                 '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:12px;">Created: ' + new Date(c.createdAt).toLocaleDateString() + ' | Updated: ' + new Date(c.updatedAt).toLocaleDateString() + '</div>';
+        }
+        
+        function removeAccount(clientId, accountId) {
+            if (confirm('Remove this account from the client?')) {
+                if (ClientStore?.removeAccountFromClient) {
+                    ClientStore.removeAccountFromClient(clientId, accountId);
+                    showClientDetails(clientId);
+                    showToast('Account removed', 'info');
+                }
+            }
         }
         
         function updateStats() {
@@ -915,6 +1028,152 @@
             pendingImportData = null;
             document.getElementById('importPreview').style.display = 'none';
             document.getElementById('importFile').value = '';
+        }
+        
+        // ========================================
+        // Account Enrichment Import
+        // ========================================
+        let pendingAccountData = null;
+        
+        function handleAccountFileSelect(e) { 
+            if (e.target.files.length) handleAccountFile(e.target.files[0]); 
+        }
+        
+        function handleAccountFile(file) {
+            console.log('[ClientAdmin] handleAccountFile called with:', file.name);
+            
+            const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+            const isCSV = file.name.endsWith('.csv');
+            const isJSON = file.name.endsWith('.json');
+            
+            const r = new FileReader();
+            r.onload = (e) => {
+                try {
+                    let data;
+                    
+                    if (isJSON) {
+                        data = JSON.parse(e.target.result);
+                    } else if (isExcel) {
+                        const workbook = XLSX.read(e.target.result, { type: 'array' });
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        data = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+                        console.log('[ClientAdmin] Parsed account Excel, rows:', data.length);
+                    } else if (isCSV) {
+                        const workbook = XLSX.read(e.target.result, { type: 'string' });
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        data = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+                    } else {
+                        data = e.target.result;
+                    }
+                    
+                    pendingAccountData = data;
+                    const count = Array.isArray(data) ? data.length : 1;
+                    
+                    // Check for Parent Account column
+                    let hasParentColumn = false;
+                    let fieldPreview = '';
+                    if (Array.isArray(data) && data.length > 0) {
+                        const headers = Object.keys(data[0]);
+                        hasParentColumn = headers.some(h => h.toLowerCase().includes('parent'));
+                        fieldPreview = '<div style="margin-top:10px;font-size:0.8rem;color:var(--text-secondary);">' +
+                            '<strong>Detected columns:</strong> ' + headers.slice(0, 5).join(', ') + 
+                            (headers.length > 5 ? '... (+' + (headers.length - 5) + ' more)' : '') +
+                            '</div>';
+                        
+                        if (!hasParentColumn) {
+                            fieldPreview += '<div style="margin-top:8px;padding:8px;background:rgba(220,53,69,0.2);border-radius:4px;color:#dc3545;font-size:0.8rem;">' +
+                                '⚠️ Warning: No "Parent Account" column detected. Accounts need a parent to link to.' +
+                                '</div>';
+                        }
+                    }
+                    
+                    document.getElementById('accountImportPreview').innerHTML = '<div style="padding:12px;background:var(--bg-input);border-radius:6px;">' +
+                        '<strong>' + (count > 0 && hasParentColumn ? '✓' : '⚠') + ' Ready to import:</strong> ' + count + ' account records from ' + file.name + fieldPreview +
+                        '<div style="margin-top:12px;">' +
+                        '<button class="btn btn-primary" onclick="executeAccountImport()" style="background:#3b82f6;">Import Accounts</button> ' +
+                        '<button class="btn btn-secondary" onclick="cancelAccountImport()">Cancel</button></div></div>';
+                    document.getElementById('accountImportPreview').style.display = 'block';
+                } catch (err) {
+                    console.error('[ClientAdmin] Account parse error:', err);
+                    showToast('Error parsing file: ' + err.message, 'error');
+                }
+            };
+            
+            if (isExcel) {
+                r.readAsArrayBuffer(file);
+            } else {
+                r.readAsText(file);
+            }
+        }
+        
+        function executeAccountImport() {
+            console.log('[ClientAdmin] executeAccountImport called');
+            
+            if (!pendingAccountData) {
+                showToast('No account data to import', 'error');
+                return;
+            }
+            
+            if (!ClientStore) {
+                showToast('Client store not available', 'error');
+                return;
+            }
+            
+            if (!ClientStore.importAccounts) {
+                showToast('Account import not supported - update client-store.js', 'error');
+                return;
+            }
+            
+            const opts = {
+                updateExisting: document.getElementById('optAcctUpdateExisting')?.checked,
+                createOrphans: document.getElementById('optCreateOrphans')?.checked
+            };
+            
+            try {
+                const r = ClientStore.importAccounts(pendingAccountData, opts);
+                
+                let resultHtml = '<div style="padding:12px;background:var(--bg-input);border-radius:6px;">' +
+                    '<strong>Account Import Complete</strong><br>' +
+                    '✓ Added: ' + r.imported + ' accounts<br>' +
+                    '↻ Updated: ' + r.updated + '<br>' +
+                    '⊘ Skipped: ' + r.skipped + '<br>' +
+                    '⚠ Orphaned (no parent): ' + r.orphaned;
+                
+                if (r.errors && r.errors.length > 0) {
+                    resultHtml += '<br><br><strong style="color:#dc3545;">Errors (' + r.errors.length + '):</strong>';
+                    resultHtml += '<div style="max-height:100px;overflow-y:auto;font-size:0.75rem;color:#dc3545;margin-top:4px;">';
+                    r.errors.slice(0, 10).forEach(err => { resultHtml += err + '<br>'; });
+                    if (r.errors.length > 10) resultHtml += '... and ' + (r.errors.length - 10) + ' more';
+                    resultHtml += '</div>';
+                }
+                
+                resultHtml += '</div>';
+                
+                document.getElementById('accountImportResults').innerHTML = resultHtml;
+                document.getElementById('accountImportResults').style.display = 'block';
+                document.getElementById('accountImportPreview').style.display = 'none';
+                
+                // Refresh client list
+                loadClients();
+                updateStats();
+                
+                if (r.imported > 0 || r.updated > 0) {
+                    showToast('Imported ' + r.imported + ' accounts, updated ' + r.updated, 'success');
+                }
+                
+            } catch (e) {
+                console.error('[ClientAdmin] Account import error:', e);
+                showToast('Import failed: ' + e.message, 'error');
+            }
+            
+            pendingAccountData = null;
+            document.getElementById('accountImportFile').value = '';
+        }
+        
+        function cancelAccountImport() {
+            pendingAccountData = null;
+            document.getElementById('accountImportPreview').style.display = 'none';
+            document.getElementById('accountImportFile').value = '';
         }
         
         function exportClients(fmt) {
