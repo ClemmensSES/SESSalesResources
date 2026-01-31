@@ -1162,8 +1162,59 @@
                 Enter your facility's typical monthly usage. This pattern will repeat for each year of the contract.
             </p>
             
+            <!-- Usage Profile Selector -->
+            <div class="usage-profile-selector" style="margin-bottom: 20px; padding: 15px; background: #f0fdf4; border: 2px solid #0d9488; border-radius: 10px;">
+                <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 200px;">
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #0d9488; margin-bottom: 6px; text-transform: uppercase;">
+                            Load Usage Profile
+                        </label>
+                        <select id="usageProfileSelect" class="input-field" style="width: 100%;" onchange="loadSelectedProfile()">
+                            <option value="">-- Select a saved profile --</option>
+                            <!-- Options populated dynamically -->
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: flex-end;">
+                        <button type="button" class="btn btn-secondary" onclick="saveCurrentAsProfile()" style="white-space: nowrap;">
+                            💾 Save Current
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="resetToDefault()" style="white-space: nowrap;">
+                            🔄 Reset Default
+                        </button>
+                    </div>
+                </div>
+                <div id="activeProfileIndicator" style="margin-top: 10px; display: none;">
+                    <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(13,148,136,0.1); border-radius: 6px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="2">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                            <polyline points="22 4 12 14.01 9 11.01"/>
+                        </svg>
+                        <span style="font-size: 13px; color: #065f46;">
+                            <strong id="activeProfileName">Profile Name</strong>
+                            <span id="activeProfileMeta" style="color: #6b7280;"></span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
             <div class="usage-grid" id="usageGrid">
                 <!-- Populated dynamically -->
+            </div>
+            
+            <!-- Usage Summary -->
+            <div style="margin-top: 15px; padding: 12px 15px; background: #f8f9fa; border-radius: 8px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <div style="text-align: center;">
+                    <div style="font-size: 11px; color: #6b7280; text-transform: uppercase;">Annual Total</div>
+                    <div style="font-size: 18px; font-weight: 700; color: #065f46;" id="usageTotalDisplay">1,843,000 kWh</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 11px; color: #6b7280; text-transform: uppercase;">Monthly Avg</div>
+                    <div style="font-size: 18px; font-weight: 700; color: #065f46;" id="usageAvgDisplay">153,583 kWh</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 11px; color: #6b7280; text-transform: uppercase;">Peak Month</div>
+                    <div style="font-size: 18px; font-weight: 700; color: #065f46;" id="usagePeakDisplay">August</div>
+                </div>
             </div>
         </div>
 
@@ -1445,6 +1496,8 @@
         let monthlyViewMode = 'cost';
         let yearlyViewMode = 'cost';
         let monthByMonthViewMode = 'cost';
+        let ProfileStore = null;  // Usage Profile Store reference
+        let currentActiveProfile = null;  // Currently loaded profile
 
         let zoneData = {
             'ISONE': [
@@ -1497,7 +1550,303 @@
             setDefaultDates();
             updateTermInfo();
             updateBreakEvenIndicator();
+            initializeProfileStore();
         });
+        
+        // Initialize Usage Profile Store
+        function initializeProfileStore() {
+            // Try to access ProfileStore from parent window (when embedded)
+            if (window.parent?.UsageProfileStore) {
+                ProfileStore = window.parent.UsageProfileStore;
+            } else if (window.UsageProfileStore) {
+                ProfileStore = window.UsageProfileStore;
+            }
+            
+            // Populate profile dropdown
+            populateProfileDropdown();
+            
+            // Check if there's an active profile
+            if (ProfileStore) {
+                const activeProfile = ProfileStore.getActiveProfile();
+                if (activeProfile) {
+                    loadProfileData(activeProfile);
+                }
+                
+                // Subscribe to profile changes
+                ProfileStore.subscribe(handleProfileChange);
+            }
+        }
+        
+        // Handle profile change events
+        function handleProfileChange(data) {
+            populateProfileDropdown();
+            if (data.activeProfile) {
+                loadProfileData(data.activeProfile);
+            }
+        }
+        
+        // Populate the profile dropdown with available profiles
+        function populateProfileDropdown() {
+            const select = document.getElementById('usageProfileSelect');
+            if (!select) return;
+            
+            // Clear existing options except the first one
+            select.innerHTML = '<option value="">-- Select a saved profile --</option>';
+            
+            if (!ProfileStore) {
+                // If no store available, still show client profile option if available
+                if (activeClient?.usageProfile) {
+                    const opt = document.createElement('option');
+                    opt.value = 'active-client';
+                    opt.textContent = `📋 ${activeClient.name} (Active Client)`;
+                    select.appendChild(opt);
+                }
+                return;
+            }
+            
+            // Get all profiles
+            const profiles = ProfileStore.getAll();
+            const activeProfileId = ProfileStore.getActiveProfileId();
+            
+            // Group profiles
+            const clientProfiles = profiles.filter(p => p.clientId);
+            const standaloneProfiles = profiles.filter(p => !p.clientId);
+            
+            // Add client-linked profiles
+            if (clientProfiles.length > 0) {
+                const group = document.createElement('optgroup');
+                group.label = 'Client Profiles';
+                clientProfiles.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = p.name;
+                    if (p.id === activeProfileId) opt.selected = true;
+                    group.appendChild(opt);
+                });
+                select.appendChild(group);
+            }
+            
+            // Add standalone profiles
+            if (standaloneProfiles.length > 0) {
+                const group = document.createElement('optgroup');
+                group.label = 'Saved Profiles';
+                standaloneProfiles.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = p.name;
+                    if (p.id === activeProfileId) opt.selected = true;
+                    group.appendChild(opt);
+                });
+                select.appendChild(group);
+            }
+            
+            // Add option to load from active client if available and has usage
+            if (activeClient?.usageProfile && 
+                (activeClient.usageProfile.electric?.some(v => v > 0) || 
+                 activeClient.usageProfile.gas?.some(v => v > 0))) {
+                const divider = document.createElement('optgroup');
+                divider.label = '─── From Active Client ───';
+                const opt = document.createElement('option');
+                opt.value = 'active-client';
+                opt.textContent = `📋 ${activeClient.name}`;
+                divider.appendChild(opt);
+                select.appendChild(divider);
+            }
+        }
+        
+        // Load the selected profile from dropdown
+        function loadSelectedProfile() {
+            const select = document.getElementById('usageProfileSelect');
+            const profileId = select.value;
+            
+            if (!profileId) {
+                clearActiveProfileIndicator();
+                return;
+            }
+            
+            // Handle loading from active client
+            if (profileId === 'active-client' && activeClient?.usageProfile) {
+                const usage = activeClient.usageProfile.electric || Array(12).fill(0);
+                loadUsageData(usage, activeClient.name + ' (Active Client)');
+                return;
+            }
+            
+            // Load from ProfileStore
+            if (ProfileStore) {
+                const profile = ProfileStore.getById(profileId);
+                if (profile) {
+                    ProfileStore.setActiveProfile(profileId);
+                    loadProfileData(profile);
+                }
+            }
+        }
+        
+        // Load profile data into the usage grid
+        function loadProfileData(profile) {
+            if (!profile) return;
+            
+            currentActiveProfile = profile;
+            const usage = profile.electricUsage || Array(12).fill(0);
+            
+            // Update each usage input
+            for (let i = 0; i < 12; i++) {
+                const input = document.getElementById(`usage_${i}`);
+                if (input) {
+                    input.value = usage[i] || 0;
+                }
+            }
+            
+            // Update the active profile indicator
+            updateActiveProfileIndicator(profile);
+            
+            // Update usage summary
+            updateUsageSummary();
+            
+            showNotification(`Loaded usage profile: ${profile.name}`, 'success');
+        }
+        
+        // Load raw usage data array
+        function loadUsageData(usageArray, profileName) {
+            for (let i = 0; i < 12; i++) {
+                const input = document.getElementById(`usage_${i}`);
+                if (input) {
+                    input.value = usageArray[i] || 0;
+                }
+            }
+            
+            // Update indicator
+            const indicator = document.getElementById('activeProfileIndicator');
+            const nameEl = document.getElementById('activeProfileName');
+            const metaEl = document.getElementById('activeProfileMeta');
+            
+            if (indicator && nameEl) {
+                indicator.style.display = 'block';
+                nameEl.textContent = profileName;
+                
+                const total = usageArray.reduce((a, b) => a + b, 0);
+                if (metaEl) {
+                    metaEl.textContent = ` • ${(total / 1000).toLocaleString(undefined, {maximumFractionDigits: 0})} MWh/yr`;
+                }
+            }
+            
+            updateUsageSummary();
+            showNotification(`Loaded usage profile: ${profileName}`, 'success');
+        }
+        
+        // Update the active profile indicator
+        function updateActiveProfileIndicator(profile) {
+            const indicator = document.getElementById('activeProfileIndicator');
+            const nameEl = document.getElementById('activeProfileName');
+            const metaEl = document.getElementById('activeProfileMeta');
+            
+            if (!indicator || !nameEl) return;
+            
+            indicator.style.display = 'block';
+            nameEl.textContent = profile.name;
+            
+            if (metaEl) {
+                const total = (profile.electricUsage || []).reduce((a, b) => a + b, 0);
+                const linkedText = profile.clientId ? ' • Client Linked' : ' • Standalone';
+                metaEl.textContent = ` • ${(total / 1000).toLocaleString(undefined, {maximumFractionDigits: 0})} MWh/yr${linkedText}`;
+            }
+        }
+        
+        // Clear the active profile indicator
+        function clearActiveProfileIndicator() {
+            const indicator = document.getElementById('activeProfileIndicator');
+            if (indicator) {
+                indicator.style.display = 'none';
+            }
+            currentActiveProfile = null;
+        }
+        
+        // Save current usage as a new profile
+        async function saveCurrentAsProfile() {
+            const profileName = prompt('Enter a name for this usage profile:', 
+                activeClient ? `${activeClient.name} Profile` : 'My Usage Profile');
+            
+            if (!profileName) return;
+            
+            // Collect current usage values
+            const electricUsage = [];
+            for (let i = 0; i < 12; i++) {
+                const input = document.getElementById(`usage_${i}`);
+                electricUsage.push(parseFloat(input?.value) || 0);
+            }
+            
+            if (ProfileStore) {
+                const result = await ProfileStore.create({
+                    name: profileName,
+                    clientId: activeClient?.id || null,
+                    clientName: activeClient?.name || null,
+                    electricUsage: electricUsage,
+                    gasUsage: Array(12).fill(0)
+                });
+                
+                if (result.success) {
+                    ProfileStore.setActiveProfile(result.profile.id);
+                    populateProfileDropdown();
+                    updateActiveProfileIndicator(result.profile);
+                    showNotification(`Saved profile: ${profileName}`, 'success');
+                } else {
+                    showNotification('Failed to save profile: ' + result.error, 'error');
+                }
+            } else {
+                // If no ProfileStore, save to localStorage as fallback
+                const profiles = JSON.parse(localStorage.getItem('lmpPortal_savedProfiles') || '[]');
+                const profile = {
+                    id: 'local-' + Date.now(),
+                    name: profileName,
+                    electricUsage: electricUsage,
+                    createdAt: new Date().toISOString()
+                };
+                profiles.push(profile);
+                localStorage.setItem('lmpPortal_savedProfiles', JSON.stringify(profiles));
+                showNotification(`Saved profile locally: ${profileName}`, 'success');
+            }
+        }
+        
+        // Reset usage to default values
+        function resetToDefault() {
+            for (let i = 0; i < 12; i++) {
+                const input = document.getElementById(`usage_${i}`);
+                if (input) {
+                    input.value = defaultUsage[i];
+                }
+            }
+            
+            clearActiveProfileIndicator();
+            document.getElementById('usageProfileSelect').value = '';
+            updateUsageSummary();
+            
+            if (ProfileStore) {
+                ProfileStore.clearActiveProfile();
+            }
+            
+            showNotification('Reset to default usage values', 'info');
+        }
+        
+        // Update usage summary display
+        function updateUsageSummary() {
+            const usage = [];
+            for (let i = 0; i < 12; i++) {
+                const input = document.getElementById(`usage_${i}`);
+                usage.push(parseFloat(input?.value) || 0);
+            }
+            
+            const total = usage.reduce((a, b) => a + b, 0);
+            const avg = total / 12;
+            const maxUsage = Math.max(...usage);
+            const peakMonth = usage.indexOf(maxUsage);
+            
+            const totalEl = document.getElementById('usageTotalDisplay');
+            const avgEl = document.getElementById('usageAvgDisplay');
+            const peakEl = document.getElementById('usagePeakDisplay');
+            
+            if (totalEl) totalEl.textContent = total.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' kWh';
+            if (avgEl) avgEl.textContent = avg.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' kWh';
+            if (peakEl) peakEl.textContent = monthsFull[peakMonth];
+        }
 
         function setDefaultDates() {
             const iso = document.getElementById('iso').value;
@@ -1606,10 +1955,14 @@
                 div.innerHTML = `
                     <label>${month}</label>
                     <input type="number" id="usage_${idx}" value="${defaultUsage[idx]}" 
-                           step="1000" min="0" class="usage-input">
+                           step="1000" min="0" class="usage-input" 
+                           onchange="updateUsageSummary()" oninput="updateUsageSummary()">
                 `;
                 grid.appendChild(div);
             });
+            
+            // Initial summary update
+            updateUsageSummary();
         }
 
         function updateTermInfo() {
@@ -4017,6 +4370,7 @@
             if (data.type === 'ACTIVE_CLIENT_CHANGED' || data.type === 'ACTIVE_CLIENT_RESPONSE') {
                 activeClient = data.client;
                 renderClientContextBanner();
+                populateProfileDropdown();
                 
                 // Auto-fill client name if we have a client
                 if (activeClient) {
@@ -4038,6 +4392,27 @@
                             updateZoneOptions();
                         }
                     }
+                }
+            }
+            
+            // Handle usage profile changes from other widgets
+            if (data.type === 'USAGE_PROFILE_CHANGED') {
+                if (data.profile) {
+                    loadProfileData(data.profile);
+                    populateProfileDropdown();
+                } else {
+                    clearActiveProfileIndicator();
+                    document.getElementById('usageProfileSelect').value = '';
+                }
+            }
+            
+            // Handle direct profile load requests
+            if (data.type === 'USAGE_PROFILE_LOADED') {
+                if (data.profile) {
+                    loadUsageData(
+                        data.profile.electricUsage || Array(12).fill(0),
+                        data.profile.name || 'Loaded Profile'
+                    );
                 }
             }
         }

@@ -2,7 +2,13 @@
  * Client Store - Centralized Client Management
  * Provides unique client identifiers (CID) across all portal widgets
  * Supports Salesforce data import and cross-widget client context
- * Version: 2.0.0
+ * Version: 2.1.0
+ * 
+ * v2.1.0 Updates:
+ * - GitHub-first initialization for cross-device sync
+ * - Automatic GitHub sync on create/update/delete operations
+ * - Smart merge comparing updatedAt timestamps
+ * - Usage profiles stored in client records now sync across devices
  */
 
 (function() {
@@ -11,10 +17,12 @@
     const STORAGE_KEY = 'secureEnergy_clients';
     const ACTIVE_CLIENT_KEY = 'secureEnergy_activeClient';
     const GITHUB_FILE = 'data/clients.json';
+    const GITHUB_RAW_URL = 'https://raw.githubusercontent.com/SecureEnergyServicesLLC/SESSalesResources/main/data/clients.json';
     
     let clients = {};
     let activeClientId = null;
     let subscribers = [];
+    let _initialized = false;
 
     // ========================================
     // Salesforce Field Mappings (customizable)
@@ -83,16 +91,103 @@
     };
 
     // ========================================
-    // Initialization
+    // Initialization (GitHub-First for Cross-Device Sync)
     // ========================================
-    function init() {
+    async function init() {
+        console.log('[ClientStore] Initializing...');
+        
+        // Load local clients first (baseline)
         loadFromStorage();
         loadActiveClient();
+        
+        // Try to fetch from GitHub and MERGE (GitHub-first approach)
+        try {
+            const githubLoaded = await fetchFromGitHub(true); // true = merge mode
+            if (githubLoaded) {
+                console.log('[ClientStore] Merged with GitHub data');
+            }
+        } catch (e) {
+            console.warn('[ClientStore] GitHub fetch failed, using local data:', e.message);
+        }
+        
+        // Save merged result to localStorage
+        saveToStorage();
+        _initialized = true;
+        
         console.log('[ClientStore] Initialized with', Object.keys(clients).length, 'clients');
         if (activeClientId) {
             console.log('[ClientStore] Active client:', activeClientId);
         }
         return getStats();
+    }
+    
+    // Fetch clients from GitHub (for cross-device sync)
+    async function fetchFromGitHub(mergeMode = false) {
+        try {
+            console.log('[ClientStore] Fetching clients from GitHub...');
+            const response = await fetch(GITHUB_RAW_URL + '?t=' + Date.now());
+            
+            if (!response.ok) {
+                if (response.status === 404) {
+                    console.log('[ClientStore] clients.json not found on GitHub (will be created on first save)');
+                }
+                return false;
+            }
+            
+            const data = await response.json();
+            
+            // Handle both array and object formats
+            let loadedClients = {};
+            if (Array.isArray(data)) {
+                data.forEach(c => { if (c.id) loadedClients[c.id] = c; });
+            } else if (data && typeof data === 'object') {
+                // Could be { clients: [...] } or direct object map
+                if (data.clients && Array.isArray(data.clients)) {
+                    data.clients.forEach(c => { if (c.id) loadedClients[c.id] = c; });
+                } else {
+                    loadedClients = data;
+                }
+            }
+            
+            if (Object.keys(loadedClients).length === 0) {
+                return false;
+            }
+            
+            if (mergeMode && Object.keys(clients).length > 0) {
+                // Smart merge: compare updatedAt timestamps
+                let added = 0, updated = 0;
+                
+                Object.entries(loadedClients).forEach(([id, githubClient]) => {
+                    const localClient = clients[id];
+                    
+                    if (!localClient) {
+                        // Client only in GitHub - add it
+                        clients[id] = githubClient;
+                        added++;
+                    } else {
+                        // Client exists in both - keep newer version
+                        const localTime = new Date(localClient.updatedAt || localClient.createdAt || 0).getTime();
+                        const githubTime = new Date(githubClient.updatedAt || githubClient.createdAt || 0).getTime();
+                        
+                        if (githubTime > localTime) {
+                            clients[id] = githubClient;
+                            updated++;
+                        }
+                    }
+                });
+                
+                console.log(`[ClientStore] Smart merge: ${added} added, ${updated} updated from GitHub`);
+            } else {
+                // Replace mode
+                clients = loadedClients;
+                console.log(`[ClientStore] Loaded ${Object.keys(clients).length} clients from GitHub`);
+            }
+            
+            return true;
+        } catch (e) {
+            console.warn('[ClientStore] GitHub fetch failed:', e.message);
+            return false;
+        }
     }
 
     function loadFromStorage() {
@@ -293,6 +388,9 @@
         saveToStorage();
         notifySubscribers('create', client);
         
+        // Sync to GitHub for cross-device availability
+        scheduleSyncToGitHub();
+        
         return client;
     }
 
@@ -319,6 +417,9 @@
                 client: clients[clientId]
             });
         }
+        
+        // Sync to GitHub for cross-device availability
+        scheduleSyncToGitHub();
         
         return clients[clientId];
     }
@@ -413,6 +514,9 @@
         saveToStorage();
         notifySubscribers('delete', client);
         
+        // Sync to GitHub for cross-device availability
+        scheduleSyncToGitHub();
+        
         return true;
     }
 
@@ -443,6 +547,7 @@
         clients[clientId].locations.push(loc);
         clients[clientId].updatedAt = new Date().toISOString();
         saveToStorage();
+        scheduleSyncToGitHub();
         
         return loc;
     }
@@ -461,6 +566,7 @@
         
         clients[clientId].updatedAt = new Date().toISOString();
         saveToStorage();
+        scheduleSyncToGitHub();
         
         return clients[clientId].locations[locIndex];
     }
@@ -474,6 +580,7 @@
         clients[clientId].locations.splice(locIndex, 1);
         clients[clientId].updatedAt = new Date().toISOString();
         saveToStorage();
+        scheduleSyncToGitHub();
         
         return true;
     }
@@ -500,6 +607,7 @@
         clients[clientId].linkedAnalyses.push(linkedAnalysis);
         clients[clientId].updatedAt = new Date().toISOString();
         saveToStorage();
+        scheduleSyncToGitHub();
         
         notifySubscribers('analysisLinked', { clientId, analysis: linkedAnalysis });
         
@@ -522,6 +630,7 @@
         clients[clientId].linkedBids.push(linkedBid);
         clients[clientId].updatedAt = new Date().toISOString();
         saveToStorage();
+        scheduleSyncToGitHub();
         
         notifySubscribers('bidLinked', { clientId, bid: linkedBid });
         
@@ -758,16 +867,28 @@
     }
 
     // ========================================
-    // GitHub Sync
+    // GitHub Sync (Cross-Device Persistence)
     // ========================================
     async function syncToGitHub() {
-        if (typeof GitHubSync === 'undefined') {
-            console.warn('[ClientStore] GitHubSync not available');
+        // Check if GitHubSync is available and has a token
+        if (typeof GitHubSync === 'undefined' || !GitHubSync.hasToken || !GitHubSync.hasToken()) {
+            console.warn('[ClientStore] GitHubSync not available or no token configured');
+            return false;
+        }
+        
+        if (!GitHubSync.autoSyncEnabled) {
+            console.log('[ClientStore] Auto-sync disabled, skipping GitHub sync');
             return false;
         }
         
         try {
-            await GitHubSync.saveFile(GITHUB_FILE, JSON.stringify(clients, null, 2));
+            const content = JSON.stringify({
+                version: '2.0.0',
+                lastUpdated: new Date().toISOString(),
+                clients: clients
+            }, null, 2);
+            
+            await GitHubSync._updateFile(GITHUB_FILE, content, 'Update clients data');
             console.log('[ClientStore] Synced to GitHub');
             return true;
         } catch (e) {
@@ -777,29 +898,26 @@
     }
 
     async function loadFromGitHub() {
-        if (typeof GitHubSync === 'undefined') {
-            console.warn('[ClientStore] GitHubSync not available');
-            return false;
+        // This is the manual load - uses fetchFromGitHub with replace mode
+        return await fetchFromGitHub(false);
+    }
+    
+    // Schedule GitHub sync (debounced for bulk operations)
+    let _syncTimeout = null;
+    function scheduleSyncToGitHub(immediate = false) {
+        if (typeof GitHubSync === 'undefined' || !GitHubSync.hasToken || !GitHubSync.hasToken()) {
+            return;
         }
         
-        try {
-            const data = await GitHubSync.loadFile(GITHUB_FILE);
-            if (data) {
-                const loaded = JSON.parse(data);
-                // Merge with existing (GitHub wins for conflicts)
-                Object.entries(loaded).forEach(([id, client]) => {
-                    if (!clients[id] || new Date(client.updatedAt) > new Date(clients[id]?.updatedAt)) {
-                        clients[id] = client;
-                    }
-                });
-                saveToStorage();
-                console.log('[ClientStore] Loaded from GitHub');
-                return true;
-            }
-        } catch (e) {
-            console.error('[ClientStore] GitHub load error:', e);
+        clearTimeout(_syncTimeout);
+        
+        if (immediate) {
+            syncToGitHub().catch(e => console.warn('[ClientStore] Sync failed:', e.message));
+        } else {
+            _syncTimeout = setTimeout(() => {
+                syncToGitHub().catch(e => console.warn('[ClientStore] Sync failed:', e.message));
+            }, 2000);
         }
-        return false;
     }
 
     // ========================================
@@ -911,6 +1029,7 @@
         // GitHub Sync
         syncToGitHub,
         loadFromGitHub,
+        fetchFromGitHub,
         
         // Utilities
         subscribe,

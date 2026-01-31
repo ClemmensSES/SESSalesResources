@@ -15,6 +15,7 @@
             --text-primary: #ffffff;
             --text-secondary: #a0aec0;
             --border: #2d3748;
+            --profile-active: #0d9488;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -75,6 +76,75 @@
             color: var(--text-secondary);
             font-size: 0.85rem;
         }
+        
+        /* Usage Profile Section */
+        .usage-profile-section {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+        .usage-profile-display {
+            background: linear-gradient(135deg, rgba(13,148,136,0.15) 0%, rgba(13,148,136,0.05) 100%);
+            border: 1px solid var(--profile-active);
+            border-radius: 8px;
+            padding: 10px 12px;
+        }
+        .usage-profile-label {
+            font-size: 0.65rem;
+            color: var(--profile-active);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .usage-profile-name {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .usage-profile-meta {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        .no-profile {
+            background: var(--bg-input);
+            border: 1px dashed var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+        }
+        .no-profile a {
+            color: var(--profile-active);
+            cursor: pointer;
+            text-decoration: underline;
+        }
+        .usage-summary {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+        }
+        .usage-summary-item {
+            background: rgba(0,0,0,0.2);
+            padding: 6px 10px;
+            border-radius: 6px;
+            flex: 1;
+            text-align: center;
+        }
+        .usage-summary-label {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+        .usage-summary-value {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
         .search-container {
             position: relative;
             margin-bottom: 12px;
@@ -143,6 +213,13 @@
             border: 1px solid var(--border);
         }
         .btn-clear:hover { background: var(--bg-input); color: var(--text-primary); }
+        .btn-profile {
+            background: rgba(13,148,136,0.2);
+            color: var(--profile-active);
+            border: 1px solid var(--profile-active);
+            margin-left: 8px;
+        }
+        .btn-profile:hover { background: rgba(13,148,136,0.3); }
         .client-badge {
             display: inline-block;
             padding: 2px 6px;
@@ -152,6 +229,25 @@
             margin-left: 6px;
             background: rgba(0,51,102,0.3);
             color: #4da6ff;
+        }
+        .profile-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.6rem;
+            font-weight: 600;
+            margin-left: 6px;
+            background: rgba(13,148,136,0.2);
+            color: var(--profile-active);
+        }
+        .has-profile-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--profile-active);
+            margin-left: 6px;
+            vertical-align: middle;
         }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: var(--bg-input); }
@@ -171,6 +267,7 @@
         </div>
         <div class="widget-body">
             <div id="activeClientDisplay"></div>
+            <div id="usageProfileDisplay"></div>
             <div class="search-container">
                 <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="11" cy="11" r="8"/>
@@ -184,30 +281,53 @@
 
     <script>
         let ClientStore = null;
+        let ProfileStore = null;
         let allClients = [];
         
-        function initStore() {
+        function initStores() {
+            // Initialize Client Store
             if (window.parent?.SecureEnergyClients) ClientStore = window.parent.SecureEnergyClients;
             else if (window.SecureEnergyClients) ClientStore = window.SecureEnergyClients;
+            
+            // Initialize Usage Profile Store
+            if (window.parent?.UsageProfileStore) ProfileStore = window.parent.UsageProfileStore;
+            else if (window.UsageProfileStore) ProfileStore = window.UsageProfileStore;
+            
             return !!ClientStore;
         }
         
         document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => {
-                if (initStore()) {
+                if (initStores()) {
                     allClients = ClientStore.getAllClients();
                     updateActiveDisplay();
+                    updateUsageProfileDisplay();
+                    
                     ClientStore.subscribe(() => {
                         allClients = ClientStore.getAllClients();
                         updateActiveDisplay();
+                        updateUsageProfileDisplay();
                     });
+                    
+                    // Subscribe to profile changes if available
+                    if (ProfileStore) {
+                        ProfileStore.subscribe(() => {
+                            updateUsageProfileDisplay();
+                        });
+                    }
                 }
                 initSearch();
             }, 100);
         });
         
         window.addEventListener('message', function(e) {
-            if (e.data?.type === 'ACTIVE_CLIENT_CHANGED') updateActiveDisplay();
+            if (e.data?.type === 'ACTIVE_CLIENT_CHANGED') {
+                updateActiveDisplay();
+                updateUsageProfileDisplay();
+            }
+            if (e.data?.type === 'USAGE_PROFILE_CHANGED') {
+                updateUsageProfileDisplay();
+            }
         });
         
         function updateActiveDisplay() {
@@ -215,18 +335,24 @@
             const client = ClientStore?.getActiveClient();
             
             if (client) {
+                // Check if client has usage profile
+                const hasUsageProfile = client.usageProfile && 
+                    (client.usageProfile.electric?.some(v => v > 0) || client.usageProfile.gas?.some(v => v > 0));
+                
                 container.innerHTML = `
                     <div class="active-client-display">
                         <div class="active-label">Active Client</div>
                         <div class="active-name">
                             ${client.name}
                             ${client.iso ? `<span class="client-badge">${client.iso}</span>` : ''}
+                            ${hasUsageProfile ? `<span class="has-profile-indicator" title="Has Usage Profile"></span>` : ''}
                         </div>
                         <div class="active-meta">
                             ${client.city ? `${client.city}, ${client.state}` : ''}
                             ${client.annualUsageMWh ? ` • ${Number(client.annualUsageMWh).toLocaleString()} MWh/yr` : ''}
                         </div>
                         <button class="btn btn-clear" style="margin-top: 8px;" onclick="clearClient()">Clear Selection</button>
+                        ${hasUsageProfile ? `<button class="btn btn-profile" style="margin-top: 8px;" onclick="loadClientProfile()">Load Profile</button>` : ''}
                     </div>
                 `;
             } else {
@@ -237,6 +363,133 @@
                     </div>
                 `;
             }
+        }
+        
+        function updateUsageProfileDisplay() {
+            const container = document.getElementById('usageProfileDisplay');
+            if (!container) return;
+            
+            // Try to get active profile from ProfileStore
+            let activeProfile = null;
+            if (ProfileStore) {
+                activeProfile = ProfileStore.getActiveProfile();
+            }
+            
+            // Also check if current client has inline usage data
+            const client = ClientStore?.getActiveClient();
+            const clientHasProfile = client?.usageProfile && 
+                (client.usageProfile.electric?.some(v => v > 0) || client.usageProfile.gas?.some(v => v > 0));
+            
+            if (activeProfile) {
+                // Show active profile from ProfileStore
+                const electricTotal = activeProfile.electricUsage?.reduce((a, b) => a + b, 0) || 0;
+                const gasTotal = activeProfile.gasUsage?.reduce((a, b) => a + b, 0) || 0;
+                
+                container.innerHTML = `
+                    <div class="usage-profile-section">
+                        <div class="usage-profile-display">
+                            <div class="usage-profile-label">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                                </svg>
+                                Active Usage Profile
+                            </div>
+                            <div class="usage-profile-name">
+                                ${activeProfile.name}
+                                ${activeProfile.clientId ? `<span class="profile-badge">Client Linked</span>` : `<span class="profile-badge">Standalone</span>`}
+                            </div>
+                            <div class="usage-summary">
+                                <div class="usage-summary-item">
+                                    <div class="usage-summary-label">Annual Electric</div>
+                                    <div class="usage-summary-value">${(electricTotal / 1000).toLocaleString(undefined, {maximumFractionDigits: 0})} MWh</div>
+                                </div>
+                                ${gasTotal > 0 ? `
+                                <div class="usage-summary-item">
+                                    <div class="usage-summary-label">Annual Gas</div>
+                                    <div class="usage-summary-value">${gasTotal.toLocaleString(undefined, {maximumFractionDigits: 0})} Therms</div>
+                                </div>
+                                ` : ''}
+                            </div>
+                            <button class="btn btn-clear" style="margin-top: 10px; width: 100%;" onclick="clearProfile()">Clear Profile</button>
+                        </div>
+                    </div>
+                `;
+            } else if (clientHasProfile) {
+                // Show prompt to load client's profile
+                const electricTotal = client.usageProfile.electric?.reduce((a, b) => a + b, 0) || 0;
+                
+                container.innerHTML = `
+                    <div class="usage-profile-section">
+                        <div class="no-profile">
+                            <p>⚡ Client has usage data available</p>
+                            <p style="margin-top: 6px;">
+                                <a onclick="loadClientProfile()">Click to load ${(electricTotal / 1000).toLocaleString(undefined, {maximumFractionDigits: 0})} MWh profile</a>
+                            </p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // No profile active
+                container.innerHTML = `
+                    <div class="usage-profile-section">
+                        <div class="no-profile">
+                            <p>No usage profile active</p>
+                            <p style="font-size: 0.7rem; margin-top: 4px;">
+                                Select a profile in Energy Utilization widget or select a client with usage data
+                            </p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        async function loadClientProfile() {
+            const client = ClientStore?.getActiveClient();
+            if (!client || !client.usageProfile) {
+                console.warn('[ClientLookup] No client or usage profile to load');
+                return;
+            }
+            
+            // Create or update profile in ProfileStore
+            if (ProfileStore) {
+                const result = await ProfileStore.createFromClient(client);
+                if (result.success && result.profile) {
+                    ProfileStore.setActiveProfile(result.profile.id);
+                }
+            }
+            
+            // Also broadcast the profile data directly for widgets that might not have ProfileStore
+            const message = {
+                type: 'USAGE_PROFILE_LOADED',
+                profile: {
+                    name: client.name + ' - Usage Profile',
+                    clientId: client.id,
+                    clientName: client.name,
+                    electricUsage: client.usageProfile.electric || Array(12).fill(0),
+                    gasUsage: client.usageProfile.gas || Array(12).fill(0)
+                }
+            };
+            
+            // Broadcast to parent
+            if (window.parent !== window) {
+                window.parent.postMessage(message, '*');
+            }
+            
+            updateUsageProfileDisplay();
+        }
+        
+        function clearProfile() {
+            if (ProfileStore) {
+                ProfileStore.clearActiveProfile();
+            }
+            
+            // Broadcast clear message
+            const message = { type: 'USAGE_PROFILE_CHANGED', profile: null, profileId: null };
+            if (window.parent !== window) {
+                window.parent.postMessage(message, '*');
+            }
+            
+            updateUsageProfileDisplay();
         }
         
         function initSearch() {
@@ -274,18 +527,25 @@
             if (filtered.length === 0) {
                 dropdown.innerHTML = '<div class="dropdown-item" style="color: var(--text-secondary); cursor: default;">No clients found</div>';
             } else {
-                dropdown.innerHTML = filtered.slice(0, 15).map(c => `
-                    <div class="dropdown-item ${c.id === activeId ? 'selected' : ''}" onclick="selectClient('${c.id}')">
-                        <div class="dropdown-item-name">
-                            ${c.name}
-                            ${c.iso ? `<span class="client-badge">${c.iso}</span>` : ''}
+                dropdown.innerHTML = filtered.slice(0, 15).map(c => {
+                    // Check if client has usage profile
+                    const hasProfile = c.usageProfile && 
+                        (c.usageProfile.electric?.some(v => v > 0) || c.usageProfile.gas?.some(v => v > 0));
+                    
+                    return `
+                        <div class="dropdown-item ${c.id === activeId ? 'selected' : ''}" onclick="selectClient('${c.id}')">
+                            <div class="dropdown-item-name">
+                                ${c.name}
+                                ${c.iso ? `<span class="client-badge">${c.iso}</span>` : ''}
+                                ${hasProfile ? `<span class="has-profile-indicator" title="Has Usage Profile"></span>` : ''}
+                            </div>
+                            <div class="dropdown-item-meta">
+                                ${c.city ? `${c.city}, ${c.state}` : ''}
+                                ${c.annualUsageMWh ? ` • ${Number(c.annualUsageMWh).toLocaleString()} MWh/yr` : ''}
+                            </div>
                         </div>
-                        <div class="dropdown-item-meta">
-                            ${c.city ? `${c.city}, ${c.state}` : ''}
-                            ${c.annualUsageMWh ? ` • ${Number(c.annualUsageMWh).toLocaleString()} MWh/yr` : ''}
-                        </div>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
             }
             
             dropdown.style.display = 'block';
@@ -303,6 +563,7 @@
             if (ClientStore) {
                 ClientStore.clearActiveClient();
             }
+            updateUsageProfileDisplay();
         }
     </script>
 </body>

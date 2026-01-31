@@ -1,7 +1,12 @@
 /**
- * Secure Energy Shared Data Store v2.6
+ * Secure Energy Shared Data Store v2.7
  * Centralized data management for LMP data, user authentication, activity logging,
- * and widget layout preferences
+ * widget layout preferences, and usage profiles
+ * 
+ * v2.7 Updates:
+ * - Added UsageProfileStore for sharing usage profiles across widgets
+ * - Profiles can be standalone or client-linked
+ * - Cross-widget communication via postMessage for profile changes
  * 
  * v2.6 Updates:
  * - ActivityLog.log() dispatches 'activityLogged' event for UI auto-refresh
@@ -160,6 +165,417 @@ const ErrorLog = {
 
 
 // =====================================================
+// USAGE PROFILE STORE
+// =====================================================
+const UsageProfileStore = {
+    STORAGE_KEY: 'secureEnergy_usageProfiles',
+    ACTIVE_KEY: 'secureEnergy_activeUsageProfile',
+    GITHUB_PROFILES_URL: 'https://raw.githubusercontent.com/SecureEnergyServicesLLC/SESSalesResources/main/data/usage-profiles.json',
+    profiles: [],
+    activeProfileId: null,
+    _subscribers: [],
+    _syncTimeout: null,
+    _initialized: false,
+
+    async init() {
+        console.log('[UsageProfileStore] Initializing...');
+        
+        // Load local profiles first (baseline)
+        const localProfiles = this.loadFromStorage();
+        this.profiles = localProfiles.length ? localProfiles : [];
+        this.activeProfileId = localStorage.getItem(this.ACTIVE_KEY) || null;
+        
+        // Try to fetch from GitHub and MERGE (GitHub-first approach for cross-device support)
+        try {
+            const githubLoaded = await this.loadFromGitHub(true); // true = merge mode
+            if (githubLoaded) {
+                console.log('[UsageProfileStore] Merged with GitHub data');
+            }
+        } catch (e) {
+            console.warn('[UsageProfileStore] GitHub fetch failed, using local data:', e.message);
+        }
+        
+        // Save merged result to localStorage
+        this.saveToStorage();
+        this._initialized = true;
+        
+        console.log(`[UsageProfileStore] ${this.profiles.length} profiles loaded, active: ${this.activeProfileId}`);
+        return this.profiles;
+    },
+
+    async loadFromGitHub(mergeMode = false) {
+        try {
+            console.log('[UsageProfileStore] Fetching profiles from GitHub...');
+            const response = await fetch(this.GITHUB_PROFILES_URL + '?t=' + Date.now());
+            
+            if (!response.ok) {
+                if (response.status === 404) {
+                    console.log('[UsageProfileStore] usage-profiles.json not found on GitHub (will be created on first save)');
+                }
+                return false;
+            }
+            
+            const data = await response.json();
+            if (data?.profiles && Array.isArray(data.profiles)) {
+                if (mergeMode && this.profiles.length > 0) {
+                    // Smart merge: compare updatedAt timestamps to keep the most recent version
+                    const mergedProfiles = [];
+                    const processedIds = new Set();
+                    
+                    // Create lookup map for local profiles
+                    const localProfilesById = new Map(this.profiles.map(p => [p.id, p]));
+                    
+                    // Process GitHub profiles - compare with local versions
+                    data.profiles.forEach(githubProfile => {
+                        const localProfile = localProfilesById.get(githubProfile.id);
+                        
+                        if (localProfile) {
+                            // Profile exists in both - keep the one with newer updatedAt
+                            const localTime = new Date(localProfile.updatedAt || localProfile.createdAt || 0).getTime();
+                            const githubTime = new Date(githubProfile.updatedAt || githubProfile.createdAt || 0).getTime();
+                            
+                            if (localTime > githubTime) {
+                                console.log(`[UsageProfileStore] Keeping local (newer): ${localProfile.name}`);
+                                mergedProfiles.push(localProfile);
+                            } else {
+                                console.log(`[UsageProfileStore] Using GitHub (newer/same): ${githubProfile.name}`);
+                                mergedProfiles.push(githubProfile);
+                            }
+                            processedIds.add(localProfile.id);
+                        } else {
+                            // Profile only in GitHub
+                            mergedProfiles.push(githubProfile);
+                        }
+                        processedIds.add(githubProfile.id);
+                    });
+                    
+                    // Add local-only profiles (not in GitHub at all)
+                    this.profiles.forEach(localProfile => {
+                        if (!processedIds.has(localProfile.id)) {
+                            console.log(`[UsageProfileStore] Keeping local-only profile: ${localProfile.name}`);
+                            mergedProfiles.push(localProfile);
+                        }
+                    });
+                    
+                    this.profiles = mergedProfiles;
+                    console.log(`[UsageProfileStore] Smart merge complete: ${this.profiles.length} total profiles`);
+                } else {
+                    // Replace mode
+                    this.profiles = data.profiles;
+                    console.log(`[UsageProfileStore] Loaded ${this.profiles.length} profiles from GitHub`);
+                }
+                return true;
+            }
+            return false;
+        } catch (e) {
+            console.warn('[UsageProfileStore] GitHub fetch failed:', e.message);
+            return false;
+        }
+    },
+
+    loadFromStorage() {
+        try {
+            return JSON.parse(localStorage.getItem(this.STORAGE_KEY)) || [];
+        } catch { return []; }
+    },
+
+    saveToStorage() {
+        try {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.profiles));
+            if (this.activeProfileId) {
+                localStorage.setItem(this.ACTIVE_KEY, this.activeProfileId);
+            } else {
+                localStorage.removeItem(this.ACTIVE_KEY);
+            }
+        } catch (e) { console.error('[UsageProfileStore] Save failed:', e); }
+    },
+
+    // Create a new usage profile
+    async create(profileData) {
+        const profile = {
+            id: 'profile-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
+            name: profileData.name || 'Unnamed Profile',
+            clientId: profileData.clientId || null,
+            clientName: profileData.clientName || null,
+            electricUsage: profileData.electricUsage || Array(12).fill(0),
+            gasUsage: profileData.gasUsage || Array(12).fill(0),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            createdBy: profileData.createdBy || null,
+            notes: profileData.notes || ''
+        };
+        this.profiles.push(profile);
+        this.saveToStorage();
+        this._notifySubscribers();
+        
+        // Sync to GitHub immediately for cross-device availability
+        if (GitHubSync.hasToken() && GitHubSync.autoSyncEnabled) {
+            try {
+                await GitHubSync.syncUsageProfiles();
+                console.log(`[UsageProfileStore] Created and synced profile: ${profile.name}`);
+            } catch (e) {
+                console.warn('[UsageProfileStore] GitHub sync failed, but local save succeeded:', e.message);
+            }
+        } else {
+            console.log(`[UsageProfileStore] Created profile (local only): ${profile.name}`);
+        }
+        
+        return { success: true, profile };
+    },
+
+    // Update an existing profile
+    async update(id, updates) {
+        const idx = this.profiles.findIndex(p => p.id === id);
+        if (idx === -1) return { success: false, error: 'Profile not found' };
+        
+        this.profiles[idx] = {
+            ...this.profiles[idx],
+            ...updates,
+            updatedAt: new Date().toISOString()
+        };
+        this.saveToStorage();
+        this._notifySubscribers();
+        
+        // Sync to GitHub immediately for cross-device availability
+        if (GitHubSync.hasToken() && GitHubSync.autoSyncEnabled) {
+            try {
+                await GitHubSync.syncUsageProfiles();
+                console.log(`[UsageProfileStore] Updated and synced profile: ${this.profiles[idx].name}`);
+            } catch (e) {
+                console.warn('[UsageProfileStore] GitHub sync failed, but local save succeeded:', e.message);
+            }
+        }
+        
+        return { success: true, profile: this.profiles[idx] };
+    },
+
+    // Delete a profile
+    async delete(id) {
+        const idx = this.profiles.findIndex(p => p.id === id);
+        if (idx === -1) return { success: false, error: 'Profile not found' };
+        
+        const profile = this.profiles[idx];
+        this.profiles.splice(idx, 1);
+        
+        // Clear active if deleted
+        if (this.activeProfileId === id) {
+            this.activeProfileId = null;
+        }
+        
+        this.saveToStorage();
+        this._notifySubscribers();
+        
+        // Sync to GitHub immediately
+        if (GitHubSync.hasToken() && GitHubSync.autoSyncEnabled) {
+            try {
+                await GitHubSync.syncUsageProfiles();
+                console.log(`[UsageProfileStore] Deleted and synced profile: ${profile.name}`);
+            } catch (e) {
+                console.warn('[UsageProfileStore] GitHub sync failed, but local delete succeeded:', e.message);
+            }
+        }
+        
+        return { success: true };
+    },
+
+    // Get all profiles
+    getAll() {
+        return this.profiles;
+    },
+
+    // Get profile by ID
+    getById(id) {
+        return this.profiles.find(p => p.id === id);
+    },
+
+    // Get profiles for a specific client
+    getByClientId(clientId) {
+        return this.profiles.filter(p => p.clientId === clientId);
+    },
+
+    // Get standalone profiles (not linked to any client)
+    getStandalone() {
+        return this.profiles.filter(p => !p.clientId);
+    },
+
+    // Set the active usage profile
+    setActiveProfile(id) {
+        const profile = this.getById(id);
+        if (!profile) return { success: false, error: 'Profile not found' };
+        
+        this.activeProfileId = id;
+        this.saveToStorage();
+        this._notifySubscribers();
+        
+        // Broadcast the change to all widgets
+        this._broadcastProfileChange(profile);
+        
+        console.log(`[UsageProfileStore] Active profile set: ${profile.name}`);
+        return { success: true, profile };
+    },
+
+    // Clear active profile
+    clearActiveProfile() {
+        this.activeProfileId = null;
+        this.saveToStorage();
+        this._notifySubscribers();
+        this._broadcastProfileChange(null);
+        console.log('[UsageProfileStore] Active profile cleared');
+    },
+
+    // Get the currently active profile
+    getActiveProfile() {
+        if (!this.activeProfileId) return null;
+        return this.getById(this.activeProfileId);
+    },
+
+    // Get active profile ID
+    getActiveProfileId() {
+        return this.activeProfileId;
+    },
+
+    // Subscribe to profile changes
+    subscribe(callback) {
+        this._subscribers.push(callback);
+        return () => {
+            this._subscribers = this._subscribers.filter(cb => cb !== callback);
+        };
+    },
+
+    _notifySubscribers() {
+        this._subscribers.forEach(cb => {
+            try {
+                cb({
+                    profiles: this.profiles,
+                    activeProfile: this.getActiveProfile(),
+                    activeProfileId: this.activeProfileId
+                });
+            } catch (e) {
+                console.error('[UsageProfileStore] Subscriber error:', e);
+            }
+        });
+    },
+
+    _broadcastProfileChange(profile) {
+        // Broadcast to parent window (for embedded widgets)
+        if (window.parent !== window) {
+            window.parent.postMessage({
+                type: 'USAGE_PROFILE_CHANGED',
+                profile: profile,
+                profileId: profile?.id || null
+            }, '*');
+        }
+        
+        // Broadcast to all iframes
+        const iframes = document.querySelectorAll('iframe');
+        iframes.forEach(iframe => {
+            try {
+                iframe.contentWindow.postMessage({
+                    type: 'USAGE_PROFILE_CHANGED',
+                    profile: profile,
+                    profileId: profile?.id || null
+                }, '*');
+            } catch (e) { /* ignore cross-origin */ }
+        });
+        
+        // Dispatch custom event
+        try {
+            window.dispatchEvent(new CustomEvent('usageProfileChanged', { 
+                detail: { profile, profileId: profile?.id || null }
+            }));
+        } catch (e) { /* ignore */ }
+    },
+
+    // Create a profile from client data (from Client Store or Utilization Widget)
+    async createFromClient(clientData) {
+        if (!clientData) return { success: false, error: 'No client data provided' };
+        
+        // Check if profile already exists for this client
+        const existing = this.getByClientId(clientData.id);
+        if (existing.length > 0) {
+            // Update the most recent one
+            return await this.update(existing[0].id, {
+                name: clientData.name + ' - Usage Profile',
+                clientName: clientData.name,
+                electricUsage: clientData.usageProfile?.electric || clientData.electricUsage || Array(12).fill(0),
+                gasUsage: clientData.usageProfile?.gas || clientData.gasUsage || Array(12).fill(0)
+            });
+        }
+        
+        // Create new profile
+        return await this.create({
+            name: clientData.name + ' - Usage Profile',
+            clientId: clientData.id,
+            clientName: clientData.name,
+            electricUsage: clientData.usageProfile?.electric || clientData.electricUsage || Array(12).fill(0),
+            gasUsage: clientData.usageProfile?.gas || clientData.gasUsage || Array(12).fill(0)
+        });
+    },
+
+    // Schedule GitHub sync (debounced)
+    _scheduleSyncToGitHub() {
+        if (!GitHubSync.hasToken() || !GitHubSync.autoSyncEnabled) return;
+        clearTimeout(this._syncTimeout);
+        this._syncTimeout = setTimeout(() => {
+            GitHubSync.syncUsageProfiles().catch(e => {
+                console.warn('[UsageProfileStore] GitHub sync failed:', e.message);
+            });
+        }, 2000);
+    },
+
+    // Merge profiles from GitHub (for cross-device sync)
+    mergeFromGitHub(githubProfiles) {
+        if (!githubProfiles || !Array.isArray(githubProfiles)) return;
+        
+        const localIds = new Set(this.profiles.map(p => p.id));
+        let added = 0, updated = 0;
+        
+        githubProfiles.forEach(remote => {
+            const local = this.profiles.find(p => p.id === remote.id);
+            if (!local) {
+                // New profile from GitHub
+                this.profiles.push(remote);
+                added++;
+            } else {
+                // Compare timestamps
+                const localTime = new Date(local.updatedAt || local.createdAt || 0).getTime();
+                const remoteTime = new Date(remote.updatedAt || remote.createdAt || 0).getTime();
+                if (remoteTime > localTime) {
+                    Object.assign(local, remote);
+                    updated++;
+                }
+            }
+        });
+        
+        if (added > 0 || updated > 0) {
+            this.saveToStorage();
+            this._notifySubscribers();
+            console.log(`[UsageProfileStore] Merged from GitHub: ${added} added, ${updated} updated`);
+        }
+    },
+
+    // Export for GitHub sync
+    exportForGitHub() {
+        return JSON.stringify({
+            version: '1.0.0',
+            lastUpdated: new Date().toISOString(),
+            profiles: this.profiles
+        }, null, 2);
+    },
+
+    // Get stats
+    getStats() {
+        return {
+            total: this.profiles.length,
+            standalone: this.getStandalone().length,
+            clientLinked: this.profiles.filter(p => p.clientId).length,
+            hasActive: !!this.activeProfileId
+        };
+    }
+};
+
+
+// =====================================================
 // WIDGET PREFERENCES STORE
 // =====================================================
 const WidgetPreferences = {
@@ -295,6 +711,7 @@ const GitHubSync = {
     ACTIVITY_PATH: 'data/activity-log.json',
     USERS_PATH: 'data/users.json',
     WIDGET_PREFS_PATH: 'data/widget-preferences.json',
+    USAGE_PROFILES_PATH: 'data/usage-profiles.json',
     
     token: null,
     lastSync: null,
@@ -344,6 +761,8 @@ const GitHubSync = {
         try {
             // Pull widget preferences
             await this.pullWidgetPreferences();
+            // Pull usage profiles
+            await this.pullUsageProfiles();
             console.log('[GitHubSync] Pull complete');
         } catch (e) {
             console.warn('[GitHubSync] Pull failed:', e.message);
@@ -372,6 +791,26 @@ const GitHubSync = {
         }
     },
 
+    async pullUsageProfiles() {
+        try {
+            const response = await fetch(
+                `https://raw.githubusercontent.com/${this.REPO_OWNER}/${this.REPO_NAME}/main/${this.USAGE_PROFILES_PATH}?t=${Date.now()}`
+            );
+            if (!response.ok) {
+                if (response.status === 404) {
+                    console.log('[GitHubSync] Usage profiles file not found (will be created on first save)');
+                }
+                return;
+            }
+            const data = await response.json();
+            if (data?.profiles) {
+                UsageProfileStore.mergeFromGitHub(data.profiles);
+            }
+        } catch (e) {
+            console.log('[GitHubSync] Usage profiles fetch skipped:', e.message);
+        }
+    },
+
     async syncWidgetPreferences() {
         if (!this.token || this.isSyncing) return { success: false };
         this.isSyncing = true;
@@ -385,6 +824,25 @@ const GitHubSync = {
             return { success: true };
         } catch (e) {
             console.error('[GitHubSync] Widget prefs sync failed:', e);
+            return { success: false, error: e.message };
+        } finally {
+            this.isSyncing = false;
+        }
+    },
+
+    async syncUsageProfiles() {
+        if (!this.token || this.isSyncing) return { success: false };
+        this.isSyncing = true;
+        
+        try {
+            const content = UsageProfileStore.exportForGitHub();
+            const result = await this._updateFile(this.USAGE_PROFILES_PATH, content, 'Update usage profiles');
+            this.lastSync = new Date().toISOString();
+            localStorage.setItem('secureEnergy_lastSync', this.lastSync);
+            console.log('[GitHubSync] Usage profiles synced');
+            return { success: true };
+        } catch (e) {
+            console.error('[GitHubSync] Usage profiles sync failed:', e);
             return { success: false, error: e.message };
         } finally {
             this.isSyncing = false;
@@ -423,6 +881,7 @@ const GitHubSync = {
         results.activity = await this.syncActivityLog();
         results.users = await this.syncUsers();
         results.widgetPrefs = await this.syncWidgetPreferences();
+        results.usageProfiles = await this.syncUsageProfiles();
         return results;
     },
 
@@ -977,17 +1436,33 @@ if (typeof window !== 'undefined') {
     window.GitHubSync = GitHubSync;
     window.ErrorLog = ErrorLog;
     window.WidgetPreferences = WidgetPreferences;
+    window.UsageProfileStore = UsageProfileStore;
     
     ErrorLog.init();
     GitHubSync.init();
     WidgetPreferences.init();
     
+    // UsageProfileStore.init() is async - it will fetch from GitHub
+    // We call it without await so it doesn't block, but it will complete in background
+    UsageProfileStore.init().then(() => {
+        console.log('[SharedDataStore] UsageProfileStore initialized with GitHub data');
+        // Dispatch event so widgets know profiles are ready
+        try {
+            window.dispatchEvent(new CustomEvent('usageProfilesReady', { 
+                detail: { profiles: UsageProfileStore.getAll() }
+            }));
+        } catch (e) { /* ignore */ }
+    }).catch(e => {
+        console.warn('[SharedDataStore] UsageProfileStore init failed:', e.message);
+    });
+    
     window.resetUserStore = () => { localStorage.removeItem('secureEnergy_users'); localStorage.removeItem('secureEnergy_currentUser'); location.reload(); };
     window.resetActivityLog = () => { localStorage.removeItem('secureEnergy_activityLog'); location.reload(); };
     window.resetErrorLog = () => { ErrorLog.clearAll(); };
     window.resetWidgetPrefs = () => { localStorage.removeItem('secureEnergy_widgetPrefs'); location.reload(); };
+    window.resetUsageProfiles = () => { localStorage.removeItem('secureEnergy_usageProfiles'); localStorage.removeItem('secureEnergy_activeUsageProfile'); location.reload(); };
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { SecureEnergyData, UserStore, ActivityLog, GitHubSync, ErrorLog, WidgetPreferences };
+    module.exports = { SecureEnergyData, UserStore, ActivityLog, GitHubSync, ErrorLog, WidgetPreferences, UsageProfileStore };
 }
