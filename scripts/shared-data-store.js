@@ -290,7 +290,7 @@ const WidgetPreferences = {
 // =====================================================
 const GitHubSync = {
     TOKEN_KEY: 'secureEnergy_githubToken',
-    REPO_OWNER: 'ClemmensSES',
+    REPO_OWNER: 'SecureEnergyServicesLLC',
     REPO_NAME: 'SESSalesResources',
     ACTIVITY_PATH: 'data/activity-log.json',
     USERS_PATH: 'data/users.json',
@@ -471,7 +471,7 @@ const GitHubSync = {
 const SecureEnergyData = {
     STORAGE_KEY: 'secureEnergy_lmpData',
     DATA_URL: 'data/lmp-database.json',
-    GITHUB_RAW_URL: 'https://raw.githubusercontent.com/ClemmensSES/SESSalesResources/main/data/lmp-database.json',
+    GITHUB_RAW_URL: 'https://raw.githubusercontent.com/SecureEnergyServicesLLC/SESSalesResources/main/data/lmp-database.json',
     lmpData: [],
     _subscribers: [],
     isLoaded: false,
@@ -582,7 +582,7 @@ const SecureEnergyData = {
 const UserStore = {
     STORAGE_KEY: 'secureEnergy_users',
     SESSION_KEY: 'secureEnergy_currentUser',
-    GITHUB_USERS_URL: 'https://raw.githubusercontent.com/ClemmensSES/SESSalesResources/main/data/users.json',
+    GITHUB_USERS_URL: 'https://raw.githubusercontent.com/SecureEnergyServicesLLC/SESSalesResources/main/data/users.json',
     users: [],
     _initialized: false,
 
@@ -845,7 +845,7 @@ const ActivityLog = {
 
     async pullFromGitHub() {
         try {
-            const response = await fetch(`https://raw.githubusercontent.com/ClemmensSES/SESSalesResources/main/data/activity-log.json?t=${Date.now()}`);
+            const response = await fetch(`https://raw.githubusercontent.com/SecureEnergyServicesLLC/SESSalesResources/main/data/activity-log.json?t=${Date.now()}`);
             if (!response.ok) return;
             const data = await response.json();
             if (data?.activities) {
