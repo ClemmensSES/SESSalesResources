@@ -186,6 +186,41 @@
         .btn-success { background: var(--success); color: white; }
         .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
         .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+        
+        /* Import button group with template icon */
+        .import-btn-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 0;
+        }
+        .import-btn-group .btn {
+            border-radius: 6px 0 0 6px;
+        }
+        .template-download-btn {
+            padding: 10px 12px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-left: none;
+            border-radius: 0 6px 6px 0;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .template-download-btn:hover {
+            background: var(--border);
+            color: var(--accent);
+        }
+        .template-download-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+        .template-download-btn[title]::after {
+            content: attr(title);
+        }
+        
         .import-zone {
             border: 2px dashed var(--border);
             border-radius: 8px;
@@ -283,6 +318,44 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: var(--bg-input); }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        
+        /* Template info in modal */
+        .template-info {
+            background: rgba(0,51,102,0.2);
+            border: 1px solid rgba(0,51,102,0.4);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .template-info svg {
+            flex-shrink: 0;
+            color: #4da6ff;
+        }
+        .template-info-text {
+            flex: 1;
+        }
+        .template-info-text strong {
+            display: block;
+            color: #4da6ff;
+            font-size: 0.85rem;
+            margin-bottom: 2px;
+        }
+        .template-info-text span {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        .template-download-link {
+            color: var(--accent);
+            cursor: pointer;
+            text-decoration: underline;
+            font-size: 0.8rem;
+        }
+        .template-download-link:hover {
+            color: var(--accent-hover);
+        }
     </style>
 </head>
 <body>
@@ -345,8 +418,31 @@
                         </svg>
                         Save to Client
                     </button>
-                    <button class="btn btn-secondary" onclick="exportUsage()">Export Excel</button>
-                    <button class="btn btn-secondary" onclick="showImportModal()">Import</button>
+                    <button class="btn btn-secondary" onclick="exportUsage()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Export Excel
+                    </button>
+                    <div class="import-btn-group">
+                        <button class="btn btn-secondary" onclick="showImportModal()">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                            Import
+                        </button>
+                        <button class="template-download-btn" onclick="downloadImportTemplate()" title="Download Import Template">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="12" y1="18" x2="12" y2="12"/>
+                                <line x1="9" y1="15" x2="12" y2="18"/>
+                                <line x1="15" y1="15" x2="12" y2="18"/>
+                            </svg>
+                        </button>
+                    </div>
                     <button class="btn btn-secondary" onclick="clearUsage('electric')">Clear</button>
                 </div>
             </div>
@@ -387,8 +483,31 @@
                         </svg>
                         Save to Client
                     </button>
-                    <button class="btn btn-secondary" onclick="exportUsage()">Export Excel</button>
-                    <button class="btn btn-secondary" onclick="showImportModal()">Import</button>
+                    <button class="btn btn-secondary" onclick="exportUsage()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Export Excel
+                    </button>
+                    <div class="import-btn-group">
+                        <button class="btn btn-secondary" onclick="showImportModal()">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                            Import
+                        </button>
+                        <button class="template-download-btn" onclick="downloadImportTemplate()" title="Download Import Template">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="12" y1="18" x2="12" y2="12"/>
+                                <line x1="9" y1="15" x2="12" y2="18"/>
+                                <line x1="15" y1="15" x2="12" y2="18"/>
+                            </svg>
+                        </button>
+                    </div>
                     <button class="btn btn-secondary" onclick="clearUsage('gas')">Clear</button>
                 </div>
             </div>
@@ -410,6 +529,22 @@
                 <button class="modal-close" onclick="closeImportModal()">×</button>
             </div>
             <div class="modal-body">
+                <!-- Template Download Info -->
+                <div class="template-info">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                        <polyline points="10 9 9 9 8 9"/>
+                    </svg>
+                    <div class="template-info-text">
+                        <strong>Need the correct format?</strong>
+                        <span>Download the import template to ensure your data imports correctly.</span>
+                    </div>
+                    <span class="template-download-link" onclick="downloadImportTemplate(); return false;">Download Template</span>
+                </div>
+                
                 <div class="import-zone" onclick="document.getElementById('importFile').click()">
                     <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom:8px;color:var(--text-secondary);">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -450,70 +585,253 @@
                 </p>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeNoUsageModal()">Later</button>
-                <button class="btn btn-primary" onclick="startAddingUsage()">Add Usage Data</button>
+                <button class="btn btn-secondary" onclick="closeNoUsageModal()">Skip for Now</button>
+                <button class="btn btn-primary" onclick="startUsageEntry()">Enter Usage Data</button>
             </div>
         </div>
     </div>
-
+    
     <script>
+        // ============================================================
+        // STANDARDIZED EXPORT METADATA UTILITY
+        // This pattern should be used across ALL widgets for consistency
+        // ============================================================
+        const ExportMetadata = {
+            // Widget identification
+            widgetName: 'Energy Utilization',
+            widgetVersion: '1.0',
+            
+            // Get current user info from parent or localStorage
+            getCurrentUser: function() {
+                // Try to get from parent portal
+                if (window.parent?.SecureEnergyAuth?.currentUser) {
+                    const user = window.parent.SecureEnergyAuth.currentUser;
+                    return {
+                        name: user.name || user.username || 'Unknown User',
+                        email: user.email || '',
+                        role: user.role || 'user'
+                    };
+                }
+                // Fallback to localStorage
+                try {
+                    const stored = localStorage.getItem('secure_energy_user');
+                    if (stored) {
+                        const user = JSON.parse(stored);
+                        return {
+                            name: user.name || user.username || 'Unknown User',
+                            email: user.email || '',
+                            role: user.role || 'user'
+                        };
+                    }
+                } catch (e) {}
+                return { name: 'Unknown User', email: '', role: 'user' };
+            },
+            
+            // Get active client info
+            getActiveClient: function() {
+                if (activeClient) {
+                    return {
+                        name: activeClient.name || 'Unknown Client',
+                        id: activeClient.id || '',
+                        iso: activeClient.iso || '',
+                        accountNumber: activeClient.accountNumber || ''
+                    };
+                }
+                return { name: 'No Client Selected', id: '', iso: '', accountNumber: '' };
+            },
+            
+            // Generate standardized metadata header rows for Excel export
+            generateMetadataRows: function(additionalInfo = {}) {
+                const user = this.getCurrentUser();
+                const client = this.getActiveClient();
+                const now = new Date();
+                
+                const metadata = [
+                    ['SECURE ENERGY SERVICES - EXPORT REPORT'],
+                    [''],
+                    ['Export Information'],
+                    ['Export Date:', now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })],
+                    ['Export Time:', now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short' })],
+                    ['Exported By:', user.name + (user.email ? ` (${user.email})` : '')],
+                    ['User Role:', user.role.charAt(0).toUpperCase() + user.role.slice(1)],
+                    [''],
+                    ['Client Information'],
+                    ['Client Name:', client.name],
+                    ['Client ID:', client.id || 'N/A'],
+                    ['ISO/RTO:', client.iso || 'N/A'],
+                    ['Account Number:', client.accountNumber || 'N/A'],
+                    [''],
+                    ['Widget Information'],
+                    ['Widget:', this.widgetName],
+                    ['Version:', this.widgetVersion],
+                    ['']
+                ];
+                
+                // Add any additional custom info
+                if (Object.keys(additionalInfo).length > 0) {
+                    metadata.push(['Additional Details']);
+                    for (const [key, value] of Object.entries(additionalInfo)) {
+                        metadata.push([key + ':', value]);
+                    }
+                    metadata.push(['']);
+                }
+                
+                return metadata;
+            },
+            
+            // Apply professional styling to metadata section
+            styleMetadataSheet: function(ws, metadataRowCount) {
+                // Set column widths
+                ws['!cols'] = [
+                    { wch: 20 },  // Label column
+                    { wch: 50 }   // Value column
+                ];
+                
+                // Merge title row
+                if (!ws['!merges']) ws['!merges'] = [];
+                ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } });
+                
+                return ws;
+            },
+            
+            // Generate filename with timestamp
+            generateFilename: function(baseName, extension = 'xlsx') {
+                const client = this.getActiveClient();
+                const timestamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+                const clientPart = client.name !== 'No Client Selected' 
+                    ? client.name.replace(/[^a-z0-9]/gi, '_') + '_'
+                    : '';
+                return `${clientPart}${baseName}_${timestamp}.${extension}`;
+            }
+        };
+        
+        // ============================================================
+        // IMPORT TEMPLATE GENERATOR
+        // Creates downloadable templates for data import
+        // ============================================================
+        const ImportTemplates = {
+            // Generate and download the usage import template
+            generateUsageTemplate: function() {
+                const wb = XLSX.utils.book_new();
+                
+                // Instructions sheet
+                const instructions = [
+                    ['ENERGY UTILIZATION IMPORT TEMPLATE'],
+                    [''],
+                    ['Instructions:'],
+                    ['1. Enter your 12-month usage data in the "Usage Data" sheet'],
+                    ['2. Electric usage should be in kWh (kilowatt-hours)'],
+                    ['3. Gas usage should be in Therms'],
+                    ['4. Leave cells blank or enter 0 for months with no data'],
+                    ['5. Save the file and import using the Import button'],
+                    [''],
+                    ['Import Options:'],
+                    ['- Electric Only: Only the Electric (kWh) column will be imported'],
+                    ['- Gas Only: Only the Gas (Therms) column will be imported'],
+                    ['- Both: Both columns will be imported'],
+                    [''],
+                    ['Notes:'],
+                    ['- Data should be for a rolling 12-month period'],
+                    ['- Months should be in calendar order starting from January'],
+                    ['- Do not change the column headers'],
+                    ['']
+                ];
+                const wsInstructions = XLSX.utils.aoa_to_sheet(instructions);
+                wsInstructions['!cols'] = [{ wch: 60 }];
+                XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions');
+                
+                // Data template sheet
+                const template = [
+                    ['Month', 'Electric (kWh)', 'Gas (Therms)'],
+                    ['January', '', ''],
+                    ['February', '', ''],
+                    ['March', '', ''],
+                    ['April', '', ''],
+                    ['May', '', ''],
+                    ['June', '', ''],
+                    ['July', '', ''],
+                    ['August', '', ''],
+                    ['September', '', ''],
+                    ['October', '', ''],
+                    ['November', '', ''],
+                    ['December', '', '']
+                ];
+                const wsData = XLSX.utils.aoa_to_sheet(template);
+                wsData['!cols'] = [{ wch: 12 }, { wch: 15 }, { wch: 15 }];
+                XLSX.utils.book_append_sheet(wb, wsData, 'Usage Data');
+                
+                // Download
+                XLSX.writeFile(wb, 'Energy_Utilization_Import_Template.xlsx');
+            }
+        };
+        
+        // Download import template function (called from UI)
+        function downloadImportTemplate() {
+            ImportTemplates.generateUsageTemplate();
+            showToast('Template downloaded', 'success');
+        }
+        
+        // ============================================================
+        // WIDGET STATE & DATA
+        // ============================================================
         const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const FULL_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
         
         let electricData = Array(12).fill(0);
         let gasData = Array(12).fill(0);
-        let activeClient = null;
         let electricChart = null;
         let gasChart = null;
+        let activeClient = null;
         
         // Initialize
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', () => {
             initTabs();
-            initGrids();
+            renderUsageGrids();
             initCharts();
             initClientContext();
+            loadHistory();
         });
         
         // Tabs
         function initTabs() {
             document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.onclick = () => {
+                btn.addEventListener('click', () => {
+                    const tab = btn.dataset.tab;
                     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                     btn.classList.add('active');
-                    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+                    document.getElementById(`tab-${tab}`).classList.add('active');
                     
-                    if (btn.dataset.tab === 'history') loadHistory();
-                };
+                    if (tab === 'history') loadHistory();
+                });
             });
         }
         
-        // Usage Grids
-        function initGrids() {
+        // Render Usage Grids
+        function renderUsageGrids() {
             const electricGrid = document.getElementById('electricGrid');
             const gasGrid = document.getElementById('gasGrid');
             
-            MONTHS.forEach((month, i) => {
-                electricGrid.innerHTML += `
-                    <div class="usage-item">
-                        <label>${month}</label>
-                        <input type="number" id="electric-${i}" value="0" min="0" 
-                               onchange="updateElectric(${i}, this.value)" 
-                               onkeyup="updateElectric(${i}, this.value)">
-                    </div>
-                `;
-                
-                gasGrid.innerHTML += `
-                    <div class="usage-item">
-                        <label>${month}</label>
-                        <input type="number" class="gas" id="gas-${i}" value="0" min="0" 
-                               onchange="updateGas(${i}, this.value)"
-                               onkeyup="updateGas(${i}, this.value)">
-                    </div>
-                `;
-            });
+            electricGrid.innerHTML = MONTHS.map((m, i) => `
+                <div class="usage-item">
+                    <label>${m}</label>
+                    <input type="number" id="electric-${i}" value="0" min="0" 
+                           onchange="updateElectric(${i}, this.value)" 
+                           onfocus="this.select()">
+                </div>
+            `).join('');
+            
+            gasGrid.innerHTML = MONTHS.map((m, i) => `
+                <div class="usage-item">
+                    <label>${m}</label>
+                    <input type="number" id="gas-${i}" value="0" min="0" class="gas"
+                           onchange="updateGas(${i}, this.value)" 
+                           onfocus="this.select()">
+                </div>
+            `).join('');
         }
         
+        // Update handlers
         function updateElectric(index, value) {
             electricData[index] = parseFloat(value) || 0;
             updateSummary('electric');
@@ -526,76 +844,57 @@
             updateChart('gas');
         }
         
+        // Update Summary
         function updateSummary(type) {
             const data = type === 'electric' ? electricData : gasData;
             const total = data.reduce((a, b) => a + b, 0);
             const avg = total / 12;
-            const max = Math.max(...data);
-            const maxIndex = data.indexOf(max);
+            const peakIndex = data.indexOf(Math.max(...data));
+            const peak = data[peakIndex];
             
-            document.getElementById(`total${type.charAt(0).toUpperCase() + type.slice(1)}`).textContent = 
-                total.toLocaleString(undefined, { maximumFractionDigits: 0 });
-            document.getElementById(`avg${type.charAt(0).toUpperCase() + type.slice(1)}`).textContent = 
-                avg.toLocaleString(undefined, { maximumFractionDigits: 0 });
-            document.getElementById(`peak${type.charAt(0).toUpperCase() + type.slice(1)}`).textContent = 
-                max > 0 ? MONTHS[maxIndex] : '-';
-            document.getElementById(`peak${type.charAt(0).toUpperCase() + type.slice(1)}Value`).textContent = 
-                max > 0 ? max.toLocaleString() + (type === 'electric' ? ' kWh' : ' Therms') : '';
+            document.getElementById(`total${type.charAt(0).toUpperCase() + type.slice(1)}`).textContent = total.toLocaleString();
+            document.getElementById(`avg${type.charAt(0).toUpperCase() + type.slice(1)}`).textContent = Math.round(avg).toLocaleString();
+            document.getElementById(`peak${type.charAt(0).toUpperCase() + type.slice(1)}`).textContent = peak > 0 ? MONTHS[peakIndex] : '-';
+            document.getElementById(`peak${type.charAt(0).toUpperCase() + type.slice(1)}Value`).textContent = peak > 0 ? `${peak.toLocaleString()} ${type === 'electric' ? 'kWh' : 'Therms'}` : '';
         }
         
         // Charts
         function initCharts() {
-            const electricCtx = document.getElementById('electricChart').getContext('2d');
-            const gasCtx = document.getElementById('gasChart').getContext('2d');
-            
-            const chartOptions = {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
+            const chartConfig = (type) => ({
+                type: 'bar',
+                data: {
+                    labels: MONTHS,
+                    datasets: [{
+                        label: type === 'electric' ? 'Electric (kWh)' : 'Gas (Therms)',
+                        data: type === 'electric' ? electricData : gasData,
+                        backgroundColor: type === 'electric' ? 'rgba(255, 107, 53, 0.7)' : 'rgba(59, 130, 246, 0.7)',
+                        borderColor: type === 'electric' ? '#FF6B35' : '#3b82f6',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(255,255,255,0.05)' },
-                        ticks: { color: '#a0aec0' }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
                     },
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#a0aec0' }
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            ticks: { color: '#a0aec0' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#a0aec0' }
+                        }
                     }
                 }
-            };
-            
-            electricChart = new Chart(electricCtx, {
-                type: 'bar',
-                data: {
-                    labels: MONTHS,
-                    datasets: [{
-                        data: electricData,
-                        backgroundColor: 'rgba(255, 107, 53, 0.7)',
-                        borderColor: '#FF6B35',
-                        borderWidth: 1,
-                        borderRadius: 4
-                    }]
-                },
-                options: chartOptions
             });
             
-            gasChart = new Chart(gasCtx, {
-                type: 'bar',
-                data: {
-                    labels: MONTHS,
-                    datasets: [{
-                        data: gasData,
-                        backgroundColor: 'rgba(59, 130, 246, 0.7)',
-                        borderColor: '#3b82f6',
-                        borderWidth: 1,
-                        borderRadius: 4
-                    }]
-                },
-                options: chartOptions
-            });
+            electricChart = new Chart(document.getElementById('electricChart'), chartConfig('electric'));
+            gasChart = new Chart(document.getElementById('gasChart'), chartConfig('gas'));
         }
         
         function updateChart(type) {
@@ -607,76 +906,77 @@
         
         // Client Context
         function initClientContext() {
+            window.addEventListener('message', handleMessage);
             if (window.parent !== window) {
                 window.parent.postMessage({ type: 'REQUEST_ACTIVE_CLIENT' }, '*');
             }
-            window.addEventListener('message', handleMessage);
         }
         
         function handleMessage(event) {
             const data = event.data;
-            if (!data) return;
+            if (!data || !data.type) return;
             
             if (data.type === 'ACTIVE_CLIENT_CHANGED' || data.type === 'ACTIVE_CLIENT_RESPONSE') {
-                const prevClient = activeClient;
-                activeClient = data.client;
-                updateClientIndicator();
-                
-                // Load client's usage data if they have it
-                if (activeClient) {
-                    loadClientUsage(activeClient.id);
-                    
-                    // Check if client has usage data - if not, prompt
-                    if (!activeClient.usageProfile && prevClient?.id !== activeClient.id) {
-                        checkAndPromptForUsage();
-                    }
-                }
-            }
-            
-            // Request from LMP Comparison Portal for usage data
-            if (data.type === 'REQUEST_CLIENT_USAGE' && event.source) {
-                event.source.postMessage({
-                    type: 'CLIENT_USAGE_RESPONSE',
-                    clientId: activeClient?.id,
-                    electric: electricData,
-                    gas: gasData,
-                    hasData: electricData.some(v => v > 0) || gasData.some(v => v > 0)
-                }, '*');
+                setActiveClient(data.client);
             }
         }
         
-        function updateClientIndicator() {
+        function setActiveClient(client) {
+            activeClient = client;
             const indicator = document.getElementById('clientIndicator');
             const nameEl = document.getElementById('clientName');
             
-            if (activeClient) {
+            if (client) {
                 indicator.classList.remove('no-client');
                 indicator.innerHTML = `
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
                         <polyline points="22 4 12 14.01 9 11.01"/>
                     </svg>
-                    <span>${activeClient.name}</span>
+                    <span id="clientName">${client.name}</span>
                 `;
+                loadClientUsage(client.id);
             } else {
                 indicator.classList.add('no-client');
                 indicator.innerHTML = `
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                     </svg>
-                    <span>No client selected</span>
+                    <span id="clientName">No client selected</span>
                 `;
             }
         }
         
         function loadClientUsage(clientId) {
-            // Try to get from parent's client store
+            // Try localStorage first
+            const stored = localStorage.getItem(`usage_${clientId}`);
+            if (stored) {
+                try {
+                    const profile = JSON.parse(stored);
+                    if (profile.electric) {
+                        electricData = [...profile.electric];
+                        electricData.forEach((v, i) => document.getElementById(`electric-${i}`).value = v);
+                    }
+                    if (profile.gas) {
+                        gasData = [...profile.gas];
+                        gasData.forEach((v, i) => document.getElementById(`gas-${i}`).value = v);
+                    }
+                    updateSummary('electric');
+                    updateSummary('gas');
+                    updateChart('electric');
+                    updateChart('gas');
+                    return;
+                } catch {}
+            }
+            
+            // Check if client has usage in store
             if (window.parent?.SecureEnergyClients) {
                 const client = window.parent.SecureEnergyClients.getClient(clientId);
                 if (client?.usageProfile) {
-                    electricData = client.usageProfile.electric || Array(12).fill(0);
-                    gasData = client.usageProfile.gas || Array(12).fill(0);
-                    populateGrids();
+                    electricData = [...(client.usageProfile.electric || Array(12).fill(0))];
+                    gasData = [...(client.usageProfile.gas || Array(12).fill(0))];
+                    electricData.forEach((v, i) => document.getElementById(`electric-${i}`).value = v);
+                    gasData.forEach((v, i) => document.getElementById(`gas-${i}`).value = v);
                     updateSummary('electric');
                     updateSummary('gas');
                     updateChart('electric');
@@ -685,41 +985,8 @@
                 }
             }
             
-            // Also check localStorage
-            const stored = localStorage.getItem(`usage_${clientId}`);
-            if (stored) {
-                const profile = JSON.parse(stored);
-                electricData = profile.electric || Array(12).fill(0);
-                gasData = profile.gas || Array(12).fill(0);
-                populateGrids();
-                updateSummary('electric');
-                updateSummary('gas');
-                updateChart('electric');
-                updateChart('gas');
-            } else {
-                // Reset to zeros for new client
-                electricData = Array(12).fill(0);
-                gasData = Array(12).fill(0);
-                populateGrids();
-                updateSummary('electric');
-                updateSummary('gas');
-                updateChart('electric');
-                updateChart('gas');
-            }
-        }
-        
-        function populateGrids() {
-            MONTHS.forEach((_, i) => {
-                document.getElementById(`electric-${i}`).value = electricData[i] || 0;
-                document.getElementById(`gas-${i}`).value = gasData[i] || 0;
-            });
-        }
-        
-        function checkAndPromptForUsage() {
-            const hasElectric = electricData.some(v => v > 0);
-            const hasGas = gasData.some(v => v > 0);
-            
-            if (!hasElectric && !hasGas && activeClient) {
+            // No usage found - prompt user
+            if (activeClient) {
                 document.getElementById('noUsageClientName').textContent = activeClient.name;
                 document.getElementById('noUsageModal').classList.add('show');
             }
@@ -729,7 +996,7 @@
             document.getElementById('noUsageModal').classList.remove('show');
         }
         
-        function startAddingUsage() {
+        function startUsageEntry() {
             closeNoUsageModal();
             // Switch to electric tab and focus first input
             document.querySelector('[data-tab="electric"]').click();
@@ -789,27 +1056,48 @@
             }
         }
         
-        // Export
+        // ============================================================
+        // ENHANCED EXPORT WITH METADATA
+        // ============================================================
         function exportUsage() {
             const wb = XLSX.utils.book_new();
+            
+            // Get metadata rows
+            const metadataRows = ExportMetadata.generateMetadataRows({
+                'Total Electric Usage': electricData.reduce((a, b) => a + b, 0).toLocaleString() + ' kWh',
+                'Total Gas Usage': gasData.reduce((a, b) => a + b, 0).toLocaleString() + ' Therms',
+                'Peak Electric Month': MONTHS[electricData.indexOf(Math.max(...electricData))] || 'N/A',
+                'Peak Gas Month': MONTHS[gasData.indexOf(Math.max(...gasData))] || 'N/A'
+            });
+            
+            // Create combined data with metadata
             const data = [
+                ...metadataRows,
+                ['MONTHLY USAGE DATA'],
                 ['Month', 'Electric (kWh)', 'Gas (Therms)'],
                 ...FULL_MONTHS.map((m, i) => [m, electricData[i], gasData[i]]),
                 ['', '', ''],
-                ['Total', electricData.reduce((a, b) => a + b, 0), gasData.reduce((a, b) => a + b, 0)]
+                ['TOTALS', electricData.reduce((a, b) => a + b, 0), gasData.reduce((a, b) => a + b, 0)],
+                ['AVERAGES', Math.round(electricData.reduce((a, b) => a + b, 0) / 12), Math.round(gasData.reduce((a, b) => a + b, 0) / 12)]
             ];
             
             const ws = XLSX.utils.aoa_to_sheet(data);
-            ws['!cols'] = [{ wch: 12 }, { wch: 15 }, { wch: 15 }];
+            
+            // Set column widths
+            ws['!cols'] = [{ wch: 25 }, { wch: 20 }, { wch: 20 }];
+            
+            // Add merge for title
+            ws['!merges'] = [
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }
+            ];
             
             XLSX.utils.book_append_sheet(wb, ws, 'Usage Profile');
             
-            const filename = activeClient 
-                ? `${activeClient.name.replace(/[^a-z0-9]/gi, '_')}_Usage_Profile.xlsx`
-                : 'Energy_Usage_Profile.xlsx';
+            // Generate filename with client name and date
+            const filename = ExportMetadata.generateFilename('Usage_Profile');
             
             XLSX.writeFile(wb, filename);
-            showToast('Usage profile exported', 'success');
+            showToast('Usage profile exported with metadata', 'success');
         }
         
         // Import
@@ -831,28 +1119,43 @@
                 try {
                     const data = new Uint8Array(e.target.result);
                     const wb = XLSX.read(data, { type: 'array' });
-                    const ws = wb.Sheets[wb.SheetNames[0]];
+                    
+                    // Try to find the data sheet (could be "Usage Data" from template or first sheet)
+                    let ws = wb.Sheets['Usage Data'] || wb.Sheets[wb.SheetNames[0]];
                     const json = XLSX.utils.sheet_to_json(ws, { header: 1 });
                     
                     const importType = document.getElementById('importType').value;
                     
                     // Try to parse - expect Month, Electric, Gas columns or just Month, Value
+                    let startRow = 0;
+                    // Find the header row (look for "Month" or similar)
+                    for (let i = 0; i < Math.min(json.length, 10); i++) {
+                        const row = json[i];
+                        if (row && row[0] && typeof row[0] === 'string' && 
+                            row[0].toLowerCase().includes('month')) {
+                            startRow = i + 1;
+                            break;
+                        }
+                    }
+                    
+                    let importedCount = 0;
                     json.forEach((row, i) => {
-                        if (i === 0) return; // Skip header
-                        if (i > 12) return; // Only 12 months
-                        
-                        const monthIndex = i - 1;
+                        if (i < startRow) return; // Skip header and anything before
+                        const monthIndex = i - startRow;
+                        if (monthIndex >= 12) return; // Only 12 months
                         
                         if (importType === 'electric' || importType === 'both') {
                             const elecVal = parseFloat(row[1]) || 0;
                             electricData[monthIndex] = elecVal;
                             document.getElementById(`electric-${monthIndex}`).value = elecVal;
+                            if (elecVal > 0) importedCount++;
                         }
                         
                         if (importType === 'gas' || importType === 'both') {
                             const gasVal = parseFloat(importType === 'both' ? row[2] : row[1]) || 0;
                             gasData[monthIndex] = gasVal;
                             document.getElementById(`gas-${monthIndex}`).value = gasVal;
+                            if (gasVal > 0) importedCount++;
                         }
                     });
                     
@@ -862,7 +1165,7 @@
                     updateChart('gas');
                     
                     closeImportModal();
-                    showToast('Usage data imported', 'success');
+                    showToast(`Imported ${importedCount} values successfully`, 'success');
                 } catch (err) {
                     showToast('Failed to parse file', 'error');
                     console.error(err);
