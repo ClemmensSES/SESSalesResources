@@ -597,16 +597,6 @@
                 az.addEventListener('drop', ev => { if (ev.dataTransfer.files.length) handleAccountFile(ev.dataTransfer.files[0]); });
             }
         }
-            let t;
-            s.oninput = () => { clearTimeout(t); t = setTimeout(() => loadClients(s.value), 200); };
-        }
-        
-        function initDragDrop() {
-            const z = document.getElementById('importZone');
-            ['dragenter','dragover'].forEach(e => z.addEventListener(e, ev => { ev.preventDefault(); z.classList.add('dragover'); }));
-            ['dragleave','drop'].forEach(e => z.addEventListener(e, ev => { ev.preventDefault(); z.classList.remove('dragover'); }));
-            z.addEventListener('drop', ev => { if (ev.dataTransfer.files.length) handleFile(ev.dataTransfer.files[0]); });
-        }
         
         function loadClients(q = '') {
             if (!ClientStore) return;
