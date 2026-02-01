@@ -1,7 +1,12 @@
 /**
- * Secure Energy Shared Data Store v2.7
+ * Secure Energy Shared Data Store v2.8
  * Centralized data management for LMP data, user authentication, activity logging,
- * widget layout preferences, and usage profiles
+ * widget layout preferences, usage profiles, and support tickets
+ * 
+ * v2.8 Updates:
+ * - Added TicketStore for feedback/support ticket management
+ * - Tickets sync to GitHub for cross-device access
+ * - Admin and user ticket views with conversation threads
  * 
  * v2.7 Updates:
  * - Added UsageProfileStore for sharing usage profiles across widgets
@@ -88,6 +93,7 @@ const ErrorLog = {
         if (source.includes('lmp-analytics')) return 'lmp-analytics';
         if (source.includes('data-manager')) return 'data-manager';
         if (source.includes('arcadia')) return 'arcadia-fetcher';
+        if (source.includes('feedback')) return 'feedback';
         if (source.includes('main.js')) return 'portal';
         return 'portal';
     },
@@ -712,6 +718,7 @@ const GitHubSync = {
     USERS_PATH: 'data/users.json',
     WIDGET_PREFS_PATH: 'data/widget-preferences.json',
     USAGE_PROFILES_PATH: 'data/usage-profiles.json',
+    TICKETS_PATH: 'data/tickets.json',
     
     token: null,
     lastSync: null,
@@ -763,6 +770,8 @@ const GitHubSync = {
             await this.pullWidgetPreferences();
             // Pull usage profiles
             await this.pullUsageProfiles();
+            // Pull tickets
+            await this.pullTickets();
             console.log('[GitHubSync] Pull complete');
         } catch (e) {
             console.warn('[GitHubSync] Pull failed:', e.message);
@@ -808,6 +817,26 @@ const GitHubSync = {
             }
         } catch (e) {
             console.log('[GitHubSync] Usage profiles fetch skipped:', e.message);
+        }
+    },
+
+    async pullTickets() {
+        try {
+            const response = await fetch(
+                `https://raw.githubusercontent.com/${this.REPO_OWNER}/${this.REPO_NAME}/main/${this.TICKETS_PATH}?t=${Date.now()}`
+            );
+            if (!response.ok) {
+                if (response.status === 404) {
+                    console.log('[GitHubSync] Tickets file not found (will be created on first save)');
+                }
+                return;
+            }
+            const data = await response.json();
+            if (data?.tickets) {
+                TicketStore.mergeFromGitHub(data.tickets);
+            }
+        } catch (e) {
+            console.log('[GitHubSync] Tickets fetch skipped:', e.message);
         }
     },
 
@@ -875,6 +904,25 @@ const GitHubSync = {
         } finally { this.isSyncing = false; }
     },
 
+    async syncTickets() {
+        if (!this.token || this.isSyncing) return { success: false };
+        this.isSyncing = true;
+        
+        try {
+            const content = TicketStore.exportForGitHub();
+            const result = await this._updateFile(this.TICKETS_PATH, content, 'Update support tickets');
+            this.lastSync = new Date().toISOString();
+            localStorage.setItem('secureEnergy_lastSync', this.lastSync);
+            console.log('[GitHubSync] Tickets synced');
+            return { success: true };
+        } catch (e) {
+            console.error('[GitHubSync] Tickets sync failed:', e);
+            return { success: false, error: e.message };
+        } finally {
+            this.isSyncing = false;
+        }
+    },
+
     async pushChanges() {
         if (!this.token) return { success: false, error: 'No token' };
         const results = {};
@@ -882,6 +930,7 @@ const GitHubSync = {
         results.users = await this.syncUsers();
         results.widgetPrefs = await this.syncWidgetPreferences();
         results.usageProfiles = await this.syncUsageProfiles();
+        results.tickets = await this.syncTickets();
         return results;
     },
 
@@ -1098,11 +1147,11 @@ const UserStore = {
                     const localUsersById = new Map(this.users.map(u => [u.id, u]));
                     const localUsersByEmail = new Map(this.users.map(u => [u.email.toLowerCase(), u]));
                     const githubUsersById = new Map(data.users.map(u => [u.id, u]));
+                    const githubUsersByEmail = new Map(data.users.map(u => [u.email.toLowerCase(), u]));
                     
                     // Process GitHub users - compare with local versions
                     data.users.forEach(githubUser => {
-                        const localUser = localUsersById.get(githubUser.id) || 
-                                          localUsersByEmail.get(githubUser.email.toLowerCase());
+                        const localUser = localUsersById.get(githubUser.id) || localUsersByEmail.get(githubUser.email.toLowerCase());
                         
                         if (localUser) {
                             // User exists in both - keep the one with newer updatedAt
@@ -1135,7 +1184,7 @@ const UserStore = {
                     this.users = mergedUsers;
                     console.log(`[UserStore] Smart merge complete: ${this.users.length} total users`);
                 } else {
-                    // Replace mode (used by authenticate to get fresh data)
+                    // Replace mode
                     this.users = data.users;
                     console.log(`[UserStore] Loaded ${this.users.length} users from GitHub`);
                 }
@@ -1148,133 +1197,120 @@ const UserStore = {
         }
     },
 
-    loadFromStorage() { 
-        try { return JSON.parse(localStorage.getItem(this.STORAGE_KEY)) || []; } 
-        catch { return []; } 
-    },
-    
-    saveToStorage() { 
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.users)); 
-    },
-
     createDefaultAdmin() {
-        this.users.push({
-            id: 'admin-001',
+        const admin = {
+            id: 'admin-' + Date.now(),
             email: 'admin@sesenergy.org',
             password: 'admin123',
             firstName: 'Admin',
             lastName: 'User',
             role: 'admin',
-            status: 'active',
             createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
             permissions: {}
-        });
-        this.saveToStorage();
-        console.log('[UserStore] Default admin created');
+        };
+        this.users.push(admin);
+        console.log('[UserStore] Created default admin user');
     },
 
-    getAll() { return this.users; },
+    loadFromStorage() { try { return JSON.parse(localStorage.getItem(this.STORAGE_KEY)) || []; } catch { return []; } },
+    saveToStorage() { localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.users)); },
+
+    async authenticate(email, password) {
+        // Refresh from GitHub before authenticating (to catch new users)
+        try {
+            await this.loadFromGitHub(true);
+            this.saveToStorage();
+        } catch (e) { /* proceed with cached data */ }
+        
+        const user = this.users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
+        if (user) {
+            const sessionUser = { ...user };
+            delete sessionUser.password;
+            localStorage.setItem(this.SESSION_KEY, JSON.stringify(sessionUser));
+            return { success: true, user: sessionUser };
+        }
+        return { success: false, error: 'Invalid credentials' };
+    },
+
+    getSession() {
+        try {
+            return JSON.parse(localStorage.getItem(this.SESSION_KEY));
+        } catch { return null; }
+    },
+
+    clearSession() { localStorage.removeItem(this.SESSION_KEY); },
+
+    getAll() { return this.users.map(u => ({ ...u, password: undefined })); },
     getById(id) { return this.users.find(u => u.id === id); },
-    findByEmail(email) { return this.users.find(u => u.email.toLowerCase() === email.toLowerCase()); },
+    getByEmail(email) { return this.users.find(u => u.email.toLowerCase() === email.toLowerCase()); },
 
     create(userData) {
-        if (this.findByEmail(userData.email)) return { success: false, error: 'Email already exists' };
+        if (this.getByEmail(userData.email)) {
+            return { success: false, error: 'Email already exists' };
+        }
         const user = {
             id: 'user-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
-            email: userData.email,
-            password: userData.password,
-            firstName: userData.firstName,
-            lastName: userData.lastName,
-            role: userData.role || 'user',
-            status: 'active',
+            ...userData,
             createdAt: new Date().toISOString(),
-            permissions: userData.permissions || {}
+            updatedAt: new Date().toISOString()
         };
         this.users.push(user);
         this.saveToStorage();
-        if (GitHubSync.hasToken() && GitHubSync.autoSyncEnabled) GitHubSync.syncUsers().catch(() => {});
-        return { success: true, user };
+        
+        // Sync to GitHub
+        if (GitHubSync.hasToken() && GitHubSync.autoSyncEnabled) {
+            GitHubSync.syncUsers().catch(e => console.warn('[UserStore] Sync failed:', e));
+        }
+        
+        return { success: true, user: { ...user, password: undefined } };
     },
 
     async update(id, updates) {
         const idx = this.users.findIndex(u => u.id === id);
         if (idx === -1) return { success: false, error: 'User not found' };
+        
+        // Check email uniqueness if changing email
         if (updates.email && updates.email !== this.users[idx].email) {
-            if (this.findByEmail(updates.email)) return { success: false, error: 'Email already exists' };
+            if (this.getByEmail(updates.email)) {
+                return { success: false, error: 'Email already exists' };
+            }
         }
+        
         this.users[idx] = { ...this.users[idx], ...updates, updatedAt: new Date().toISOString() };
         this.saveToStorage();
         
-        // Wait for GitHub sync to complete to ensure data persists
+        // Sync to GitHub and WAIT for completion
         if (GitHubSync.hasToken() && GitHubSync.autoSyncEnabled) {
             try {
                 await GitHubSync.syncUsers();
-                console.log('[UserStore] User update synced to GitHub');
+                console.log(`[UserStore] User ${id} updated and synced to GitHub`);
             } catch (e) {
                 console.warn('[UserStore] GitHub sync failed, but local save succeeded:', e.message);
             }
         }
-        return { success: true, user: this.users[idx] };
+        
+        return { success: true, user: { ...this.users[idx], password: undefined } };
     },
 
     delete(id) {
         const idx = this.users.findIndex(u => u.id === id);
         if (idx === -1) return { success: false, error: 'User not found' };
-        if (this.users[idx].email === 'admin@sesenergy.org') return { success: false, error: 'Cannot delete default admin' };
         this.users.splice(idx, 1);
         this.saveToStorage();
-        // Also clean up their widget preferences
-        WidgetPreferences.resetForUser(id);
-        if (GitHubSync.hasToken() && GitHubSync.autoSyncEnabled) GitHubSync.syncUsers().catch(() => {});
+        
+        if (GitHubSync.hasToken() && GitHubSync.autoSyncEnabled) {
+            GitHubSync.syncUsers().catch(e => console.warn('[UserStore] Sync failed:', e));
+        }
+        
         return { success: true };
     },
 
-    /**
-     * Authenticate user - Fetches fresh data from GitHub and merges with local
-     * This ensures users can log in from any device while preserving local users
-     */
-    async authenticate(email, password) {
-        console.log('[UserStore] Authenticating:', email);
-        
-        // First check if user exists locally (fast path)
-        let user = this.findByEmail(email);
-        
-        // Always try to refresh from GitHub (merge mode to preserve local users)
-        try {
-            const refreshed = await this.loadFromGitHub(true); // merge mode
-            if (refreshed) {
-                this.saveToStorage();
-                console.log('[UserStore] Refreshed and merged user list from GitHub');
-                // Re-find user in case they came from GitHub
-                user = this.findByEmail(email);
-            }
-        } catch (e) {
-            console.warn('[UserStore] GitHub refresh failed, using local data:', e.message);
-        }
-        
-        if (!user) return { success: false, error: 'User not found' };
-        if (user.password !== password) return { success: false, error: 'Invalid password' };
-        if (user.status !== 'active') return { success: false, error: 'Account inactive' };
-        return { success: true, user };
-    },
-
-    setCurrentUser(user) {
-        const s = { ...user }; delete s.password;
-        localStorage.setItem(this.SESSION_KEY, JSON.stringify(s));
-    },
-    
-    getCurrentUser() { 
-        try { return JSON.parse(localStorage.getItem(this.SESSION_KEY)); } 
-        catch { return null; } 
-    },
-    
-    clearSession() { localStorage.removeItem(this.SESSION_KEY); },
-    
-    exportForGitHub() { 
-        return JSON.stringify({ 
-            version: '1.0.0', 
-            lastUpdated: new Date().toISOString(), 
-            users: this.users 
+    exportForGitHub() {
+        return JSON.stringify({
+            version: '2.4.0',
+            lastUpdated: new Date().toISOString(),
+            users: this.users
         }, null, 2); 
     }
 };
@@ -1427,6 +1463,296 @@ const ActivityLog = {
 
 
 // =====================================================
+// TICKET STORE - Support Ticket Management
+// =====================================================
+const TicketStore = {
+    STORAGE_KEY: 'secureEnergy_tickets',
+    GITHUB_TICKETS_URL: 'https://raw.githubusercontent.com/SecureEnergyServicesLLC/SESSalesResources/main/data/tickets.json',
+    tickets: [],
+    ticketActivityLog: [],
+    _syncTimeout: null,
+    _initialized: false,
+
+    async init() {
+        console.log('[TicketStore] Initializing...');
+        
+        // Load from localStorage first
+        const cached = this.loadFromStorage();
+        if (cached) {
+            this.tickets = cached.tickets || [];
+            this.ticketActivityLog = cached.activityLog || [];
+        }
+        
+        // Try to fetch from GitHub
+        try {
+            await this.pullFromGitHub();
+        } catch (e) {
+            console.warn('[TicketStore] GitHub pull failed:', e.message);
+        }
+        
+        this._initialized = true;
+        console.log(`[TicketStore] ${this.tickets.length} tickets loaded`);
+        return this.tickets;
+    },
+
+    loadFromStorage() {
+        try {
+            const stored = localStorage.getItem(this.STORAGE_KEY);
+            return stored ? JSON.parse(stored) : null;
+        } catch (e) {
+            console.error('[TicketStore] Load from storage failed:', e);
+            return null;
+        }
+    },
+
+    saveToStorage() {
+        try {
+            const data = {
+                tickets: this.tickets,
+                activityLog: this.ticketActivityLog,
+                lastUpdated: new Date().toISOString()
+            };
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+        } catch (e) {
+            console.error('[TicketStore] Save to storage failed:', e);
+        }
+    },
+
+    async pullFromGitHub() {
+        try {
+            const url = `${this.GITHUB_TICKETS_URL}?t=${Date.now()}`;
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                if (response.status === 404) {
+                    console.log('[TicketStore] Tickets file not found on GitHub (will be created on first save)');
+                }
+                return;
+            }
+            
+            const data = await response.json();
+            
+            if (data?.tickets) {
+                this.mergeFromGitHub(data.tickets);
+            }
+        } catch (e) {
+            console.warn('[TicketStore] GitHub fetch failed:', e.message);
+        }
+    },
+
+    mergeFromGitHub(remoteTickets) {
+        if (!remoteTickets || !Array.isArray(remoteTickets)) return;
+        
+        const localIds = new Set(this.tickets.map(t => t.id));
+        let added = 0, updated = 0;
+        
+        remoteTickets.forEach(remoteTicket => {
+            const localTicket = this.tickets.find(t => t.id === remoteTicket.id);
+            
+            if (!localTicket) {
+                // New ticket from GitHub
+                this.tickets.push(remoteTicket);
+                added++;
+            } else if (remoteTicket.updatedAt > localTicket.updatedAt) {
+                // Remote is newer, update local
+                const idx = this.tickets.findIndex(t => t.id === remoteTicket.id);
+                this.tickets[idx] = remoteTicket;
+                updated++;
+            }
+        });
+        
+        // Sort by createdAt descending
+        this.tickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
+        if (added > 0 || updated > 0) {
+            this.saveToStorage();
+            console.log(`[TicketStore] Merged from GitHub: ${added} added, ${updated} updated`);
+        }
+    },
+
+    async getTickets() {
+        if (!this._initialized) await this.init();
+        return {
+            tickets: this.tickets,
+            activityLog: this.ticketActivityLog,
+            lastUpdated: new Date().toISOString()
+        };
+    },
+
+    async saveTickets(data) {
+        if (data?.tickets) {
+            this.tickets = data.tickets;
+        }
+        if (data?.activityLog) {
+            this.ticketActivityLog = data.activityLog;
+        }
+        
+        this.saveToStorage();
+        this._scheduleSyncToGitHub();
+        
+        return true;
+    },
+
+    getAll() {
+        return this.tickets;
+    },
+
+    getById(ticketId) {
+        return this.tickets.find(t => t.id === ticketId);
+    },
+
+    getByUser(userId) {
+        return this.tickets.filter(t => t.submittedBy?.id === userId);
+    },
+
+    getByStatus(status) {
+        return this.tickets.filter(t => t.status === status);
+    },
+
+    getOpen() {
+        return this.tickets.filter(t => t.status === 'open' || t.status === 'in-progress');
+    },
+
+    create(ticketData) {
+        const ticket = {
+            id: this.generateTicketId(),
+            ...ticketData,
+            status: ticketData.status || 'open',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            conversation: []
+        };
+        
+        this.tickets.unshift(ticket);
+        this.logTicketActivity('created', ticket.id, ticketData.submittedBy?.name, `created ticket: ${ticket.subject}`);
+        this.saveToStorage();
+        this._scheduleSyncToGitHub();
+        
+        // Dispatch event for UI updates
+        try {
+            window.dispatchEvent(new CustomEvent('ticketCreated', { detail: ticket }));
+        } catch (e) { /* ignore */ }
+        
+        return ticket;
+    },
+
+    update(ticketId, updates) {
+        const ticket = this.tickets.find(t => t.id === ticketId);
+        if (!ticket) return null;
+        
+        const oldStatus = ticket.status;
+        Object.assign(ticket, updates, { updatedAt: new Date().toISOString() });
+        
+        // Log status changes
+        if (updates.status && updates.status !== oldStatus) {
+            this.logTicketActivity('status_changed', ticketId, updates.updatedBy || 'System', 
+                `changed status from ${oldStatus} to ${updates.status}`);
+        }
+        
+        this.saveToStorage();
+        this._scheduleSyncToGitHub();
+        
+        try {
+            window.dispatchEvent(new CustomEvent('ticketUpdated', { detail: ticket }));
+        } catch (e) { /* ignore */ }
+        
+        return ticket;
+    },
+
+    addReply(ticketId, reply) {
+        const ticket = this.tickets.find(t => t.id === ticketId);
+        if (!ticket) return null;
+        
+        if (!ticket.conversation) ticket.conversation = [];
+        
+        const message = {
+            id: 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+            ...reply,
+            timestamp: new Date().toISOString()
+        };
+        
+        ticket.conversation.push(message);
+        ticket.updatedAt = new Date().toISOString();
+        
+        this.logTicketActivity('replied', ticketId, reply.userName, 'added a reply');
+        this.saveToStorage();
+        this._scheduleSyncToGitHub();
+        
+        return message;
+    },
+
+    logTicketActivity(action, ticketId, userName, description) {
+        this.ticketActivityLog.unshift({
+            timestamp: new Date().toISOString(),
+            action,
+            ticketId,
+            userName,
+            description
+        });
+        
+        // Keep only last 200 entries
+        if (this.ticketActivityLog.length > 200) {
+            this.ticketActivityLog = this.ticketActivityLog.slice(0, 200);
+        }
+    },
+
+    generateTicketId() {
+        const timestamp = Date.now().toString(36).toUpperCase();
+        const random = Math.random().toString(36).substring(2, 5).toUpperCase();
+        return `SE-${timestamp}-${random}`;
+    },
+
+    getStats() {
+        const stats = {
+            total: this.tickets.length,
+            open: 0,
+            inProgress: 0,
+            awaitingResponse: 0,
+            resolved: 0,
+            closed: 0,
+            byCategory: {},
+            byPriority: {}
+        };
+        
+        this.tickets.forEach(t => {
+            switch (t.status) {
+                case 'open': stats.open++; break;
+                case 'in-progress': stats.inProgress++; break;
+                case 'awaiting-response': stats.awaitingResponse++; break;
+                case 'resolved': stats.resolved++; break;
+                case 'closed': stats.closed++; break;
+            }
+            
+            stats.byCategory[t.category] = (stats.byCategory[t.category] || 0) + 1;
+            stats.byPriority[t.priority] = (stats.byPriority[t.priority] || 0) + 1;
+        });
+        
+        return stats;
+    },
+
+    _scheduleSyncToGitHub() {
+        if (!GitHubSync.hasToken() || !GitHubSync.autoSyncEnabled) return;
+        
+        clearTimeout(this._syncTimeout);
+        this._syncTimeout = setTimeout(() => {
+            GitHubSync.syncTickets().catch(e => {
+                console.warn('[TicketStore] GitHub sync failed:', e.message);
+            });
+        }, 3000);
+    },
+
+    exportForGitHub() {
+        return JSON.stringify({
+            version: '1.0.0',
+            lastUpdated: new Date().toISOString(),
+            tickets: this.tickets,
+            activityLog: this.ticketActivityLog
+        }, null, 2);
+    }
+};
+
+
+// =====================================================
 // INITIALIZATION
 // =====================================================
 if (typeof window !== 'undefined') {
@@ -1437,6 +1763,7 @@ if (typeof window !== 'undefined') {
     window.ErrorLog = ErrorLog;
     window.WidgetPreferences = WidgetPreferences;
     window.UsageProfileStore = UsageProfileStore;
+    window.TicketStore = TicketStore;
     
     ErrorLog.init();
     GitHubSync.init();
@@ -1456,13 +1783,26 @@ if (typeof window !== 'undefined') {
         console.warn('[SharedDataStore] UsageProfileStore init failed:', e.message);
     });
     
+    // TicketStore.init() is async - it will fetch from GitHub
+    TicketStore.init().then(() => {
+        console.log('[SharedDataStore] TicketStore initialized with GitHub data');
+        try {
+            window.dispatchEvent(new CustomEvent('ticketsReady', { 
+                detail: { tickets: TicketStore.getAll() }
+            }));
+        } catch (e) { /* ignore */ }
+    }).catch(e => {
+        console.warn('[SharedDataStore] TicketStore init failed:', e.message);
+    });
+    
     window.resetUserStore = () => { localStorage.removeItem('secureEnergy_users'); localStorage.removeItem('secureEnergy_currentUser'); location.reload(); };
     window.resetActivityLog = () => { localStorage.removeItem('secureEnergy_activityLog'); location.reload(); };
     window.resetErrorLog = () => { ErrorLog.clearAll(); };
     window.resetWidgetPrefs = () => { localStorage.removeItem('secureEnergy_widgetPrefs'); location.reload(); };
     window.resetUsageProfiles = () => { localStorage.removeItem('secureEnergy_usageProfiles'); localStorage.removeItem('secureEnergy_activeUsageProfile'); location.reload(); };
+    window.resetTicketStore = () => { localStorage.removeItem('secureEnergy_tickets'); location.reload(); };
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { SecureEnergyData, UserStore, ActivityLog, GitHubSync, ErrorLog, WidgetPreferences, UsageProfileStore };
+    module.exports = { SecureEnergyData, UserStore, ActivityLog, GitHubSync, ErrorLog, WidgetPreferences, UsageProfileStore, TicketStore };
 }
