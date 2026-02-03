@@ -655,26 +655,73 @@
         }
         
         document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(() => {
-                if (initStores()) {
+            // Try immediately
+            if (initStores()) {
+                loadClientsWhenReady();
+            }
+            
+            // Also listen for clientsReady event from parent
+            window.addEventListener('message', function(e) {
+                if (e.data?.type === 'clientsReady' || e.data?.type === 'CLIENTS_LOADED') {
+                    console.log('[ClientAdmin] Received clients ready event');
+                    if (!ClientStore) initStores();
                     loadClients();
                     updateStats();
-                    updateActiveClientBanner();
-                    updateActiveAccountBanner();
+                }
+            });
+            
+            // Retry with increasing delays to ensure clients are loaded
+            [100, 300, 600, 1000, 2000].forEach(delay => {
+                setTimeout(() => {
+                    if (initStores()) {
+                        const clients = ClientStore.getAllClients();
+                        if (clients && clients.length > 0) {
+                            console.log('[ClientAdmin] Loaded ' + clients.length + ' clients after ' + delay + 'ms');
+                            loadClients();
+                            updateStats();
+                            updateActiveClientBanner();
+                            updateActiveAccountBanner();
+                        }
+                    }
+                }, delay);
+            });
+            
+            // Subscribe to changes
+            setTimeout(() => {
+                if (ClientStore) {
                     ClientStore.subscribe((e) => { 
                         loadClients(); 
                         updateStats(); 
                         updateActiveClientBanner(); 
                         updateActiveAccountBanner();
-                        // Re-render details if we have a selection
                         if (selectedClientId) showClientDetails(selectedClientId);
                     });
                 }
-                initTabs();
-                initSearch();
-                initDragDrop();
-            }, 100);
+            }, 200);
+            
+            initTabs();
+            initSearch();
+            initDragDrop();
         });
+        
+        function loadClientsWhenReady() {
+            // Use SecureEnergyClients.onReady if available
+            if (ClientStore?.onReady) {
+                ClientStore.onReady(() => {
+                    console.log('[ClientAdmin] ClientStore ready callback fired');
+                    loadClients();
+                    updateStats();
+                    updateActiveClientBanner();
+                    updateActiveAccountBanner();
+                });
+            } else {
+                // Fallback - just try loading
+                loadClients();
+                updateStats();
+                updateActiveClientBanner();
+                updateActiveAccountBanner();
+            }
+        }
         
         window.addEventListener('message', function(e) {
             if (e.data?.type === 'ACTIVE_CLIENT_CHANGED') { 
