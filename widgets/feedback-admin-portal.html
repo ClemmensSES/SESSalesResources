@@ -931,7 +931,7 @@
         }
         
         container.innerHTML = filtered.map(a => {
-            const action = a.action || '';
+            const action = (typeof a.action === 'string') ? a.action : String(a.action || '');
             const typeClass = action.includes('Login') ? 'login' : action.includes('Analysis') ? 'analysis' : 
                              action.includes('Export') ? 'export' : action.includes('Client') ? 'client' : 
                              action.includes('AI') ? 'ai' : '';
