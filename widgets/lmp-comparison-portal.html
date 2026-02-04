@@ -2582,6 +2582,7 @@
                     const fixedTotalCost = fixedPrice * usageKwh;
                     const nonEnergyCostPerKwh = capacityCost + ancillaryCost + transmissionCost;
                     
+                    // Use monthInYear (contract month position) for hedge lookup
                     const hedgeKey = `${contractYear}_${monthInYear}`;
                     const hedgeData = hedgeMatrix[hedgeKey] || { rate: 0, percent: 0 };
                     const openPercent = (100 - hedgeData.percent) / 100;
@@ -2608,9 +2609,9 @@
                         period: i + 1,
                         contractYear: contractYear + 1,
                         actualYear: actualYear,
-                        month: monthsFull[monthInYear],
-                        monthShort: months[monthInYear],
-                        monthNum: monthInYear,
+                        month: monthsFull[actualMonth],  // Use actualMonth for display
+                        monthShort: months[actualMonth],  // Use actualMonth for display
+                        monthNum: actualMonth,  // Use actualMonth for month number
                         usageKwh,
                         lmp,
                         lmpWithLineLoss,
@@ -2678,6 +2679,10 @@
             const totalUsage = calculationResults.reduce((sum, r) => sum + r.usageKwh, 0);
             const avgBlendedRate = totalIndexCost / totalUsage;
             
+            // Calculate average LMP (weighted by usage)
+            const totalLMPWeighted = calculationResults.reduce((sum, r) => sum + (r.lmp * r.usageKwh), 0);
+            const avgLMP = totalLMPWeighted / totalUsage;
+            
             const summaryHTML = `
                 <div class="summary-card">
                     <div class="summary-label">Total Index Cost</div>
@@ -2692,6 +2697,10 @@
                     <div class="summary-value ${savingsVsFixed >= 0 ? 'positive-value' : 'negative-value'}">
                         ${savingsVsFixed >= 0 ? '+' : ''}$${savingsVsFixed.toLocaleString(undefined, {maximumFractionDigits: 0})}
                     </div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">Avg LMP</div>
+                    <div class="summary-value small-text">$${avgLMP.toFixed(5)}/kWh</div>
                 </div>
                 <div class="summary-card">
                     <div class="summary-label">Avg Blended Rate</div>
@@ -2768,6 +2777,7 @@
                 const fixedTotalCost = fixedPrice * usageKwh;
                 const nonEnergyCostPerKwh = capacityCost + ancillaryCost + transmissionCost;
                 
+                // Use monthInYear (contract month position) for hedge lookup
                 const hedgeKey = `${contractYear}_${monthInYear}`;
                 const hedgeData = hedgeMatrix[hedgeKey] || { rate: 0, percent: 0 };
                 const openPercent = (100 - hedgeData.percent) / 100;
@@ -2794,9 +2804,9 @@
                     period: i + 1,
                     contractYear: contractYear + 1,
                     actualYear: actualYear,
-                    month: monthsFull[monthInYear],
-                    monthShort: months[monthInYear],
-                    monthNum: monthInYear,
+                    month: monthsFull[actualMonth],  // Use actualMonth for display
+                    monthShort: months[actualMonth],  // Use actualMonth for display
+                    monthNum: actualMonth,  // Use actualMonth for month number
                     usageKwh,
                     lmp,
                     lmpWithLineLoss,
@@ -3093,6 +3103,10 @@
             const totalUsage = calculationResults.reduce((sum, r) => sum + r.usageKwh, 0);
             const avgBlendedRate = totalIndexCost / totalUsage;
             
+            // Calculate average LMP (weighted by usage)
+            const totalLMPWeighted = calculationResults.reduce((sum, r) => sum + (r.lmp * r.usageKwh), 0);
+            const avgLMP = totalLMPWeighted / totalUsage;
+            
             const summaryHTML = `
                 <div class="summary-card">
                     <div class="summary-label">Total Index Cost</div>
@@ -3107,6 +3121,10 @@
                     <div class="summary-value ${savingsVsFixed >= 0 ? 'positive-value' : 'negative-value'}">
                         ${savingsVsFixed >= 0 ? '+' : ''}$${savingsVsFixed.toLocaleString(undefined, {maximumFractionDigits: 0})}
                     </div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">Avg LMP</div>
+                    <div class="summary-value small-text">$${avgLMP.toFixed(5)}/kWh</div>
                 </div>
                 <div class="summary-card">
                     <div class="summary-label">Avg Blended Rate</div>
