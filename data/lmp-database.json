@@ -1,13 +1,13 @@
 {
   "version": "1.0.0",
-  "lastUpdated": "2026-01-30T21:39:24.170Z",
+  "lastUpdated": "2026-02-04T01:58:37.307Z",
   "meta": {
     "source": "arcadia-api",
-    "loadedAt": "2026-01-30T21:39:24.170Z",
+    "loadedAt": "2026-02-04T01:58:37.307Z",
     "recordCount": 4737,
     "lastFetchRange": {
       "start": "2026-01-01",
-      "end": "2026-01-30"
+      "end": "2026-01-31"
     }
   },
   "records": [
