@@ -267,6 +267,12 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border: 2px solid transparent;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .history-item.current-context {
+            border-color: var(--primary);
+            background: rgba(16, 185, 129, 0.1);
         }
         .history-item-info {
             flex: 1;
@@ -274,10 +280,32 @@
         .history-item-title {
             font-weight: 600;
             margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
         }
         .history-item-meta {
             font-size: 0.75rem;
             color: var(--text-secondary);
+        }
+        .context-badge {
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: var(--primary);
+            color: white;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        .parent-badge {
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: var(--text-secondary);
+            color: white;
+            font-weight: 500;
+            text-transform: uppercase;
         }
         .toast {
             position: fixed;
@@ -1069,6 +1097,9 @@
             if (client) {
                 loadContextUsage();
             }
+            
+            // Refresh history to show only profiles for the active context
+            loadHistory();
         }
         
         function setActiveAccount(account, client = null) {
@@ -1080,6 +1111,9 @@
             activeAccount = account;
             updateContextIndicator();
             loadContextUsage();
+            
+            // Refresh history to show only profiles for the active context
+            loadHistory();
         }
         
         function updateContextIndicator() {
@@ -1298,6 +1332,9 @@
             }
             
             showToast(`Usage saved for ${displayName}`, 'success');
+            
+            // Refresh history to show the newly saved profile
+            loadHistory();
         }
         
         // Save to UsageProfileStore (GitHub-synced centralized store)
@@ -1581,10 +1618,27 @@
         }
         
         // History
+        // History - FILTERED by active client/account context
         function loadHistory() {
             const list = document.getElementById('historyList');
             
-            // Get all saved profiles from localStorage
+            // If no active client, show message that selection is required
+            if (!activeClient) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                        <p>Select a client to view usage history</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const activeClientId = activeClient.id;
+            const activeAccountId = activeAccount?.id || null;
+            
+            // Get profiles filtered by active client
             const profiles = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
@@ -1595,29 +1649,39 @@
                         
                         // Parse context key - could be "clientId" or "clientId_accountId"
                         const parts = contextKey.split('_');
-                        const clientId = parts[0];
-                        const accountId = parts.length > 1 ? parts.slice(1).join('_') : null;
+                        const profileClientId = parts[0];
+                        const profileAccountId = parts.length > 1 ? parts.slice(1).join('_') : null;
+                        
+                        // FILTER: Only include profiles for the active client
+                        if (profileClientId !== activeClientId) {
+                            continue; // Skip profiles for other clients
+                        }
+                        
+                        // If an account is active, show account-specific OR client-level profiles
+                        if (activeAccountId) {
+                            if (profileAccountId && profileAccountId !== activeAccountId) {
+                                continue; // Skip other accounts' profiles
+                            }
+                        } else {
+                            // No account selected - only show client-level profile
+                            if (profileAccountId) {
+                                continue; // Skip account-specific profiles
+                            }
+                        }
                         
                         let displayName = contextKey;
-                        let clientName = clientId;
+                        let clientName = activeClient.name;
                         let accountName = null;
                         
-                        // Try to get names from store
-                        if (window.parent?.SecureEnergyClients) {
-                            const client = window.parent.SecureEnergyClients.getClient(clientId);
-                            if (client) {
-                                clientName = client.name;
-                                displayName = client.name;
-                                
-                                // If there's an account ID, try to find account name
-                                if (accountId && client.accounts) {
-                                    const account = client.accounts.find(a => a.id === accountId);
-                                    if (account) {
-                                        accountName = account.accountName || accountId;
-                                        displayName = `${clientName} → ${accountName}`;
-                                    }
-                                }
+                        // Get account name if applicable
+                        if (profileAccountId && activeClient.accounts) {
+                            const account = activeClient.accounts.find(a => a.id === profileAccountId);
+                            if (account) {
+                                accountName = account.accountName || profileAccountId;
+                                displayName = `${clientName} → ${accountName}`;
                             }
+                        } else {
+                            displayName = clientName;
                         }
                         
                         // Use stored names as fallback
@@ -1631,44 +1695,57 @@
                         
                         profiles.push({
                             contextKey,
-                            clientId,
-                            accountId,
+                            clientId: profileClientId,
+                            accountId: profileAccountId,
                             clientName,
                             accountName,
                             displayName,
+                            isClientLevel: !profileAccountId,
+                            isCurrentContext: (profileAccountId === activeAccountId) || (!profileAccountId && !activeAccountId),
                             ...profile
                         });
                     } catch {}
                 }
             }
             
-            // Sort by update date (most recent first)
+            // Sort: current context first, then by update date
             profiles.sort((a, b) => {
+                if (a.isCurrentContext && !b.isCurrentContext) return -1;
+                if (!a.isCurrentContext && b.isCurrentContext) return 1;
+                if (a.isClientLevel && !b.isClientLevel) return -1;
+                if (!a.isClientLevel && b.isClientLevel) return 1;
                 const dateA = a.updatedAt ? new Date(a.updatedAt) : new Date(0);
                 const dateB = b.updatedAt ? new Date(b.updatedAt) : new Date(0);
                 return dateB - dateA;
             });
             
             if (profiles.length === 0) {
+                const contextName = activeAccount 
+                    ? `${activeClient.name} → ${activeAccount.accountName || 'Account'}`
+                    : activeClient.name;
                 list.innerHTML = `
                     <div class="empty-state">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
                         </svg>
-                        <p>No saved usage profiles yet</p>
+                        <p>No saved usage profiles for ${contextName}</p>
+                        <p style="font-size:0.85em;opacity:0.7;">Enter usage data above and save to create a profile</p>
                     </div>
                 `;
                 return;
             }
             
             list.innerHTML = profiles.map(p => `
-                <div class="history-item">
+                <div class="history-item ${p.isCurrentContext ? 'current-context' : ''}">
                     <div class="history-item-info">
-                        <div class="history-item-title">${p.displayName}</div>
+                        <div class="history-item-title">
+                            ${p.displayName}
+                            ${p.isCurrentContext ? '<span class="context-badge">Current</span>' : ''}
+                            ${p.isClientLevel && activeAccount ? '<span class="parent-badge">Parent</span>' : ''}
+                        </div>
                         <div class="history-item-meta">
                             ${p.totalElectric?.toLocaleString() || 0} kWh | ${p.totalGas?.toLocaleString() || 0} Therms
                             ${p.updatedAt ? ' | ' + new Date(p.updatedAt).toLocaleDateString() : ''}
-                            ${p.accountId ? ' <span style="color:#3b82f6;">● Account</span>' : ''}
                         </div>
                     </div>
                     <button class="btn btn-sm btn-secondary" onclick="loadProfile('${p.contextKey}')">Load</button>

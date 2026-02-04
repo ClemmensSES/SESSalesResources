@@ -1906,19 +1906,43 @@
                 !storeProfileKeys.has(p.contextKey)
             );
             
-            // Group profiles by type
-            const clientProfiles = storeProfiles.filter(p => p.clientId && !p.accountId);
-            const accountProfiles = storeProfiles.filter(p => p.clientId && p.accountId);
-            const standaloneProfiles = storeProfiles.filter(p => !p.clientId);
+            // FILTER: Only show profiles for the active client if one is selected
+            let filteredStoreProfiles = storeProfiles;
+            let filteredLocalProfiles = localOnlyProfiles;
+            
+            if (activeClient) {
+                filteredStoreProfiles = storeProfiles.filter(p => {
+                    // Include standalone profiles (no clientId)
+                    if (!p.clientId) return true;
+                    // Include profiles for this client
+                    if (p.clientId !== activeClient.id) return false;
+                    // If account is active, show account-specific or client-level profiles
+                    if (activeAccount && p.accountId && p.accountId !== activeAccount.id) return false;
+                    return true;
+                });
+                
+                filteredLocalProfiles = localOnlyProfiles.filter(p => {
+                    if (p.clientId !== activeClient.id) return false;
+                    if (activeAccount && p.accountId && p.accountId !== activeAccount.id) return false;
+                    return true;
+                });
+            }
+            
+            // Group filtered profiles by type
+            const clientProfiles = filteredStoreProfiles.filter(p => p.clientId && !p.accountId);
+            const accountProfiles = filteredStoreProfiles.filter(p => p.clientId && p.accountId);
+            const standaloneProfiles = filteredStoreProfiles.filter(p => !p.clientId);
             
             // Add account-level profiles (most specific)
             if (accountProfiles.length > 0) {
                 const group = document.createElement('optgroup');
-                group.label = '⚡ Account Profiles';
+                group.label = activeClient 
+                    ? `⚡ ${activeClient.name} → Account Profiles`
+                    : '⚡ Account Profiles';
                 accountProfiles.forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = p.id;
-                    opt.textContent = `${p.name || p.clientName} (${((p.totalElectric || 0) / 1000).toLocaleString()} MWh/yr)`;
+                    opt.textContent = `${p.accountName || p.name} (${((p.totalElectric || 0) / 1000).toLocaleString()} MWh/yr)`;
                     // Auto-select if matches current context
                     if (p.clientId === activeClient?.id && p.accountId === activeAccount?.id) {
                         opt.selected = true;
@@ -1931,7 +1955,9 @@
             // Add client-level profiles
             if (clientProfiles.length > 0) {
                 const group = document.createElement('optgroup');
-                group.label = '📋 Client Profiles';
+                group.label = activeClient 
+                    ? `📋 ${activeClient.name} Profiles`
+                    : '📋 Client Profiles';
                 clientProfiles.forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = p.id;
@@ -1945,11 +1971,11 @@
                 select.appendChild(group);
             }
             
-            // Add localStorage-only profiles (not yet synced to store)
-            if (localOnlyProfiles.length > 0) {
+            // Add localStorage-only profiles (not yet synced to store) - filtered
+            if (filteredLocalProfiles.length > 0) {
                 const group = document.createElement('optgroup');
                 group.label = '💾 Local Profiles (Not Synced)';
-                localOnlyProfiles.forEach(p => {
+                filteredLocalProfiles.forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = 'localStorage:' + p.contextKey;
                     opt.textContent = `${p.displayName} (${(p.totalElectric / 1000).toLocaleString()} MWh/yr)`;
@@ -1961,10 +1987,10 @@
                 select.appendChild(group);
             }
             
-            // Add standalone profiles
+            // Add standalone profiles (available to all)
             if (standaloneProfiles.length > 0) {
                 const group = document.createElement('optgroup');
-                group.label = 'Saved Profiles';
+                group.label = 'Standalone Profiles';
                 standaloneProfiles.forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = p.id;
@@ -1986,6 +2012,15 @@
                 opt.textContent = `📋 ${displayName}`;
                 divider.appendChild(opt);
                 select.appendChild(divider);
+            }
+            
+            // Show message if no profiles available for active context
+            if (activeClient && clientProfiles.length === 0 && accountProfiles.length === 0 && filteredLocalProfiles.length === 0) {
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.disabled = true;
+                opt.textContent = `No profiles for ${getContextDisplayName() || activeClient.name}`;
+                select.appendChild(opt);
             }
         }
         

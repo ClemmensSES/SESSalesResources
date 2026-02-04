@@ -93,6 +93,8 @@
         .client-context-bar.has-account .name{color:#1e40af}
         .no-client-bar{background:rgba(255,193,7,0.1);border:1px solid rgba(255,193,7,0.3);border-radius:8px;padding:10px 14px;margin-bottom:15px;text-align:center;color:#856404;font-size:.85rem}
         .no-client-bar a{color:#d97706;text-decoration:underline;cursor:pointer}
+        .context-filter-label{background:linear-gradient(135deg,rgba(16,185,129,0.1) 0%,rgba(16,185,129,0.05) 100%);border:1px solid rgba(16,185,129,0.3);border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:.85rem;color:#065f46}
+        .context-filter-label strong{color:#047857}
     </style>
 </head>
 <body>
@@ -272,14 +274,35 @@ document.addEventListener('DOMContentLoaded',()=>{
 function initTabs(){document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active'));t.classList.add('active');document.getElementById('tab-'+t.dataset.tab).classList.add('active')}))}
 
 function loadBidsTable(){
-    const bids=BidStore?.getAllBids()||[];
+    let bids=BidStore?.getAllBids()||[];
     const tbody=document.getElementById('bids-tbody');
     const empty=document.getElementById('bids-empty');
-    const stats=BidStore?.getStats()||{};
-    document.getElementById('bid-stats').innerHTML=`<div class="stat-card"><div class="stat-value">${stats.total||0}</div><div class="stat-label">Total</div></div><div class="stat-card"><div class="stat-value">${stats.draft||0}</div><div class="stat-label">Draft</div></div><div class="stat-card"><div class="stat-value">${stats.sent||0}</div><div class="stat-label">Sent</div></div><div class="stat-card"><div class="stat-value">${stats.accepted||0}</div><div class="stat-label">Accepted</div></div>`;
-    if(bids.length===0){tbody.innerHTML='';empty.style.display='block';return}
+    
+    // FILTER: Only show bids for the active client/account if one is selected
+    if (activeClient) {
+        bids = bids.filter(b => {
+            if (b.clientId !== activeClient.id) return false;
+            if (activeAccount && b.accountId && b.accountId !== activeAccount.id) return false;
+            return true;
+        });
+    }
+    
+    // Calculate stats for filtered bids only
+    const stats = {
+        total: bids.length,
+        draft: bids.filter(b => b.status === 'draft').length,
+        sent: bids.filter(b => b.status === 'sent').length,
+        accepted: bids.filter(b => b.status === 'accepted').length
+    };
+    
+    const contextLabel = activeClient 
+        ? `<div class="context-filter-label">Showing bids for: <strong>${getContextDisplayName()}</strong></div>` 
+        : '<div class="context-filter-label" style="background:rgba(255,193,7,0.1);border-color:rgba(255,193,7,0.3);color:#856404;">Showing all bids (select a client to filter)</div>';
+    
+    document.getElementById('bid-stats').innerHTML=contextLabel+`<div class="stat-card"><div class="stat-value">${stats.total||0}</div><div class="stat-label">Total</div></div><div class="stat-card"><div class="stat-value">${stats.draft||0}</div><div class="stat-label">Draft</div></div><div class="stat-card"><div class="stat-value">${stats.sent||0}</div><div class="stat-label">Sent</div></div><div class="stat-card"><div class="stat-value">${stats.accepted||0}</div><div class="stat-label">Accepted</div></div>`;
+    if(bids.length===0){tbody.innerHTML='';empty.style.display='block';empty.innerHTML=activeClient?`<p>No bids for ${getContextDisplayName()}</p><p style="font-size:0.9em;color:#888;">Create a new bid to get started</p>`:'<p>No bids yet</p>';return}
     empty.style.display='none';
-    tbody.innerHTML=bids.map(b=>`<tr onclick="editBid('${b.id}')" style="cursor:pointer"><td><strong>${b.id}</strong></td><td>${b.clientName||'-'}</td><td>${formatDate(b.bidDate)}</td><td>${b.locations?.length||0}</td><td>${b.supplierQuotes?.length||0}</td><td><span class="badge badge-${getStatusBadge(b.status)}">${b.status}</span></td><td><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();editBid('${b.id}')">Edit</button> <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();if(confirm('Delete?'))deleteBid('${b.id}')">Del</button></td></tr>`).join('');
+    tbody.innerHTML=bids.map(b=>`<tr onclick="editBid('${b.id}')" style="cursor:pointer"><td><strong>${b.id}</strong></td><td>${b.clientName||'-'}${b.accountName?' → '+b.accountName:''}</td><td>${formatDate(b.bidDate)}</td><td>${b.locations?.length||0}</td><td>${b.supplierQuotes?.length||0}</td><td><span class="badge badge-${getStatusBadge(b.status)}">${b.status}</span></td><td><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();editBid('${b.id}')">Edit</button> <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();if(confirm('Delete?'))deleteBid('${b.id}')">Del</button></td></tr>`).join('');
 }
 
 function showNewBidModal(){bidLocations=[];document.getElementById('bid-client-search').value='';document.getElementById('bid-client-id').value='';document.getElementById('bid-date').valueAsDate=new Date();document.getElementById('bid-commodity').value='electric';document.getElementById('bid-iso').value='';document.getElementById('bid-notes').value='';document.getElementById('bid-locations-list').innerHTML='<p style="color:#888">No locations.</p>';document.getElementById('new-bid-modal').classList.add('active')}
@@ -343,7 +366,18 @@ function addSupplierProductField(p=null){const c=document.getElementById('suppli
 
 function saveSupplier(){const name=document.getElementById('supplier-name').value.trim();if(!name){showToast('Name required','error');return}if(!SupplierStore){showToast('Supplier store not available','error');return}const commodities=[];if(document.getElementById('supplier-commodity-elec').checked)commodities.push('electric');if(document.getElementById('supplier-commodity-gas').checked)commodities.push('gas');const isos=[];document.querySelectorAll('.supplier-iso:checked').forEach(cb=>isos.push(cb.value));const terms=document.getElementById('supplier-terms').value.split(',').map(t=>parseInt(t.trim())).filter(t=>!isNaN(t)&&t>0);const products=[];document.querySelectorAll('#supplier-products-list > div').forEach(d=>{const n=d.querySelector('.prod-name')?.value;if(n)products.push({name:n,code:d.querySelector('.prod-code')?.value||n.toUpperCase(),swingType:d.querySelector('.prod-swing')?.value||''})});const data={name,displayName:document.getElementById('supplier-display-name').value||name,website:document.getElementById('supplier-website').value,contactEmail:document.getElementById('supplier-email').value,commodities,isos,termOptions:terms,products};const editId=document.getElementById('supplier-edit-id').value;const r=editId?SupplierStore.updateSupplier(editId,data):SupplierStore.createSupplier(data);if(r.success){showToast('Saved!','success');closeModal('new-supplier-modal');loadSuppliersTable();populateSupplierDropdowns()}else{showToast(r.error||'Failed to save','error')}}
 
-function loadBidDropdown(){const bids=BidStore?.getAllBids()||[];document.getElementById('select-bid').innerHTML='<option value="">-- Select --</option>'+bids.map(b=>`<option value="${b.id}">${b.id} - ${b.clientName||'N/A'}</option>`).join('')}
+function loadBidDropdown(){
+    let bids=BidStore?.getAllBids()||[];
+    // FILTER: Only show bids for the active client if one is selected
+    if (activeClient) {
+        bids = bids.filter(b => {
+            if (b.clientId !== activeClient.id) return false;
+            if (activeAccount && b.accountId && b.accountId !== activeAccount.id) return false;
+            return true;
+        });
+    }
+    document.getElementById('select-bid').innerHTML='<option value="">-- Select --</option>'+bids.map(b=>`<option value="${b.id}">${b.id} - ${b.clientName||'N/A'}${b.accountName?' → '+b.accountName:''}</option>`).join('');
+}
 
 function populateSupplierDropdowns(){const suppliers=SupplierStore?.getActiveSuppliers()||[];document.getElementById('upload-supplier').innerHTML='<option value="">-- Select --</option>'+suppliers.map(s=>`<option value="${s.id}">${s.displayName||s.name}</option>`).join('')}
 
@@ -534,6 +568,10 @@ function handleClientMessage(event) {
                 clientInput.value = getContextDisplayName() || activeClient.name;
             }
         }
+        
+        // Refresh bids to show only bids for active client
+        loadBidsTable();
+        loadBidDropdown();
     }
     
     // Handle account-only changes
@@ -547,6 +585,10 @@ function handleClientMessage(event) {
         if (clientInput && activeClient) {
             clientInput.value = getContextDisplayName() || activeClient.name;
         }
+        
+        // Refresh bids to show only bids for active context
+        loadBidsTable();
+        loadBidDropdown();
     }
 }
 
