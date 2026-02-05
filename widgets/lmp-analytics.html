@@ -666,6 +666,34 @@
         let trendChart = null;
         let comparisonChart = null;
 
+        // Azure API Configuration
+        const AZURE_CONFIG = {
+            endpoint: 'https://ses-data-api-gpaqghfbehhrb6c2.eastus-01.azurewebsites.net/api/data',
+            lmpFile: 'lmp-database.json'
+        };
+
+        // Convert Azure format { data: { ISONE: [...], PJM: [...] } } to flat records array
+        function convertAzureToRecords(azureData) {
+            const records = [];
+            if (azureData && azureData.data) {
+                Object.keys(azureData.data).forEach(iso => {
+                    if (Array.isArray(azureData.data[iso])) {
+                        azureData.data[iso].forEach(item => {
+                            records.push({
+                                iso: iso,
+                                zone: item.zone || item.zone_name || '',
+                                zone_id: item.zone_id || '',
+                                year: item.year || '',
+                                month: item.month || '',
+                                lmp: parseFloat(item.avg_da_lmp || item.lmp || 0)
+                            });
+                        });
+                    }
+                });
+            }
+            return records;
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             loadData();
@@ -1097,12 +1125,12 @@
                         <div style="width: 48px; height: 48px; border: 3px solid var(--border-color); border-top-color: var(--se-light-green); border-radius: 50%; animation: spin 1s linear infinite;"></div>
                         <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
                         <h3 style="margin: 16px 0 8px;">Loading LMP Data...</h3>
-                        <p>Fetching data from the database</p>
+                        <p>Fetching data from Azure</p>
                     </div>
                 `;
             }
             
-            // Try localStorage first
+            // Try localStorage cache first (for instant display)
             try {
                 const cached = localStorage.getItem('secureEnergy_lmpData');
                 if (cached) {
@@ -1116,38 +1144,123 @@
                 console.warn('[LMP Analytics] Cache load failed:', e);
             }
 
-            // Try GitHub JSON - fetch from raw GitHub URL
+            // PRIMARY: Try Azure via parent AzureDataService (if in iframe)
+            let azureLoaded = false;
             try {
-                // Primary: GitHub raw URL for the data repository
-                const githubUrl = 'https://raw.githubusercontent.com/SecureEnergyServicesLLC/SESSalesResources/main/data/lmp-database.json';
-                const response = await fetch(githubUrl + '?t=' + Date.now());
-                if (response.ok) {
-                    const json = await response.json();
-                    if (json.records && json.records.length > 0) {
-                        lmpData = json.records;
-                        console.log(`[LMP Analytics] Loaded ${lmpData.length} records from GitHub`);
-                        // Cache in localStorage for offline/faster subsequent loads
-                        try {
-                            localStorage.setItem('secureEnergy_lmpData', JSON.stringify(json));
-                        } catch (cacheErr) {
-                            console.warn('[LMP Analytics] Could not cache data:', cacheErr);
+                if (window.parent !== window && window.parent.AzureDataService) {
+                    console.log('[LMP Analytics] Trying parent AzureDataService...');
+                    const azureData = await window.parent.AzureDataService.get(AZURE_CONFIG.lmpFile);
+                    if (azureData) {
+                        // Handle both formats: { records: [...] } or { data: { ISO: [...] } }
+                        let records;
+                        if (azureData.records && azureData.records.length > 0) {
+                            records = azureData.records;
+                        } else if (azureData.data) {
+                            records = convertAzureToRecords(azureData);
+                        }
+                        if (records && records.length > 0) {
+                            lmpData = records;
+                            azureLoaded = true;
+                            console.log(`[LMP Analytics] Loaded ${lmpData.length} records from Azure (parent service)`);
+                            try {
+                                localStorage.setItem('secureEnergy_lmpData', JSON.stringify({ records: lmpData }));
+                            } catch (cacheErr) {
+                                console.warn('[LMP Analytics] Could not cache data:', cacheErr);
+                            }
                         }
                     }
                 }
             } catch (e) {
-                console.warn('[LMP Analytics] GitHub load failed:', e);
-                // Fallback: Try relative path (for local development)
+                console.warn('[LMP Analytics] Parent AzureDataService failed:', e.message);
+            }
+
+            // SECONDARY: Try direct Azure API call
+            if (!azureLoaded) {
                 try {
-                    const localResponse = await fetch('data/lmp-database.json?t=' + Date.now());
-                    if (localResponse.ok) {
-                        const json = await localResponse.json();
+                    console.log('[LMP Analytics] Trying direct Azure API...');
+                    // Use the admin key from parent's api-key-setup, or fall back to readonly
+                    let apiKey = null;
+                    try {
+                        if (window.parent !== window && window.parent.AzureDataService) {
+                            apiKey = window.parent.AzureDataService.getApiKey?.() || null;
+                        }
+                    } catch (e) {}
+                    if (!apiKey) apiKey = 'ses-readonly-portal2026';
+                    
+                    const response = await fetch(`${AZURE_CONFIG.endpoint}/${AZURE_CONFIG.lmpFile}`, {
+                        headers: { 'X-API-Key': apiKey }
+                    });
+                    if (response.ok) {
+                        const azureData = await response.json();
+                        let records;
+                        if (azureData.records && azureData.records.length > 0) {
+                            records = azureData.records;
+                        } else if (azureData.data) {
+                            records = convertAzureToRecords(azureData);
+                        }
+                        if (records && records.length > 0) {
+                            lmpData = records;
+                            azureLoaded = true;
+                            console.log(`[LMP Analytics] Loaded ${lmpData.length} records from Azure (direct API)`);
+                            try {
+                                localStorage.setItem('secureEnergy_lmpData', JSON.stringify({ records: lmpData }));
+                            } catch (cacheErr) {
+                                console.warn('[LMP Analytics] Could not cache data:', cacheErr);
+                            }
+                        }
+                    } else {
+                        console.warn(`[LMP Analytics] Azure API returned ${response.status}`);
+                    }
+                } catch (e) {
+                    console.warn('[LMP Analytics] Direct Azure API failed:', e.message);
+                }
+            }
+
+            // FALLBACK: Try GitHub JSON
+            if (!azureLoaded) {
+                try {
+                    console.log('[LMP Analytics] Falling back to GitHub...');
+                    const githubUrl = 'https://raw.githubusercontent.com/ClemmensSES/SESSalesResources/main/data/lmp-database.json';
+                    const response = await fetch(githubUrl + '?t=' + Date.now());
+                    if (response.ok) {
+                        const json = await response.json();
+                        let records;
                         if (json.records && json.records.length > 0) {
-                            lmpData = json.records;
-                            console.log(`[LMP Analytics] Loaded ${lmpData.length} records from local path`);
+                            records = json.records;
+                        } else if (json.data) {
+                            records = convertAzureToRecords(json);
+                        }
+                        if (records && records.length > 0) {
+                            lmpData = records;
+                            console.log(`[LMP Analytics] Loaded ${lmpData.length} records from GitHub`);
+                            try {
+                                localStorage.setItem('secureEnergy_lmpData', JSON.stringify({ records: lmpData }));
+                            } catch (cacheErr) {
+                                console.warn('[LMP Analytics] Could not cache data:', cacheErr);
+                            }
                         }
                     }
-                } catch (localErr) {
-                    console.warn('[LMP Analytics] Local load also failed:', localErr);
+                } catch (e) {
+                    console.warn('[LMP Analytics] GitHub load failed:', e);
+                    // Last resort: Try relative path (for local development)
+                    try {
+                        const localResponse = await fetch('data/lmp-database.json?t=' + Date.now());
+                        if (localResponse.ok) {
+                            const json = await localResponse.json();
+                            let records;
+                            if (json.records && json.records.length > 0) {
+                                records = json.records;
+                            } else if (json.data) {
+                                records = convertAzureToRecords(json);
+                            }
+                            if (records && records.length > 0) {
+                                lmpData = records;
+                                console.log(`[LMP Analytics] Loaded ${lmpData.length} records from local path`);
+                            }
+                        }
+                    } catch (localErr) {
+                        console.warn('[LMP Analytics] Local load also failed:', localErr);
+                    }
                 }
             }
 
@@ -1164,25 +1277,37 @@
             }
         }
 
-        // Process external data
+        // Process external data (supports both formats)
         function processExternalData(data) {
             if (!data) return;
             
-            // Convert ISO_DATA format to records format
-            const records = [];
-            Object.keys(data).forEach(iso => {
-                if (Array.isArray(data[iso])) {
-                    data[iso].forEach(item => {
-                        records.push({
-                            iso: iso,
-                            zone: item.zone || item.zone_name,
-                            year: item.year,
-                            month: item.month,
-                            lmp: item.avg_da_lmp || item.lmp
+            let records = [];
+            
+            // Format 1: Already flat records array
+            if (Array.isArray(data)) {
+                records = data;
+            }
+            // Format 2: { records: [...] }
+            else if (data.records && Array.isArray(data.records)) {
+                records = data.records;
+            }
+            // Format 3: Azure format { ISONE: [...], PJM: [...] } or { data: { ISONE: [...] } }
+            else {
+                const isoData = data.data || data;
+                Object.keys(isoData).forEach(iso => {
+                    if (Array.isArray(isoData[iso])) {
+                        isoData[iso].forEach(item => {
+                            records.push({
+                                iso: iso,
+                                zone: item.zone || item.zone_name,
+                                year: item.year,
+                                month: item.month,
+                                lmp: item.avg_da_lmp || item.lmp
+                            });
                         });
-                    });
-                }
-            });
+                    }
+                });
+            }
 
             if (records.length > 0) {
                 lmpData = records;
