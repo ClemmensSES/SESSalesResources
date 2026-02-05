@@ -1,5 +1,13 @@
 /**
- * Secure Energy Analytics Portal - Main Controller v3.0
+ * Secure Energy Analytics Portal - Main Controller v3.1
+ * 
+ * v3.1 Updates:
+ * - Password Reset widget: users can change their own password
+ * - Force Password Reset: admins can require any/all users to reset on next login
+ * - Full-screen mandatory reset overlay blocks portal until password is changed
+ * - SHA-256 password hashing (backward compatible with plain text)
+ * - createUser() now async for password hashing support
+ * - Activity log labels/colors/icons for password events
  * 
  * v3.0 Updates:
  * - Activity Log now syncs from Azure for cross-device visibility
@@ -60,7 +68,8 @@ const DEFAULT_WIDGETS = [
     { id: 'lmp-comparison', name: 'LMP Comparison Portal', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>', src: 'widgets/lmp-comparison-portal.html', fullWidth: true, defaultHeight: 700, minHeight: 400, maxHeight: 1100 },
     { id: 'peak-demand', name: 'Peak Demand Analytics', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>', src: 'widgets/peak-demand-widget.html', fullWidth: true, defaultHeight: 750, minHeight: 400, maxHeight: 1100 },
     { id: 'analysis-history', name: 'My Analysis History', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', fullWidth: true, embedded: true, defaultHeight: 500, minHeight: 300, maxHeight: 900 },
-    { id: 'feedback', name: 'Feedback & Support', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>', src: 'widgets/feedback-widget-light.html', adminSrc: 'widgets/feedback-admin-portal.html', fullWidth: true, defaultHeight: 600, minHeight: 400, maxHeight: 1000, permission: 'feedback' }
+    { id: 'feedback', name: 'Feedback & Support', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>', src: 'widgets/feedback-widget-light.html', adminSrc: 'widgets/feedback-admin-portal.html', fullWidth: true, defaultHeight: 600, minHeight: 400, maxHeight: 1000, permission: 'feedback' },
+    { id: 'password-reset', name: 'Change Password', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>', src: 'widgets/password-reset-widget.html', fullWidth: false, defaultHeight: 650, minHeight: 400, maxHeight: 900, permission: 'password-reset' }
 ];
 
 let WIDGETS = JSON.parse(JSON.stringify(DEFAULT_WIDGETS));
@@ -95,7 +104,7 @@ window.setTheme = function(theme) {
 function loadSavedTheme() { window.setTheme(localStorage.getItem('secureEnergy_theme') || 'dark'); }
 
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('[Portal] Initializing v2.9 - Added Feedback System...');
+    console.log('[Portal] Initializing v3.1 - Password Security + Force Reset...');
     loadSavedTheme();
     await UserStore.init();
     await ActivityLog.init();
@@ -370,8 +379,13 @@ function initAuth() {
         if (typeof SecureEnergyClients !== 'undefined' && SecureEnergyClients.setCurrentUser) {
             SecureEnergyClients.setCurrentUser(currentUser.id);
         }
-        showPortal(currentUser);
-        initSessionTimeout(); // Start session timeout tracking
+        // Check if force reset is still pending
+        if (currentUser.forcePasswordReset) {
+            showForcePasswordReset(currentUser);
+        } else {
+            showPortal(currentUser);
+            initSessionTimeout();
+        }
     } else {
         showLogin();
     }
@@ -393,7 +407,79 @@ function showPortal(user) {
     document.getElementById('userRole').className = 'user-role ' + (user.role === 'admin' ? 'admin' : '');
     renderWidgets(user);
     if (user.role === 'admin') showLoginErrorSummary();
+    
+    // Remove force reset overlay if it exists
+    const forceOverlay = document.getElementById('forcePasswordResetOverlay');
+    if (forceOverlay) forceOverlay.remove();
 }
+
+// =====================================================
+// FORCE PASSWORD RESET OVERLAY
+// =====================================================
+function showForcePasswordReset(user) {
+    // Hide login, hide main content — user CANNOT access the portal
+    document.getElementById('loginOverlay').classList.add('hidden');
+    document.getElementById('mainContent').classList.add('hidden');
+    
+    // Remove existing overlay if present
+    let overlay = document.getElementById('forcePasswordResetOverlay');
+    if (overlay) overlay.remove();
+    
+    overlay = document.createElement('div');
+    overlay.id = 'forcePasswordResetOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:var(--bg-primary, #0f1117);display:flex;align-items:center;justify-content:center;flex-direction:column;overflow-y:auto;';
+    
+    overlay.innerHTML = '<div style="max-width:600px;width:100%;padding:24px;">' +
+        '<div style="text-align:center;margin-bottom:24px;">' +
+            '<div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:16px;background:rgba(239,68,68,0.1);border:2px solid rgba(239,68,68,0.3);margin-bottom:16px;">' +
+                '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M2.7 10.3a2.41 2.41 0 0 0 0 3.41l7.59 7.59a2.41 2.41 0 0 0 3.41 0l7.59-7.59a2.41 2.41 0 0 0 0-3.41L13.7 2.71a2.41 2.41 0 0 0-3.41 0z"/></svg>' +
+            '</div>' +
+            '<h2 style="margin:0 0 8px;font-size:22px;color:var(--text-primary, #e8eaed);font-weight:700;">Password Reset Required</h2>' +
+            '<p style="margin:0;color:var(--text-secondary, #9aa0a6);font-size:14px;line-height:1.5;">' +
+                'Your administrator requires you to change your password before continuing.<br>' +
+                'Please set a new, secure password below.' +
+            '</p>' +
+            '<div style="display:inline-flex;align-items:center;gap:8px;margin-top:12px;padding:6px 14px;background:var(--bg-tertiary, #22262e);border-radius:20px;font-size:13px;color:var(--text-secondary, #9aa0a6);">' +
+                '<span style="width:22px;height:22px;border-radius:50%;background:var(--accent-primary, #4ade80);color:#000;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">' + escapeHtml((user.firstName?.charAt(0) || '') + (user.lastName?.charAt(0) || '')) + '</span>' +
+                escapeHtml(user.firstName + ' ' + user.lastName) + ' (' + escapeHtml(user.email) + ')' +
+            '</div>' +
+        '</div>' +
+        '<div style="background:var(--bg-secondary, #1a1d27);border:1px solid var(--border-color, #3d4450);border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.4);">' +
+            '<iframe id="forceResetIframe" src="widgets/password-reset-widget.html" style="width:100%;height:600px;border:none;display:block;" title="Password Reset"></iframe>' +
+        '</div>' +
+        '<div style="text-align:center;margin-top:16px;">' +
+            '<button onclick="forceResetLogout()" style="background:none;border:none;color:var(--text-tertiary, #5f6368);font-size:13px;cursor:pointer;text-decoration:underline;">Logout instead</button>' +
+        '</div>' +
+    '</div>';
+    
+    document.body.appendChild(overlay);
+    
+    // Apply current theme to the force reset iframe
+    const theme = document.documentElement.getAttribute('data-theme');
+    if (theme) {
+        const iframe = document.getElementById('forceResetIframe');
+        if (iframe) {
+            iframe.addEventListener('load', function() {
+                try { iframe.contentDocument?.documentElement?.setAttribute('data-theme', theme); } catch (e) {}
+            });
+        }
+    }
+    
+    console.log('[Portal] Force password reset shown for:', user.email);
+}
+
+window.forceResetLogout = function() {
+    if (currentUser) {
+        ActivityLog.log({ userId: currentUser.id, userEmail: currentUser.email, userName: currentUser.firstName + ' ' + currentUser.lastName, widget: 'portal', action: 'Logout (During Force Reset)' });
+    }
+    clearSessionTimers();
+    UserStore.clearSession();
+    currentUser = null;
+    const overlay = document.getElementById('forcePasswordResetOverlay');
+    if (overlay) overlay.remove();
+    showLogin();
+    showNotification('Logged out', 'info');
+};
 
 function showLoginErrorSummary() {
     if (typeof ErrorLog === 'undefined') return;
@@ -421,10 +507,17 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
         if (typeof SecureEnergyClients !== 'undefined' && SecureEnergyClients.setCurrentUser) {
             SecureEnergyClients.setCurrentUser(result.user.id);
         }
-        showPortal(result.user);
-        initSessionTimeout(); // Start session timeout tracking
-        showNotification('Welcome back, ' + result.user.firstName + '!', 'success');
-        ActivityLog.log({ userId: result.user.id, userEmail: result.user.email, userName: result.user.firstName + ' ' + result.user.lastName, widget: 'portal', action: 'Login' });
+        
+        // Check if user must reset their password before accessing the portal
+        if (result.user.forcePasswordReset) {
+            showForcePasswordReset(result.user);
+            ActivityLog.log({ userId: result.user.id, userEmail: result.user.email, userName: result.user.firstName + ' ' + result.user.lastName, widget: 'portal', action: 'Login (Force Reset Required)' });
+        } else {
+            showPortal(result.user);
+            initSessionTimeout();
+            showNotification('Welcome back, ' + result.user.firstName + '!', 'success');
+            ActivityLog.log({ userId: result.user.id, userEmail: result.user.email, userName: result.user.firstName + ' ' + result.user.lastName, widget: 'portal', action: 'Login' });
+        }
     } else {
         document.getElementById('loginError').textContent = result.error;
         document.getElementById('loginError').classList.add('show');
@@ -865,6 +958,58 @@ function handleWidgetMessage(event) {
     if (event.data?.type === 'REQUEST_USER_DATA' && event.source) {
         event.source.postMessage({ type: 'USER_DATA', user: currentUser }, '*');
     }
+    
+    // =====================================================
+    // PASSWORD CHANGE REQUEST (from password-reset widget)
+    // =====================================================
+    if (event.data?.type === 'PASSWORD_CHANGE_REQUEST' && currentUser) {
+        const { userId, email, currentPassword, newPassword } = event.data;
+
+        // Security: only allow users to change their own password (unless admin)
+        if (userId !== currentUser.id && currentUser.role !== 'admin') {
+            if (event.source) event.source.postMessage({ type: 'PASSWORD_CHANGE_RESULT', success: false, error: 'You can only change your own password.' }, '*');
+            return;
+        }
+
+        (async function() {
+            try {
+                const result = await UserStore.changePassword(userId, currentPassword, newPassword);
+
+                if (result.success) {
+                    logWidgetAction('Password Changed', 'password-reset', { email: email, changedBy: currentUser.email, timestamp: result.passwordChangedAt });
+
+                    // If this was a force reset, clear the flag and enter the portal
+                    const forceOverlay = document.getElementById('forcePasswordResetOverlay');
+                    if (forceOverlay) {
+                        // Clear the forcePasswordReset flag on the user record
+                        await UserStore.update(userId, { forcePasswordReset: false });
+                        
+                        // Update local session
+                        currentUser.forcePasswordReset = false;
+                        UserStore.setCurrentUser(currentUser);
+                        
+                        // Remove overlay and show portal
+                        forceOverlay.remove();
+                        showPortal(currentUser);
+                        initSessionTimeout();
+                        
+                        showNotification('Password updated! Welcome, ' + currentUser.firstName + '!', 'success');
+                        logWidgetAction('Force Password Reset Completed', 'password-reset', { email });
+                    } else {
+                        // Normal (non-forced) password change
+                        if (event.source) event.source.postMessage({ type: 'PASSWORD_CHANGE_RESULT', success: true, passwordChangedAt: result.passwordChangedAt }, '*');
+                        showNotification('Password updated successfully', 'success');
+                    }
+                } else {
+                    if (event.source) event.source.postMessage({ type: 'PASSWORD_CHANGE_RESULT', success: false, error: result.error }, '*');
+                }
+            } catch (e) {
+                console.error('[Portal] Password change error:', e);
+                if (event.source) event.source.postMessage({ type: 'PASSWORD_CHANGE_RESULT', success: false, error: 'An unexpected error occurred. Please try again.' }, '*');
+                ErrorLog.log({ type: 'password-change', widget: 'password-reset', message: 'Password change failed: ' + e.message, context: { email, userId } });
+            }
+        })();
+    }
 }
 
 function broadcastActiveClientToWidgets(client, account = null) {
@@ -1085,10 +1230,10 @@ function renderAnalysisHistory() {
 }
 
 function getCreateUserPanel() {
-    return '<div class="create-user-form"><h3 style="margin-bottom:20px;font-size:16px;">Create New User</h3><div class="form-row"><div class="form-group"><label>First Name *</label><input type="text" id="newFirstName" placeholder="First name"></div><div class="form-group"><label>Last Name *</label><input type="text" id="newLastName" placeholder="Last name"></div></div><div class="form-row single"><div class="form-group"><label>Email *</label><input type="email" id="newEmail" placeholder="Email"></div></div><div class="form-row single"><div class="form-group"><label>Password *</label><input type="password" id="newPassword" placeholder="Password"></div></div><div class="form-row single"><div class="form-group"><label>Role</label><select id="newRole"><option value="user">Standard User</option><option value="admin">Administrator</option></select></div></div><div class="widget-permissions"><h4>Widget Permissions</h4><div class="widget-permission-item"><span>Client Lookup</span><label class="toggle-switch"><input type="checkbox" id="perm-client-lookup" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Client Administration</span><label class="toggle-switch"><input type="checkbox" id="perm-client-admin" checked><span class="toggle-slider"></span></label><span style="font-size:0.7rem;color:var(--text-tertiary);margin-left:6px;">(Admin only)</span></div><div class="widget-permission-item"><span>Energy Utilization</span><label class="toggle-switch"><input type="checkbox" id="perm-energy-utilization" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Bid Management</span><label class="toggle-switch"><input type="checkbox" id="perm-bid-management" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>AI Assistant</span><label class="toggle-switch"><input type="checkbox" id="perm-ai-assistant" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>AE Intelligence (BUDA)</span><label class="toggle-switch"><input type="checkbox" id="perm-aei-intelligence" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>LMP Comparison</span><label class="toggle-switch"><input type="checkbox" id="perm-lmp-comparison" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>LMP Analytics</span><label class="toggle-switch"><input type="checkbox" id="perm-lmp-analytics" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Peak Demand Analytics</span><label class="toggle-switch"><input type="checkbox" id="perm-peak-demand" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Analysis History</span><label class="toggle-switch"><input type="checkbox" id="perm-analysis-history" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Data Manager</span><label class="toggle-switch"><input type="checkbox" id="perm-data-manager"><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Arcadia Fetcher</span><label class="toggle-switch"><input type="checkbox" id="perm-arcadia-fetcher"><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Feedback & Support</span><label class="toggle-switch"><input type="checkbox" id="perm-feedback" checked><span class="toggle-slider"></span></label><span style="font-size:0.7rem;color:var(--text-tertiary);margin-left:6px;">(Admin only)</span></div></div><button class="btn-primary" onclick="createUser()" style="margin-top:20px;">Create User</button></div>';
+    return '<div class="create-user-form"><h3 style="margin-bottom:20px;font-size:16px;">Create New User</h3><div class="form-row"><div class="form-group"><label>First Name *</label><input type="text" id="newFirstName" placeholder="First name"></div><div class="form-group"><label>Last Name *</label><input type="text" id="newLastName" placeholder="Last name"></div></div><div class="form-row single"><div class="form-group"><label>Email *</label><input type="email" id="newEmail" placeholder="Email"></div></div><div class="form-row single"><div class="form-group"><label>Password *</label><input type="password" id="newPassword" placeholder="Password"></div></div><div class="form-row single"><div class="form-group"><label>Role</label><select id="newRole"><option value="user">Standard User</option><option value="admin">Administrator</option></select></div></div><div class="widget-permissions"><h4>Widget Permissions</h4><div class="widget-permission-item"><span>Client Lookup</span><label class="toggle-switch"><input type="checkbox" id="perm-client-lookup" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Client Administration</span><label class="toggle-switch"><input type="checkbox" id="perm-client-admin" checked><span class="toggle-slider"></span></label><span style="font-size:0.7rem;color:var(--text-tertiary);margin-left:6px;">(Admin only)</span></div><div class="widget-permission-item"><span>Energy Utilization</span><label class="toggle-switch"><input type="checkbox" id="perm-energy-utilization" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Bid Management</span><label class="toggle-switch"><input type="checkbox" id="perm-bid-management" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>AI Assistant</span><label class="toggle-switch"><input type="checkbox" id="perm-ai-assistant" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>AE Intelligence (BUDA)</span><label class="toggle-switch"><input type="checkbox" id="perm-aei-intelligence" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>LMP Comparison</span><label class="toggle-switch"><input type="checkbox" id="perm-lmp-comparison" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>LMP Analytics</span><label class="toggle-switch"><input type="checkbox" id="perm-lmp-analytics" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Peak Demand Analytics</span><label class="toggle-switch"><input type="checkbox" id="perm-peak-demand" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Analysis History</span><label class="toggle-switch"><input type="checkbox" id="perm-analysis-history" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Data Manager</span><label class="toggle-switch"><input type="checkbox" id="perm-data-manager"><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Arcadia Fetcher</span><label class="toggle-switch"><input type="checkbox" id="perm-arcadia-fetcher"><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Feedback & Support</span><label class="toggle-switch"><input type="checkbox" id="perm-feedback" checked><span class="toggle-slider"></span></label><span style="font-size:0.7rem;color:var(--text-tertiary);margin-left:6px;">(Admin only)</span></div><div class="widget-permission-item"><span>Change Password</span><label class="toggle-switch"><input type="checkbox" id="perm-password-reset" checked><span class="toggle-slider"></span></label></div></div><button class="btn-primary" onclick="createUser()" style="margin-top:20px;">Create User</button></div>';
 }
 
-function getManageUsersPanel() { return '<div style="overflow-x:auto;"><table class="users-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody id="usersTableBody"></tbody></table></div>'; }
+function getManageUsersPanel() { return '<div style="margin-bottom:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;"><button onclick="forceResetAllUsers()" style="padding:8px 16px;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">🔐 Force Reset All Users</button><span style="font-size:12px;color:var(--text-tertiary);">Requires all users to change their password on next login</span></div><div style="overflow-x:auto;"><table class="users-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody id="usersTableBody"></tbody></table></div>'; }
 
 function getActivityLogPanel() {
     return '<div class="activity-stats-grid" id="activityStatsGrid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(100px, 1fr));gap:12px;margin-bottom:20px;"></div><div class="activity-filters" style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;"><input type="text" id="activitySearch" placeholder="Search..." style="flex:1;min-width:150px;" oninput="renderActivityLog()"><select id="activityUserFilter" onchange="renderActivityLog()" style="min-width:140px;"><option value="">All Users</option></select><select id="activityWidgetFilter" onchange="renderActivityLog()" style="min-width:140px;"><option value="">All Widgets</option><option value="portal">Portal</option><option value="user-admin">User Admin</option><option value="client-admin">Client Admin</option><option value="bid-management">Bid Management</option><option value="lmp-comparison">LMP Comparison</option><option value="lmp-analytics">LMP Analytics</option><option value="energy-utilization">Energy Utilization</option><option value="ai-assistant">AI Assistant</option><option value="aei-intelligence">AE Intelligence</option><option value="data-manager">Data Manager</option><option value="analysis-history">Analysis History</option></select><select id="activityActionFilter" onchange="renderActivityLog()" style="min-width:140px;"><option value="">All Actions</option><option value="Login">Login</option><option value="Logout">Logout</option><option value="LMP Analysis">LMP Analysis</option><option value="LMP Export">LMP Export</option><option value="Bid Sheet Generated">Bid Sheet</option><option value="Client Create">Client Create</option><option value="Client Update">Client Update</option><option value="AI Query">AI Query</option><option value="Widget Expand">Widget Expand</option><option value="Widget Resize">Widget Resize</option><option value="Data Upload">Data Upload</option><option value="History Export">History Export</option></select><button onclick="renderActivityLog()" style="padding:8px 16px;background:var(--accent-primary);color:white;border:none;border-radius:6px;cursor:pointer;">🔄 Refresh</button><button id="syncAllActivitiesBtn" onclick="syncActivityFromAzure()" style="padding:8px 16px;background:#10b981;color:white;border:none;border-radius:6px;cursor:pointer;display:none;" title="Fetch all user activities from Azure">☁️ Sync All</button></div><div id="activityLogContainer" style="max-height:500px;overflow-y:auto;"></div>';
@@ -1110,7 +1255,7 @@ function renderUsersTable() {
     const tbody = document.getElementById('usersTableBody');
     if (!tbody) return;
     const users = UserStore.getAll();
-    tbody.innerHTML = users.map(u => '<tr><td>' + escapeHtml(u.firstName) + ' ' + escapeHtml(u.lastName) + '</td><td>' + escapeHtml(u.email) + '</td><td><span class="role-badge ' + u.role + '">' + u.role + '</span></td><td><span class="status-badge ' + (u.active !== false ? 'active' : 'inactive') + '">' + (u.active !== false ? 'Active' : 'Inactive') + '</span></td><td>' + new Date(u.createdAt).toLocaleDateString() + '</td><td><button class="action-btn" onclick="editUser(\'' + u.id + '\')" title="Edit">✏️</button>' + (u.role !== 'admin' ? '<button class="action-btn" onclick="deleteUser(\'' + u.id + '\')" title="Delete">🗑️</button>' : '') + '</td></tr>').join('');
+    tbody.innerHTML = users.map(u => '<tr><td>' + escapeHtml(u.firstName) + ' ' + escapeHtml(u.lastName) + (u.forcePasswordReset ? ' <span style="font-size:10px;padding:2px 6px;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:4px;font-weight:600;">RESET PENDING</span>' : '') + '</td><td>' + escapeHtml(u.email) + '</td><td><span class="role-badge ' + u.role + '">' + u.role + '</span></td><td><span class="status-badge ' + (u.active !== false ? 'active' : 'inactive') + '">' + (u.active !== false ? 'Active' : 'Inactive') + '</span></td><td>' + new Date(u.createdAt).toLocaleDateString() + '</td><td><button class="action-btn" onclick="editUser(\'' + u.id + '\')" title="Edit">✏️</button><button class="action-btn" onclick="forceResetUser(\'' + u.id + '\')" title="' + (u.forcePasswordReset ? 'Clear Force Reset' : 'Force Password Reset') + '">' + (u.forcePasswordReset ? '🔓' : '🔐') + '</button>' + (u.role !== 'admin' ? '<button class="action-btn" onclick="deleteUser(\'' + u.id + '\')" title="Delete">🗑️</button>' : '') + '</td></tr>').join('');
 }
 
 function renderActivityLog() {
@@ -1214,7 +1359,8 @@ function getWidgetLabel(widget) {
         'data-manager': 'Data Manager',
         'analysis-history': 'Analysis History',
         'peak-demand': 'Peak Demand',
-        'feedback': 'Feedback'
+        'feedback': 'Feedback',
+        'password-reset': 'Password'
     };
     return labels[widget] || widget || 'Portal';
 }
@@ -1235,7 +1381,8 @@ function getWidgetBgColor(widget) {
         'data-manager': '#6366f1',
         'analysis-history': '#64748b',
         'peak-demand': '#ef4444',
-        'feedback': '#f97316'
+        'feedback': '#f97316',
+        'password-reset': '#f59e0b'
     };
     return colors[widget] || '#6b7280';
 }
@@ -1263,6 +1410,13 @@ function getActionLabel(action, widget) {
     if (action === 'Data Update') return 'Data Updated';
     if (action === 'Ticket Created') return 'Ticket Submitted';
     if (action === 'Ticket Reply') return 'Ticket Reply';
+    if (action === 'Password Changed') return 'Password Changed';
+    if (action === 'Force Password Reset') return 'Force Reset Set';
+    if (action === 'Force Password Reset Completed') return 'Force Reset Completed';
+    if (action === 'Force Reset All Users') return 'Force Reset All Users';
+    if (action === 'Force Reset Cleared') return 'Force Reset Cleared';
+    if (action === 'Login (Force Reset Required)') return 'Login (Reset Required)';
+    if (action === 'Logout (During Force Reset)') return 'Logout (During Reset)';
     return action || 'Activity';
 }
 
@@ -1295,7 +1449,14 @@ function getActivityColor(action) {
         'Widget Reorder': '#6b7280',
         'Ticket Created': '#f97316',
         'Ticket Reply': '#f97316',
-        'Ticket Updated': '#f97316'
+        'Ticket Updated': '#f97316',
+        'Password Changed': '#f59e0b',
+        'Force Password Reset': '#ef4444',
+        'Force Password Reset Completed': '#10b981',
+        'Force Reset All Users': '#ef4444',
+        'Force Reset Cleared': '#6b7280',
+        'Login (Force Reset Required)': '#f59e0b',
+        'Logout (During Force Reset)': '#6b7280'
     };
     return colors[action] || '#6b7280';
 }
@@ -1316,6 +1477,9 @@ function getDataPreview(log) {
     if (log.action === 'History Export' || log.action === 'Export Activity') return (d.count ? d.count + ' records' : '');
     if (log.action === 'Usage Data Entry' || log.action === 'Utilization Data Saved') return (log.clientName || d.clientName ? 'Client: ' + (log.clientName || d.clientName) : '') + (d.accountName ? ' → ' + d.accountName : '');
     if (log.action === 'Ticket Created') return d.subject ? 'Subject: ' + d.subject.substring(0, 40) + (d.subject.length > 40 ? '...' : '') : '';
+    if (log.action === 'Password Changed') return 'Email: ' + (d.email || 'N/A') + (d.changedBy && d.changedBy !== d.email ? ' | Changed by: ' + d.changedBy : '');
+    if (log.action === 'Force Password Reset' || log.action === 'Force Reset Cleared') return 'Email: ' + (d.email || 'N/A');
+    if (log.action === 'Force Reset All Users') return (d.count || 0) + ' users flagged for reset';
     return '';
 }
 
@@ -1403,7 +1567,7 @@ function clearErrorLog() {
 }
 
 function getActivityIcon(action) {
-    const icons = { 'Login': '🔑', 'Logout': '🚪', 'Session Timeout': '⏰', 'LMP Analysis': '📊', 'LMP Export': '📥', 'Button Click': '👆', 'Bid Sheet Generated': '📄', 'Client Save': '💾', 'Client Create': '➕', 'Client Update': '✏️', 'Client Delete': '🗑️', 'Widget Expand': '🔼', 'Widget Collapse': '🔽', 'Widget Resize': '↕️', 'Widget Reorder': '🔀', 'Widget Width Toggle': '↔️', 'Widget Popout': '🪟', 'Widget Layout Reset': '🔄', 'Data Upload': '📤', 'Data Update': '🔄', 'Error Check at Login': '⚠️', 'Error Resolved': '✅', 'Error Log Cleared': '🧹', 'Admin Tab Switch': '📑', 'User Created': '👤', 'User Updated': '✏️', 'User Deleted': '🗑️', 'AI Query': '🤖', 'Utilization Data Saved': '⚡', 'History Export': '📁', 'Export Users': '👥', 'Export Activity': '📋', 'Export LMP Data': '📈', 'Ticket Created': '🎫', 'Ticket Reply': '💬', 'Ticket Updated': '📝' };
+    const icons = { 'Login': '🔑', 'Logout': '🚪', 'Session Timeout': '⏰', 'LMP Analysis': '📊', 'LMP Export': '📥', 'Button Click': '👆', 'Bid Sheet Generated': '📄', 'Client Save': '💾', 'Client Create': '➕', 'Client Update': '✏️', 'Client Delete': '🗑️', 'Widget Expand': '🔼', 'Widget Collapse': '🔽', 'Widget Resize': '↕️', 'Widget Reorder': '🔀', 'Widget Width Toggle': '↔️', 'Widget Popout': '🪟', 'Widget Layout Reset': '🔄', 'Data Upload': '📤', 'Data Update': '🔄', 'Error Check at Login': '⚠️', 'Error Resolved': '✅', 'Error Log Cleared': '🧹', 'Admin Tab Switch': '📑', 'User Created': '👤', 'User Updated': '✏️', 'User Deleted': '🗑️', 'AI Query': '🤖', 'Utilization Data Saved': '⚡', 'History Export': '📁', 'Export Users': '👥', 'Export Activity': '📋', 'Export LMP Data': '📈', 'Ticket Created': '🎫', 'Ticket Reply': '💬', 'Ticket Updated': '📝', 'Password Changed': '🔐', 'Force Password Reset': '🔒', 'Force Password Reset Completed': '🔓', 'Force Reset All Users': '🔒', 'Force Reset Cleared': '🔓', 'Login (Force Reset Required)': '⚠️', 'Logout (During Force Reset)': '🚪' };
     return icons[action] || '📝';
 }
 
@@ -1513,7 +1677,7 @@ function updateDataStatus() {
 // =====================================================
 // USER MANAGEMENT FUNCTIONS
 // =====================================================
-window.createUser = function() {
+window.createUser = async function() {
     const firstName = document.getElementById('newFirstName')?.value?.trim();
     const lastName = document.getElementById('newLastName')?.value?.trim();
     const email = document.getElementById('newEmail')?.value?.trim();
@@ -1538,10 +1702,11 @@ window.createUser = function() {
         'analysis-history': document.getElementById('perm-analysis-history')?.checked ?? true,
         'data-manager': document.getElementById('perm-data-manager')?.checked ?? false,
         'arcadia-fetcher': document.getElementById('perm-arcadia-fetcher')?.checked ?? false,
-        'feedback': document.getElementById('perm-feedback')?.checked ?? true
+        'feedback': document.getElementById('perm-feedback')?.checked ?? true,
+        'password-reset': document.getElementById('perm-password-reset')?.checked ?? true
     };
     
-    const result = UserStore.create({ firstName, lastName, email, password, role, permissions });
+    const result = await UserStore.create({ firstName, lastName, email, password, role, permissions });
     if (result.success) {
         showNotification('User ' + firstName + ' ' + lastName + ' created!', 'success');
         logWidgetAction('User Created', 'user-admin', { email, role });
@@ -1590,6 +1755,11 @@ window.editUser = function(userId) {
         '<div class="widget-permission-item"><span>Data Manager</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-data-manager" ' + getChecked('data-manager') + '><span class="toggle-slider"></span></label></div>' +
         '<div class="widget-permission-item"><span>Arcadia Fetcher</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-arcadia-fetcher" ' + getChecked('arcadia-fetcher') + '><span class="toggle-slider"></span></label></div>' +
         '<div class="widget-permission-item"><span>Feedback & Support</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-feedback" ' + getChecked('feedback') + '><span class="toggle-slider"></span></label><span style="font-size:0.7rem;color:var(--text-tertiary);margin-left:6px;">(Admin only)</span></div>' +
+        '<div class="widget-permission-item"><span>Change Password</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-password-reset" ' + getChecked('password-reset') + '><span class="toggle-slider"></span></label></div>' +
+        '</div>' +
+        '<div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border-color);">' +
+        '<h4 style="margin-bottom:12px;color:var(--text-secondary);">Security</h4>' +
+        '<div class="widget-permission-item"><span>Force Password Reset on Next Login</span><label class="toggle-switch"><input type="checkbox" id="edit-force-password-reset" ' + (user.forcePasswordReset ? 'checked' : '') + '><span class="toggle-slider"></span></label></div>' +
         '</div>' +
         '<div style="margin-top:20px;display:flex;gap:12px;">' +
         '<button class="btn-primary" onclick="saveUserEdit(\'' + userId + '\')">Save Changes</button>' +
@@ -1622,8 +1792,10 @@ window.saveUserEdit = async function(userId) {
             'analysis-history': document.getElementById('edit-perm-analysis-history')?.checked,
             'data-manager': document.getElementById('edit-perm-data-manager')?.checked,
             'arcadia-fetcher': document.getElementById('edit-perm-arcadia-fetcher')?.checked,
-            'feedback': document.getElementById('edit-perm-feedback')?.checked
-        }
+            'feedback': document.getElementById('edit-perm-feedback')?.checked,
+            'password-reset': document.getElementById('edit-perm-password-reset')?.checked
+        },
+        forcePasswordReset: document.getElementById('edit-force-password-reset')?.checked || false
     };
     
     const newPassword = document.getElementById('editPassword')?.value;
@@ -1660,6 +1832,53 @@ window.deleteUser = function(userId) {
             showNotification(result.error || 'Failed to delete user', 'error');
         }
     }
+};
+
+window.forceResetUser = async function(userId) {
+    const user = UserStore.getById(userId);
+    if (!user) { showNotification('User not found', 'error'); return; }
+    
+    // Toggle: if already flagged, offer to clear it
+    if (user.forcePasswordReset) {
+        if (confirm('Clear the force reset flag for ' + user.firstName + ' ' + user.lastName + '?')) {
+            const result = await UserStore.update(userId, { forcePasswordReset: false });
+            if (result.success) {
+                showNotification('Force reset cleared for ' + user.firstName, 'success');
+                logWidgetAction('Force Reset Cleared', 'user-admin', { userId, email: user.email });
+                renderUsersTable();
+            }
+        }
+        return;
+    }
+    
+    if (confirm('Force ' + user.firstName + ' ' + user.lastName + ' to reset their password on next login?')) {
+        const result = await UserStore.update(userId, { forcePasswordReset: true });
+        if (result.success) {
+            showNotification(user.firstName + ' must reset password on next login', 'success');
+            logWidgetAction('Force Password Reset', 'user-admin', { userId, email: user.email });
+            renderUsersTable();
+        } else {
+            showNotification(result.error || 'Failed to set force reset', 'error');
+        }
+    }
+};
+
+window.forceResetAllUsers = async function() {
+    if (!confirm('This will require ALL users (except you) to change their password on next login.\n\nContinue?')) return;
+    if (!confirm('Are you absolutely sure? This affects every user account.')) return;
+    
+    const users = UserStore.getAll();
+    let count = 0;
+    for (const user of users) {
+        if (user.id !== currentUser?.id) {
+            await UserStore.update(user.id, { forcePasswordReset: true });
+            count++;
+        }
+    }
+    
+    showNotification(count + ' users will be required to reset their password on next login', 'success');
+    logWidgetAction('Force Reset All Users', 'user-admin', { count });
+    renderUsersTable();
 };
 
 window.closeEditModal = function() {

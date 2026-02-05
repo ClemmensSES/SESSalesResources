@@ -1,7 +1,16 @@
 /**
- * Secure Energy Shared Data Store v3.1 (Azure Integration)
+ * Secure Energy Shared Data Store v3.2 (Azure Integration + Password Security)
  * Centralized data management for LMP data, user authentication, activity logging,
  * widget layout preferences, usage profiles, and support tickets
+ * 
+ * v3.2 Updates:
+ * - Added SHA-256 password hashing (hashPassword utility)
+ * - New UserStore.verifyPassword() - checks password without session side effects
+ * - New UserStore.changePassword() - full verify → hash → save → Azure confirm → rollback on failure
+ * - authenticate() now supports both hashed and legacy plain text passwords
+ * - create() and update() now hash passwords automatically
+ * - passwordHashed flag tracks which users have been migrated
+ * - Password Reset widget support via PASSWORD_CHANGE_REQUEST message
  * 
  * v3.1 Updates:
  * - ActivityLog now uses Azure-first initialization for cross-device sync
@@ -918,6 +927,17 @@ const SecureEnergyData = {
 
 
 // =====================================================
+// PASSWORD HASHING UTILITY
+// =====================================================
+async function hashPassword(password) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// =====================================================
 // USER STORE (Azure Integration)
 // =====================================================
 const UserStore = {
@@ -1021,14 +1041,103 @@ const UserStore = {
             } catch (e) { /* proceed with cached data */ }
         }
         
-        const user = this.users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
-        if (user) {
-            const sessionUser = { ...user };
-            delete sessionUser.password;
-            localStorage.setItem(this.SESSION_KEY, JSON.stringify(sessionUser));
-            return { success: true, user: sessionUser };
+        const user = this.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+        if (!user) return { success: false, error: 'Invalid credentials' };
+        
+        // Support both hashed and plain text passwords
+        let passwordValid = false;
+        if (user.passwordHashed) {
+            const inputHash = await hashPassword(password);
+            passwordValid = (inputHash === user.password);
+        } else {
+            passwordValid = (user.password === password);
         }
-        return { success: false, error: 'Invalid credentials' };
+        
+        if (!passwordValid) return { success: false, error: 'Invalid credentials' };
+        
+        const sessionUser = { ...user };
+        delete sessionUser.password;
+        delete sessionUser.passwordHashed;
+        localStorage.setItem(this.SESSION_KEY, JSON.stringify(sessionUser));
+        return { success: true, user: sessionUser };
+    },
+
+    /**
+     * Verify a password without creating a session.
+     * Used by password reset to confirm current password.
+     */
+    async verifyPassword(email, password) {
+        const user = this.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+        if (!user) return false;
+        
+        if (user.passwordHashed) {
+            const inputHash = await hashPassword(password);
+            return inputHash === user.password;
+        }
+        return user.password === password;
+    },
+
+    /**
+     * Change a user's password with full verification and Azure confirmation.
+     * Returns only after Azure sync completes (or fails explicitly).
+     */
+    async changePassword(userId, currentPassword, newPassword) {
+        // Find user (with password - internal access)
+        const user = this.users.find(u => u.id === userId);
+        if (!user) return { success: false, error: 'User not found' };
+        
+        // Step 1: Verify current password
+        const isValid = await this.verifyPassword(user.email, currentPassword);
+        if (!isValid) return { success: false, error: 'Current password is incorrect' };
+        
+        // Step 2: Hash the new password
+        const hashedNew = await hashPassword(newPassword);
+        
+        // Step 3: Update locally
+        user.password = hashedNew;
+        user.passwordHashed = true;
+        user.passwordChangedAt = new Date().toISOString();
+        user.updatedAt = new Date().toISOString();
+        this.saveToStorage();
+        
+        // Step 4: Push to Azure IMMEDIATELY and AWAIT confirmation
+        if (typeof AzureDataService !== 'undefined' && AzureDataService.isConfigured()) {
+            try {
+                await AzureDataService.save('users.json', JSON.parse(this.exportForGitHub()));
+                console.log('[UserStore] Password change synced to Azure ✓');
+            } catch (e) {
+                // ROLLBACK: Azure failed, revert password to avoid half-synced state
+                console.error('[UserStore] Azure sync failed during password change:', e.message);
+                
+                // Reload from Azure to get the pre-change state
+                try {
+                    const data = await AzureDataService.get('users.json');
+                    if (data?.users) {
+                        const remoteUser = data.users.find(u => u.id === userId);
+                        if (remoteUser) {
+                            user.password = remoteUser.password;
+                            user.passwordHashed = remoteUser.passwordHashed || false;
+                            user.passwordChangedAt = remoteUser.passwordChangedAt;
+                            user.updatedAt = remoteUser.updatedAt;
+                            this.saveToStorage();
+                        }
+                    }
+                } catch (rollbackErr) {
+                    console.error('[UserStore] Rollback also failed:', rollbackErr.message);
+                }
+                
+                return { success: false, error: 'Password change failed to sync. Please try again.' };
+            }
+        }
+        
+        // Step 5: Update session if this is the current user (strip password)
+        const session = this.getSession();
+        if (session?.id === userId) {
+            session.passwordChangedAt = user.passwordChangedAt;
+            localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
+        }
+        
+        return { success: true, passwordChangedAt: user.passwordChangedAt };
     },
 
     getSession() { try { return JSON.parse(localStorage.getItem(this.SESSION_KEY)); } catch { return null; } },
@@ -1051,13 +1160,24 @@ const UserStore = {
         return user;
     },
 
-    create(userData) {
+    async create(userData) {
         if (this.users.some(u => u.email.toLowerCase() === userData.email.toLowerCase())) {
             return { success: false, error: 'Email already exists' };
         }
+        
+        // Hash password before storing
+        let storedPassword = userData.password;
+        let isHashed = false;
+        if (userData.password) {
+            storedPassword = await hashPassword(userData.password);
+            isHashed = true;
+        }
+        
         const newUser = {
             id: 'user-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
             ...userData,
+            password: storedPassword,
+            passwordHashed: isHashed,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
@@ -1067,9 +1187,16 @@ const UserStore = {
         return { success: true, user: newUser };
     },
 
-    update(userId, updates) {
+    async update(userId, updates) {
         const idx = this.users.findIndex(u => u.id === userId);
         if (idx === -1) return { success: false, error: 'User not found' };
+        
+        // Hash password if being changed via admin update
+        if (updates.password) {
+            updates.password = await hashPassword(updates.password);
+            updates.passwordHashed = true;
+            updates.passwordChangedAt = new Date().toISOString();
+        }
         
         this.users[idx] = { ...this.users[idx], ...updates, updatedAt: new Date().toISOString() };
         this.saveToStorage();
@@ -1080,6 +1207,7 @@ const UserStore = {
         if (session?.id === userId) {
             const sessionUser = { ...this.users[idx] };
             delete sessionUser.password;
+            delete sessionUser.passwordHashed;
             localStorage.setItem(this.SESSION_KEY, JSON.stringify(sessionUser));
         }
         
@@ -1095,10 +1223,10 @@ const UserStore = {
         return { success: true };
     },
 
-    getAll() { return this.users.map(u => { const user = { ...u }; delete user.password; return user; }); },
-    getById(userId) { const user = this.users.find(u => u.id === userId); if (user) { const u = { ...user }; delete u.password; return u; } return null; },
-    getByEmail(email) { const user = this.users.find(u => u.email.toLowerCase() === email.toLowerCase()); if (user) { const u = { ...user }; delete u.password; return u; } return null; },
-    getByRole(role) { return this.users.filter(u => u.role === role).map(u => { const user = { ...u }; delete user.password; return user; }); },
+    getAll() { return this.users.map(u => { const user = { ...u }; delete user.password; delete user.passwordHashed; return user; }); },
+    getById(userId) { const user = this.users.find(u => u.id === userId); if (user) { const u = { ...user }; delete u.password; delete u.passwordHashed; return u; } return null; },
+    getByEmail(email) { const user = this.users.find(u => u.email.toLowerCase() === email.toLowerCase()); if (user) { const u = { ...user }; delete u.password; delete u.passwordHashed; return u; } return null; },
+    getByRole(role) { return this.users.filter(u => u.role === role).map(u => { const user = { ...u }; delete user.password; delete user.passwordHashed; return user; }); },
 
     _scheduleSyncToAzure() {
         if (typeof AzureDataService === 'undefined' || !AzureDataService.isConfigured()) return;
@@ -1571,6 +1699,7 @@ const TicketStore = {
 // INITIALIZATION
 // =====================================================
 if (typeof window !== 'undefined') {
+    window.hashPassword = hashPassword;
     window.SecureEnergyData = SecureEnergyData;
     window.UserStore = UserStore;
     window.ActivityLog = ActivityLog;
@@ -1633,5 +1762,5 @@ if (typeof window !== 'undefined') {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { SecureEnergyData, UserStore, ActivityLog, GitHubSync, AzureSync, ErrorLog, WidgetPreferences, UsageProfileStore, TicketStore };
+    module.exports = { hashPassword, SecureEnergyData, UserStore, ActivityLog, GitHubSync, AzureSync, ErrorLog, WidgetPreferences, UsageProfileStore, TicketStore };
 }
