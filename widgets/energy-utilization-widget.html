@@ -15,6 +15,7 @@
             --success: #28a745;
             --warning: #ffc107;
             --danger: #dc3545;
+            --info: #3b82f6;
             --bg-dark: #1a1a2e;
             --bg-card: #16213e;
             --bg-input: #0f1629;
@@ -42,6 +43,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
         }
         .widget-title {
             font-size: 1.1rem;
@@ -50,6 +53,39 @@
             align-items: center;
             gap: 10px;
         }
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .year-selector {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+        }
+        .year-selector label {
+            color: rgba(255,255,255,0.8);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .year-selector select {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .year-selector select option { background: var(--bg-card); color: white; }
         .client-indicator {
             background: rgba(40,167,69,0.2);
             border: 1px solid var(--success);
@@ -76,10 +112,7 @@
             gap: 2px;
             line-height: 1.2;
         }
-        .context-client {
-            font-weight: 600;
-            font-size: 0.8rem;
-        }
+        .context-client { font-weight: 600; font-size: 0.8rem; }
         .context-account {
             font-size: 0.7rem;
             color: #3b82f6;
@@ -87,11 +120,29 @@
             align-items: center;
             gap: 4px;
         }
-        .context-account::before {
-            content: "└";
-            color: var(--text-secondary);
-        }
+        .context-account::before { content: "└"; color: var(--text-secondary); }
         .widget-body { padding: 20px; }
+        
+        /* Year indicator badge */
+        .year-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(255,107,53,0.2);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .year-badge.has-data {
+            background: rgba(40,167,69,0.2);
+            border-color: var(--success);
+            color: var(--success);
+        }
+        
+        /* Tabs */
         .tabs {
             display: flex;
             gap: 4px;
@@ -116,6 +167,35 @@
         .tab-btn.active { background: var(--accent); color: white; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+        
+        /* Data level indicator */
+        .data-level-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            padding: 10px 14px;
+            background: var(--bg-input);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        .data-level-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        .data-level-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--border);
+        }
+        .data-level-dot.active { background: var(--success); }
+        .data-level-dot.partial { background: var(--warning); }
+        .data-level-item.active { color: var(--success); font-weight: 600; }
+        
+        /* Usage grids */
         .usage-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -128,7 +208,10 @@
             border-radius: 8px;
             padding: 12px;
             text-align: center;
+            position: relative;
         }
+        .usage-item.has-data { border-color: rgba(40,167,69,0.3); }
+        .usage-item.duplicate-warning { border-color: var(--warning); background: rgba(255,193,7,0.05); }
         .usage-item label {
             display: block;
             font-size: 0.7rem;
@@ -147,16 +230,13 @@
             text-align: center;
             font-weight: 600;
         }
-        .usage-item input:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
-        .usage-item input.gas {
-            border-color: rgba(59, 130, 246, 0.3);
-        }
-        .usage-item input.gas:focus {
-            border-color: #3b82f6;
-        }
+        .usage-item input:focus { outline: none; border-color: var(--accent); }
+        .usage-item input.gas { border-color: rgba(59, 130, 246, 0.3); }
+        .usage-item input.gas:focus { border-color: #3b82f6; }
+        .usage-item input.cost { border-color: rgba(16, 185, 129, 0.3); }
+        .usage-item input.cost:focus { border-color: #10b981; }
+        
+        /* Summary */
         .summary-row {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -172,20 +252,17 @@
         .summary-card.electric { border-left: 4px solid var(--accent); }
         .summary-card.gas { border-left: 4px solid #3b82f6; }
         .summary-card.total { border-left: 4px solid var(--success); }
+        .summary-card.cost { border-left: 4px solid #10b981; }
         .summary-label {
             font-size: 0.75rem;
             color: var(--text-secondary);
             text-transform: uppercase;
             margin-bottom: 4px;
         }
-        .summary-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-        }
-        .summary-unit {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-        }
+        .summary-value { font-size: 1.5rem; font-weight: 700; }
+        .summary-unit { font-size: 0.8rem; color: var(--text-secondary); }
+        
+        /* Chart */
         .chart-container {
             background: var(--bg-input);
             border-radius: 8px;
@@ -193,6 +270,8 @@
             margin-bottom: 20px;
             height: 280px;
         }
+        
+        /* Buttons */
         .btn {
             padding: 10px 20px;
             border: none;
@@ -210,18 +289,16 @@
         .btn-secondary { background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border); }
         .btn-secondary:hover { background: var(--border); }
         .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { background: #22963e; }
+        .btn-info { background: var(--info); color: white; }
+        .btn-info:hover { background: #2563eb; }
         .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
         .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         
-        /* Import button group with template icon */
-        .import-btn-group {
-            display: inline-flex;
-            align-items: center;
-            gap: 0;
-        }
-        .import-btn-group .btn {
-            border-radius: 6px 0 0 6px;
-        }
+        /* Import button group */
+        .import-btn-group { display: inline-flex; align-items: center; gap: 0; }
+        .import-btn-group .btn { border-radius: 6px 0 0 6px; }
         .template-download-btn {
             padding: 10px 12px;
             background: var(--bg-input);
@@ -233,20 +310,11 @@
             transition: all 0.2s;
             display: flex;
             align-items: center;
-            justify-content: center;
         }
-        .template-download-btn:hover {
-            background: var(--border);
-            color: var(--accent);
-        }
-        .template-download-btn svg {
-            width: 16px;
-            height: 16px;
-        }
-        .template-download-btn[title]::after {
-            content: attr(title);
-        }
+        .template-download-btn:hover { background: var(--border); color: var(--accent); }
+        .template-download-btn svg { width: 16px; height: 16px; }
         
+        /* Import zone */
         .import-zone {
             border: 2px dashed var(--border);
             border-radius: 8px;
@@ -258,7 +326,9 @@
         }
         .import-zone:hover { border-color: var(--accent); background: rgba(255,107,53,0.05); }
         .import-zone p { color: var(--text-secondary); font-size: 0.85rem; }
-        .history-list { max-height: 300px; overflow-y: auto; }
+        
+        /* History */
+        .history-list { max-height: 400px; overflow-y: auto; }
         .history-item {
             background: var(--bg-input);
             border-radius: 6px;
@@ -270,13 +340,8 @@
             border: 2px solid transparent;
             transition: border-color 0.2s, background 0.2s;
         }
-        .history-item.current-context {
-            border-color: var(--primary);
-            background: rgba(16, 185, 129, 0.1);
-        }
-        .history-item-info {
-            flex: 1;
-        }
+        .history-item.current-context { border-color: var(--primary); background: rgba(16, 185, 129, 0.1); }
+        .history-item-info { flex: 1; }
         .history-item-title {
             font-weight: 600;
             margin-bottom: 4px;
@@ -285,10 +350,7 @@
             gap: 8px;
             flex-wrap: wrap;
         }
-        .history-item-meta {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-        }
+        .history-item-meta { font-size: 0.75rem; color: var(--text-secondary); }
         .context-badge {
             font-size: 0.65rem;
             padding: 2px 6px;
@@ -307,6 +369,8 @@
             font-weight: 500;
             text-transform: uppercase;
         }
+        
+        /* Toast */
         .toast {
             position: fixed;
             bottom: 20px;
@@ -317,11 +381,15 @@
             font-weight: 500;
             z-index: 1000;
             animation: slideIn 0.3s ease;
+            max-width: 400px;
         }
         .toast.success { background: var(--success); }
         .toast.error { background: var(--danger); }
         .toast.warning { background: var(--warning); color: #333; }
+        .toast.info { background: var(--info); }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        
+        /* Modal */
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -335,10 +403,10 @@
         .modal {
             background: var(--bg-card);
             border-radius: 12px;
-            max-width: 500px;
+            max-width: 560px;
             width: 90%;
-            max-height: 80vh;
-            overflow: hidden;
+            max-height: 85vh;
+            overflow-y: auto;
         }
         .modal-header {
             padding: 16px 20px;
@@ -363,17 +431,9 @@
             color: var(--text-primary);
             font-size: 0.9rem;
         }
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: var(--text-secondary);
-        }
-        .empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.5; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: var(--bg-input); }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        .form-select option { background: var(--bg-card); }
         
-        /* Template info in modal */
+        /* Template info */
         .template-info {
             background: rgba(0,51,102,0.2);
             border: 1px solid rgba(0,51,102,0.4);
@@ -384,32 +444,123 @@
             align-items: center;
             gap: 12px;
         }
-        .template-info svg {
-            flex-shrink: 0;
-            color: #4da6ff;
+        .template-info svg { flex-shrink: 0; color: #4da6ff; }
+        .template-info-text { flex: 1; }
+        .template-info-text strong { display: block; color: #4da6ff; font-size: 0.85rem; margin-bottom: 2px; }
+        .template-info-text span { font-size: 0.75rem; color: var(--text-secondary); }
+        .template-download-link { color: var(--accent); cursor: pointer; text-decoration: underline; font-size: 0.8rem; }
+        .template-download-link:hover { color: var(--accent-hover); }
+        
+        /* Import preview */
+        .import-preview {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            margin-top: 12px;
+            max-height: 300px;
+            overflow-y: auto;
         }
-        .template-info-text {
-            flex: 1;
-        }
-        .template-info-text strong {
-            display: block;
-            color: #4da6ff;
-            font-size: 0.85rem;
-            margin-bottom: 2px;
-        }
-        .template-info-text span {
+        .import-preview h4 { font-size: 0.85rem; margin-bottom: 10px; color: var(--accent); }
+        .import-preview-grid {
+            display: grid;
+            grid-template-columns: auto 1fr 1fr 1fr;
+            gap: 4px 12px;
             font-size: 0.75rem;
-            color: var(--text-secondary);
         }
-        .template-download-link {
-            color: var(--accent);
-            cursor: pointer;
-            text-decoration: underline;
+        .import-preview-grid .header { color: var(--text-secondary); font-weight: 600; text-transform: uppercase; font-size: 0.65rem; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+        .import-preview-grid .duplicate { color: var(--warning); }
+        .import-preview-grid .new-data { color: var(--success); }
+        
+        /* Budget prompt */
+        .budget-prompt {
+            background: rgba(59,130,246,0.1);
+            border: 1px solid rgba(59,130,246,0.3);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+            display: none;
+        }
+        .budget-prompt.show { display: block; }
+        .budget-prompt h4 { color: var(--info); font-size: 0.9rem; margin-bottom: 8px; }
+        .budget-prompt p { color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 12px; }
+        .budget-prompt .data-completeness {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 12px;
+        }
+        .budget-prompt .data-check {
+            display: flex;
+            align-items: center;
+            gap: 6px;
             font-size: 0.8rem;
         }
-        .template-download-link:hover {
-            color: var(--accent-hover);
+        .budget-prompt .data-check .check-icon { font-size: 0.9rem; }
+        .budget-prompt .data-check.complete { color: var(--success); }
+        .budget-prompt .data-check.missing { color: var(--text-secondary); }
+        .budget-prompt .manual-note {
+            background: rgba(255,193,7,0.1);
+            border: 1px solid rgba(255,193,7,0.3);
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 0.75rem;
+            color: var(--warning);
+            margin-bottom: 12px;
         }
+        
+        /* Duplicate conflict panel */
+        .conflict-panel {
+            background: rgba(255,193,7,0.1);
+            border: 1px solid rgba(255,193,7,0.3);
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 16px;
+        }
+        .conflict-panel h4 { color: var(--warning); font-size: 0.85rem; margin-bottom: 8px; }
+        .conflict-panel p { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px; }
+        .conflict-options { display: flex; gap: 8px; flex-wrap: wrap; }
+        
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+        .empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.5; }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-input); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        
+        /* Account breakdown table (for imported multi-account data) */
+        .account-breakdown {
+            margin-top: 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .account-breakdown table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+        }
+        .account-breakdown th {
+            background: var(--bg-dark);
+            padding: 8px 10px;
+            text-align: left;
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.65rem;
+        }
+        .account-breakdown td {
+            padding: 6px 10px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+        .account-breakdown tr:last-child td { border-bottom: none; }
+        .account-breakdown tr.total-row { background: rgba(255,107,53,0.1); font-weight: 600; }
     </style>
 </head>
 <body>
@@ -421,18 +572,44 @@
                 </svg>
                 Client Energy Utilization
             </div>
-            <div class="client-indicator no-client" id="clientIndicator">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                </svg>
-                <span id="clientName">No client selected</span>
+            <div class="header-controls">
+                <div class="year-selector">
+                    <label>Data Year:</label>
+                    <select id="yearSelect" onchange="onYearChanged()">
+                        <!-- Populated by JS -->
+                    </select>
+                    <span class="year-badge" id="yearDataBadge">No Data</span>
+                </div>
+                <div class="client-indicator no-client" id="clientIndicator">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    <span id="clientName">No client selected</span>
+                </div>
             </div>
         </div>
         
         <div class="widget-body">
+            <!-- Data Level Indicator -->
+            <div class="data-level-bar" id="dataLevelBar">
+                <div class="data-level-item" id="levelUsage">
+                    <span class="data-level-dot"></span> Usage (kWh)
+                </div>
+                <div class="data-level-item" id="levelSupply">
+                    <span class="data-level-dot"></span> Supply Cost ($)
+                </div>
+                <div class="data-level-item" id="levelDT">
+                    <span class="data-level-dot"></span> DT Cost ($)
+                </div>
+                <span style="margin-left:auto;font-size:0.7rem;color:var(--text-secondary);">
+                    All 3 levels required for complete budget reports
+                </span>
+            </div>
+            
             <div class="tabs">
                 <button class="tab-btn active" data-tab="electric">⚡ Electric (kWh)</button>
                 <button class="tab-btn" data-tab="gas">🔥 Gas (Therms)</button>
+                <button class="tab-btn" data-tab="costs">💰 Costs</button>
                 <button class="tab-btn" data-tab="history">📋 Saved Profiles</button>
             </div>
             
@@ -456,48 +633,38 @@
                     </div>
                 </div>
                 
-                <div class="usage-grid" id="electricGrid">
-                    <!-- Generated by JS -->
-                </div>
-                
-                <div class="chart-container">
-                    <canvas id="electricChart"></canvas>
-                </div>
+                <div class="usage-grid" id="electricGrid"></div>
+                <div class="chart-container"><canvas id="electricChart"></canvas></div>
                 
                 <div class="btn-group">
                     <button class="btn btn-primary" onclick="saveToClient()">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                            <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
-                        </svg>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                         Save to Client
                     </button>
                     <button class="btn btn-secondary" onclick="exportUsage()">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                        </svg>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         Export Excel
                     </button>
                     <div class="import-btn-group">
                         <button class="btn btn-secondary" onclick="showImportModal()">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-                            </svg>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                             Import
                         </button>
                         <button class="template-download-btn" onclick="downloadImportTemplate()" title="Download Import Template">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                <polyline points="14 2 14 8 20 8"/>
-                                <line x1="12" y1="18" x2="12" y2="12"/>
-                                <line x1="9" y1="15" x2="12" y2="18"/>
-                                <line x1="15" y1="15" x2="12" y2="18"/>
-                            </svg>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="12" y2="18"/><line x1="15" y1="15" x2="12" y2="18"/></svg>
                         </button>
                     </div>
                     <button class="btn btn-secondary" onclick="clearUsage('electric')">Clear</button>
+                </div>
+                
+                <!-- Budget Prompt (appears after data entry) -->
+                <div class="budget-prompt" id="budgetPromptElectric">
+                    <h4>📊 Create Budget Report?</h4>
+                    <div id="budgetCompletenessElectric"></div>
+                    <div class="btn-group" style="margin-top: 8px;">
+                        <button class="btn btn-info btn-sm" onclick="launchBudgetReport()">Create Budget Report</button>
+                        <button class="btn btn-secondary btn-sm" onclick="dismissBudgetPrompt('electric')">Not Now</button>
+                    </div>
                 </div>
             </div>
             
@@ -521,56 +688,95 @@
                     </div>
                 </div>
                 
-                <div class="usage-grid" id="gasGrid">
-                    <!-- Generated by JS -->
-                </div>
-                
-                <div class="chart-container">
-                    <canvas id="gasChart"></canvas>
-                </div>
+                <div class="usage-grid" id="gasGrid"></div>
+                <div class="chart-container"><canvas id="gasChart"></canvas></div>
                 
                 <div class="btn-group">
                     <button class="btn btn-primary" onclick="saveToClient()">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                            <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
-                        </svg>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                         Save to Client
                     </button>
                     <button class="btn btn-secondary" onclick="exportUsage()">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                        </svg>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         Export Excel
                     </button>
                     <div class="import-btn-group">
                         <button class="btn btn-secondary" onclick="showImportModal()">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-                            </svg>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                             Import
                         </button>
                         <button class="template-download-btn" onclick="downloadImportTemplate()" title="Download Import Template">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                <polyline points="14 2 14 8 20 8"/>
-                                <line x1="12" y1="18" x2="12" y2="12"/>
-                                <line x1="9" y1="15" x2="12" y2="18"/>
-                                <line x1="15" y1="15" x2="12" y2="18"/>
-                            </svg>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="12" y2="18"/><line x1="15" y1="15" x2="12" y2="18"/></svg>
                         </button>
                     </div>
                     <button class="btn btn-secondary" onclick="clearUsage('gas')">Clear</button>
                 </div>
+                
+                <div class="budget-prompt" id="budgetPromptGas">
+                    <h4>📊 Create Budget Report?</h4>
+                    <div id="budgetCompletenessGas"></div>
+                    <div class="btn-group" style="margin-top: 8px;">
+                        <button class="btn btn-info btn-sm" onclick="launchBudgetReport()">Create Budget Report</button>
+                        <button class="btn btn-secondary btn-sm" onclick="dismissBudgetPrompt('gas')">Not Now</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Costs Tab (Supply + DT) -->
+            <div class="tab-content" id="tab-costs">
+                <div class="summary-row" style="grid-template-columns: repeat(4, 1fr);">
+                    <div class="summary-card cost">
+                        <div class="summary-label">Annual Supply</div>
+                        <div class="summary-value" id="totalSupply">$0</div>
+                        <div class="summary-unit">Supply Cost</div>
+                    </div>
+                    <div class="summary-card cost">
+                        <div class="summary-label">Annual DT</div>
+                        <div class="summary-value" id="totalDT">$0</div>
+                        <div class="summary-unit">DT Cost</div>
+                    </div>
+                    <div class="summary-card total">
+                        <div class="summary-label">Total Annual Cost</div>
+                        <div class="summary-value" id="totalCost">$0</div>
+                        <div class="summary-unit">All-in</div>
+                    </div>
+                    <div class="summary-card cost">
+                        <div class="summary-label">Avg $/kWh</div>
+                        <div class="summary-value" id="avgRate">-</div>
+                        <div class="summary-unit">Blended Rate</div>
+                    </div>
+                </div>
+                
+                <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:12px;">
+                    Supply and DT cost data is imported from the <strong>3-level Excel template</strong>. 
+                    <a href="#" onclick="showImportModal();return false;" style="color:var(--accent);">Import data</a> or 
+                    <a href="#" onclick="downloadImportTemplate();return false;" style="color:var(--accent);">download template</a>.
+                </p>
+                
+                <h4 style="font-size:0.85rem;margin-bottom:8px;">Monthly Supply Cost ($)</h4>
+                <div class="usage-grid" id="supplyCostGrid"></div>
+                
+                <h4 style="font-size:0.85rem;margin-bottom:8px;">Monthly DT Cost ($)</h4>
+                <div class="usage-grid" id="dtCostGrid"></div>
+                
+                <div class="chart-container" style="height:320px;"><canvas id="costChart"></canvas></div>
+                
+                <!-- Account breakdown (populated on import) -->
+                <div id="accountBreakdown" style="display:none;"></div>
             </div>
             
             <!-- History Tab -->
             <div class="tab-content" id="tab-history">
-                <div id="historyList" class="history-list">
-                    <!-- Populated by JS -->
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <h4 style="font-size:0.9rem;">Saved Usage Profiles</h4>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <label style="font-size:0.75rem;color:var(--text-secondary);">Filter Year:</label>
+                        <select id="historyYearFilter" onchange="loadHistory()" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text-primary);font-size:0.8rem;">
+                            <option value="all">All Years</option>
+                        </select>
+                    </div>
                 </div>
+                <div id="historyList" class="history-list"></div>
             </div>
         </div>
     </div>
@@ -583,7 +789,6 @@
                 <button class="modal-close" onclick="closeImportModal()">×</button>
             </div>
             <div class="modal-body">
-                <!-- Template Download Info -->
                 <div class="template-info">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -593,8 +798,8 @@
                         <polyline points="10 9 9 9 8 9"/>
                     </svg>
                     <div class="template-info-text">
-                        <strong>Need the correct format?</strong>
-                        <span>Download the import template to ensure your data imports correctly.</span>
+                        <strong>Updated 3-Level Template</strong>
+                        <span>Import Usage (kWh), Supply Cost ($), and DT Cost ($) — all 3 data levels for complete budget reports.</span>
                     </div>
                     <span class="template-download-link" onclick="downloadImportTemplate(); return false;">Download Template</span>
                 </div>
@@ -605,20 +810,44 @@
                         <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
                     </svg>
                     <p><strong>Click to upload</strong> or drag and drop</p>
-                    <p style="font-size:0.75rem;">Excel or CSV with monthly usage data</p>
-                    <input type="file" id="importFile" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleImport(event)">
+                    <p style="font-size:0.75rem;">Excel file with Usage, Supply Cost, and DT Cost data</p>
+                    <input type="file" id="importFile" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleImportFile(event)">
                 </div>
+                
                 <div class="form-group">
-                    <label class="form-label">Import Type</label>
-                    <select class="form-select" id="importType">
-                        <option value="electric">Electric (kWh)</option>
-                        <option value="gas">Gas (Therms)</option>
-                        <option value="both">Both (Electric & Gas)</option>
+                    <label class="form-label">Data Year (for storage)</label>
+                    <select class="form-select" id="importYear">
+                        <!-- Populated by JS to match yearSelect -->
                     </select>
                 </div>
+                
+                <!-- Import preview area (populated after file selection) -->
+                <div id="importPreview" style="display:none;"></div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeImportModal()">Cancel</button>
+                <button class="btn btn-primary" id="confirmImportBtn" onclick="confirmImport()" style="display:none;">
+                    Import Data
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Duplicate Conflict Modal -->
+    <div class="modal-overlay" id="duplicateModal">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title">⚠️ Duplicate Data Detected</span>
+                <button class="modal-close" onclick="closeDuplicateModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom:12px;font-size:0.9rem;" id="duplicateMessage"></p>
+                <div id="duplicateDetails"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeDuplicateModal()">Cancel</button>
+                <button class="btn btn-warning btn-sm" style="background:var(--warning);color:#333;" onclick="resolveConflict('skip')">Skip Duplicates</button>
+                <button class="btn btn-primary" onclick="resolveConflict('overwrite')">Overwrite All</button>
             </div>
         </div>
     </div>
@@ -632,274 +861,339 @@
             </div>
             <div class="modal-body">
                 <p style="margin-bottom:16px;">
-                    <strong id="noUsageClientName">This client</strong> doesn't have any energy utilization data on file.
+                    <strong id="noUsageClientName">This client</strong> doesn't have any energy utilization data on file for <strong id="noUsageYear"></strong>.
                 </p>
                 <p style="color:var(--text-secondary);font-size:0.9rem;">
-                    Would you like to add their 12-month usage profile now? This data will be saved to the client record and can be used for LMP analysis.
+                    Would you like to add their usage profile now? For the most complete budget analysis, import the 3-level Excel template (Usage, Supply Cost, DT Cost).
                 </p>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeNoUsageModal()">Skip for Now</button>
-                <button class="btn btn-primary" onclick="startUsageEntry()">Enter Usage Data</button>
+                <button class="btn btn-info" onclick="closeNoUsageModal();showImportModal();">Import Data</button>
+                <button class="btn btn-primary" onclick="startUsageEntry()">Enter Manually</button>
             </div>
         </div>
     </div>
-    
+
+    <!-- Budget Report Prompt Modal -->
+    <div class="modal-overlay" id="budgetReportModal">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title">📊 Generate Budget Report</span>
+                <button class="modal-close" onclick="closeBudgetReportModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom:16px;">
+                    Utilization data for <strong id="budgetClientName"></strong> (<span id="budgetYearLabel"></span>) has been saved.
+                </p>
+                <div id="budgetDataStatus" style="margin-bottom:16px;"></div>
+                <p style="color:var(--text-secondary);font-size:0.85rem;">
+                    Would you like to open the Energy Budget Tool with this data to create a budget report?
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeBudgetReportModal()">Not Now</button>
+                <button class="btn btn-info" onclick="launchBudgetReport()">Open Budget Tool</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ============================================================
         // STANDARDIZED EXPORT METADATA UTILITY
-        // This pattern should be used across ALL widgets for consistency
         // ============================================================
         const ExportMetadata = {
-            // Widget identification
             widgetName: 'Energy Utilization',
-            widgetVersion: '1.1',
-            
-            // Get current user info from parent or localStorage
+            widgetVersion: '2.0',
             getCurrentUser: function() {
-                // Try to get from parent portal
-                if (window.parent?.SecureEnergyAuth?.currentUser) {
-                    const user = window.parent.SecureEnergyAuth.currentUser;
-                    return {
-                        name: user.name || user.username || 'Unknown User',
-                        email: user.email || '',
-                        role: user.role || 'user'
-                    };
-                }
-                // Fallback to localStorage
                 try {
-                    const stored = localStorage.getItem('secure_energy_user');
-                    if (stored) {
-                        const user = JSON.parse(stored);
-                        return {
-                            name: user.name || user.username || 'Unknown User',
-                            email: user.email || '',
-                            role: user.role || 'user'
-                        };
-                    }
-                } catch (e) {}
-                return { name: 'Unknown User', email: '', role: 'user' };
+                    const user = window.parent?.UserStore?.getCurrentUser?.();
+                    if (user) return { name: `${user.firstName} ${user.lastName}`, email: user.email, role: user.role || 'user' };
+                } catch(e) {}
+                try {
+                    const stored = localStorage.getItem('ses_current_user');
+                    if (stored) { const u = JSON.parse(stored); return { name: u.name || `${u.firstName||''} ${u.lastName||''}`.trim(), email: u.email, role: u.role || 'user' }; }
+                } catch(e) {}
+                return { name: 'Unknown', email: '', role: 'user' };
             },
-            
-            // Get active client info
             getActiveClient: function() {
-                if (activeClient) {
-                    return {
-                        name: activeClient.name || 'Unknown Client',
-                        id: activeClient.id || '',
-                        iso: activeClient.iso || '',
-                        accountNumber: activeClient.accountNumber || ''
-                    };
-                }
+                if (activeClient) return { name: activeClient.name || 'Unknown', id: activeClient.id || '', iso: activeClient.iso || '', accountNumber: activeClient.accountNumber || '' };
                 return { name: 'No Client Selected', id: '', iso: '', accountNumber: '' };
             },
-            
-            // Get active account info (child under client)
             getActiveAccount: function() {
-                if (activeAccount) {
-                    return {
-                        name: activeAccount.accountName || 'Unknown Account',
-                        id: activeAccount.id || '',
-                        accountNumber: activeAccount.accountNumber || '',
-                        serviceZip: activeAccount.serviceZip || ''
-                    };
-                }
+                if (activeAccount) return { name: activeAccount.accountName || 'Unknown Account', id: activeAccount.id || '', accountNumber: activeAccount.accountNumber || '', serviceZip: activeAccount.serviceZip || '' };
                 return null;
             },
-            
-            // Get full context display name
             getContextDisplayName: function() {
                 const client = this.getActiveClient();
                 const account = this.getActiveAccount();
-                if (account && client.name !== 'No Client Selected') {
-                    return `${client.name} → ${account.name}`;
-                }
+                if (account && client.name !== 'No Client Selected') return `${client.name} → ${account.name}`;
                 return client.name;
             },
-            
-            // Generate standardized metadata header rows for Excel export
             generateMetadataRows: function(additionalInfo = {}) {
                 const user = this.getCurrentUser();
                 const client = this.getActiveClient();
                 const account = this.getActiveAccount();
                 const now = new Date();
-                
                 const metadata = [
-                    ['SECURE ENERGY SERVICES - EXPORT REPORT'],
-                    [''],
+                    ['SECURE ENERGY SERVICES - EXPORT REPORT'], [''],
                     ['Export Information'],
                     ['Export Date:', now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })],
                     ['Export Time:', now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short' })],
                     ['Exported By:', user.name + (user.email ? ` (${user.email})` : '')],
-                    ['User Role:', user.role.charAt(0).toUpperCase() + user.role.slice(1)],
-                    [''],
+                    ['User Role:', user.role.charAt(0).toUpperCase() + user.role.slice(1)], [''],
                     ['Client Information'],
                     ['Client Name:', client.name],
                     ['Client ID:', client.id || 'N/A'],
                     ['ISO/RTO:', client.iso || 'N/A'],
                     ['Account Number:', client.accountNumber || 'N/A']
                 ];
-                
-                // Add account info if available
                 if (account) {
-                    metadata.push(['']);
-                    metadata.push(['Account Information']);
-                    metadata.push(['Account Name:', account.name]);
-                    metadata.push(['Account ID:', account.id || 'N/A']);
-                    metadata.push(['Account Number:', account.accountNumber || 'N/A']);
-                    metadata.push(['Service ZIP:', account.serviceZip || 'N/A']);
+                    metadata.push([''], ['Account Information'], ['Account Name:', account.name], ['Account ID:', account.id || 'N/A'], ['Account Number:', account.accountNumber || 'N/A'], ['Service ZIP:', account.serviceZip || 'N/A']);
                 }
-                
-                metadata.push(['']);
-                metadata.push(['Widget Information']);
-                metadata.push(['Widget:', this.widgetName]);
-                metadata.push(['Version:', this.widgetVersion]);
-                metadata.push(['']);
-                
-                // Add any additional custom info
+                metadata.push([''], ['Widget Information'], ['Widget:', this.widgetName], ['Version:', this.widgetVersion], ['Data Year:', selectedYear], ['']);
                 if (Object.keys(additionalInfo).length > 0) {
                     metadata.push(['Additional Details']);
-                    for (const [key, value] of Object.entries(additionalInfo)) {
-                        metadata.push([key + ':', value]);
-                    }
+                    for (const [key, value] of Object.entries(additionalInfo)) metadata.push([key + ':', value]);
                     metadata.push(['']);
                 }
-                
                 return metadata;
             },
-            
-            // Apply professional styling to metadata section
-            styleMetadataSheet: function(ws, metadataRowCount) {
-                // Set column widths
-                ws['!cols'] = [
-                    { wch: 20 },  // Label column
-                    { wch: 50 }   // Value column
-                ];
-                
-                // Merge title row
-                if (!ws['!merges']) ws['!merges'] = [];
-                ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } });
-                
-                return ws;
-            },
-            
-            // Generate filename with timestamp (includes account if present)
             generateFilename: function(baseName, extension = 'xlsx') {
                 const client = this.getActiveClient();
                 const account = this.getActiveAccount();
-                const timestamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-                
+                const timestamp = new Date().toISOString().slice(0, 10);
                 let namePart = '';
                 if (client.name !== 'No Client Selected') {
                     namePart = client.name.replace(/[^a-z0-9]/gi, '_');
-                    if (account) {
-                        namePart += '_' + account.name.replace(/[^a-z0-9]/gi, '_');
-                    }
+                    if (account) namePart += '_' + account.name.replace(/[^a-z0-9]/gi, '_');
                     namePart += '_';
                 }
-                return `${namePart}${baseName}_${timestamp}.${extension}`;
+                return `${namePart}${baseName}_${selectedYear}_${timestamp}.${extension}`;
             }
         };
-        
+
         // ============================================================
-        // IMPORT TEMPLATE GENERATOR
-        // Creates downloadable templates for data import
+        // IMPORT TEMPLATE GENERATOR (Updated 3-Level Format)
         // ============================================================
         const ImportTemplates = {
-            // Generate and download the usage import template
             generateUsageTemplate: function() {
                 const wb = XLSX.utils.book_new();
-                
-                // Instructions sheet
                 const instructions = [
-                    ['ENERGY UTILIZATION IMPORT TEMPLATE'],
-                    [''],
+                    ['ENERGY UTILIZATION IMPORT TEMPLATE (3-Level)'], [''],
                     ['Instructions:'],
-                    ['1. Enter your 12-month usage data in the "Usage Data" sheet'],
-                    ['2. Electric usage should be in kWh (kilowatt-hours)'],
-                    ['3. Gas usage should be in Therms'],
-                    ['4. Leave cells blank or enter 0 for months with no data'],
-                    ['5. Save the file and import using the Import button'],
-                    [''],
-                    ['Import Options:'],
-                    ['- Electric Only: Only the Electric (kWh) column will be imported'],
-                    ['- Gas Only: Only the Gas (Therms) column will be imported'],
-                    ['- Both: Both columns will be imported'],
-                    [''],
+                    ['1. Enter data in the "By Account" sheet following the 3-section format'],
+                    ['2. Section 1: Usage (kWh) by Account × Month'],
+                    ['3. Section 2: Supply Cost ($) by Account × Month'],
+                    ['4. Section 3: DT Cost ($) by Account × Month'],
+                    ['5. All 3 sections enable complete budget report generation'], [''],
+                    ['Format:'],
+                    ['- Row 1: Title (e.g., "ClientName - elec - 2025-01 - Usage (kWh) by Account x Month")'],
+                    ['- Row 3: Headers: Account (Address) | ACT YYYY-01 | ACT YYYY-02 | ... | ACT YYYY-12 | Total'],
+                    ['- Rows 4+: Account data rows'],
+                    ['- Row after accounts: Total row'], [''],
+                    ['- Repeat same structure 12 rows down for Supply Cost ($)'],
+                    ['- Repeat same structure 24 rows down for DT Cost ($)'], [''],
                     ['Notes:'],
-                    ['- Data should be for a rolling 12-month period'],
-                    ['- Months should be in calendar order starting from January'],
-                    ['- Do not change the column headers'],
-                    ['']
+                    ['- Leave cells blank or enter 0 for months with no data'],
+                    ['- Account identifiers should include the account number and address'],
+                    ['- The importer auto-detects section boundaries'], ['']
                 ];
                 const wsInstructions = XLSX.utils.aoa_to_sheet(instructions);
-                wsInstructions['!cols'] = [{ wch: 60 }];
+                wsInstructions['!cols'] = [{ wch: 70 }];
                 XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions');
                 
-                // Data template sheet
+                // Template data sheet matching real format
+                const year = selectedYear;
+                const months = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+                const monthHeaders = months.map(m => `ACT ${year}-${m}`);
+                
                 const template = [
-                    ['Month', 'Electric (kWh)', 'Gas (Therms)'],
-                    ['January', '', ''],
-                    ['February', '', ''],
-                    ['March', '', ''],
-                    ['April', '', ''],
-                    ['May', '', ''],
-                    ['June', '', ''],
-                    ['July', '', ''],
-                    ['August', '', ''],
-                    ['September', '', ''],
-                    ['October', '', ''],
-                    ['November', '', ''],
-                    ['December', '', '']
+                    [`ClientName - elec - ${year}-01 - Usage (kWh) by Account x Month`],
+                    [],
+                    ['Account (Address)', ...monthHeaders, 'Total'],
+                    ['12345678901 (123 Main St City ST 00000)', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                    ['12345678902 (456 Oak Ave City ST 00000)', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                    [],
+                    ['Total Usage (kWh)', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                    [], [],
+                    // Blank rows before Supply Cost section
+                    [], [], [],
+                    [`ClientName - elec - ${year}-01 - Supply Cost ($) by Account x Month`],
+                    [],
+                    ['Account (Address)', ...monthHeaders, 'Total'],
+                    ['12345678901 (123 Main St City ST 00000)', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                    ['12345678902 (456 Oak Ave City ST 00000)', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                    [],
+                    ['Total Cost ($)', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                    [], [],
+                    // Blank rows before DT Cost section
+                    [], [], [],
+                    [`ClientName - elec - ${year}-01 - DT Cost ($) by Account x Month`],
+                    [],
+                    ['Account (Address)', ...monthHeaders, 'Total'],
+                    ['12345678901 (123 Main St City ST 00000)', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                    ['12345678902 (456 Oak Ave City ST 00000)', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+                    [],
+                    ['Total Cost ($)', '', '', '', '', '', '', '', '', '', '', '', '', '']
                 ];
                 const wsData = XLSX.utils.aoa_to_sheet(template);
-                wsData['!cols'] = [{ wch: 12 }, { wch: 15 }, { wch: 15 }];
-                XLSX.utils.book_append_sheet(wb, wsData, 'Usage Data');
+                wsData['!cols'] = [{ wch: 40 }, ...months.map(() => ({ wch: 12 })), { wch: 12 }];
+                XLSX.utils.book_append_sheet(wb, wsData, 'By Account');
                 
-                // Download
-                XLSX.writeFile(wb, 'Energy_Utilization_Import_Template.xlsx');
+                // Also include a simple single-account template for backward compat
+                const simpleTemplate = [
+                    ['Month', 'Electric (kWh)', 'Gas (Therms)'],
+                    ...['January','February','March','April','May','June','July','August','September','October','November','December'].map(m => [m, '', ''])
+                ];
+                const wsSimple = XLSX.utils.aoa_to_sheet(simpleTemplate);
+                wsSimple['!cols'] = [{ wch: 12 }, { wch: 15 }, { wch: 15 }];
+                XLSX.utils.book_append_sheet(wb, wsSimple, 'Simple Usage');
+                
+                XLSX.writeFile(wb, `Energy_Utilization_Import_Template_${selectedYear}.xlsx`);
             }
         };
         
-        // Download import template function (called from UI)
         function downloadImportTemplate() {
             ImportTemplates.generateUsageTemplate();
             showToast('Template downloaded', 'success');
         }
-        
+
         // ============================================================
         // WIDGET STATE & DATA
         // ============================================================
         const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const FULL_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
         
+        // Multi-year data store: { "2025": { electric: [...], gas: [...], supplyCost: [...], dtCost: [...], accounts: [...] } }
+        let yearlyData = {};
+        let selectedYear = new Date().getFullYear().toString();
+        
+        // Current view data (references into yearlyData[selectedYear])
         let electricData = Array(12).fill(0);
         let gasData = Array(12).fill(0);
+        let supplyCostData = Array(12).fill(0);
+        let dtCostData = Array(12).fill(0);
+        let accountsData = []; // Per-account breakdown from import
+        
         let electricChart = null;
         let gasChart = null;
+        let costChart = null;
         let activeClient = null;
-        let activeAccount = null;  // Track active account (child) under active client
-        
-        // Helper to get storage key for current context (parent or parent+child)
-        function getContextKey() {
-            if (activeAccount && activeClient) {
-                return `${activeClient.id}_${activeAccount.id}`;
-            } else if (activeClient) {
-                return activeClient.id;
-            }
-            return null;
+        let activeAccount = null;
+        let pendingImportData = null; // Holds parsed import data before confirmation
+        let dataSource = 'manual'; // 'manual' or 'imported'
+
+        function getEmptyYearData() {
+            return {
+                electric: Array(12).fill(0),
+                gas: Array(12).fill(0),
+                supplyCost: Array(12).fill(0),
+                dtCost: Array(12).fill(0),
+                accounts: [],
+                dataSource: 'manual',
+                updatedAt: null
+            };
         }
         
-        // Initialize
+        function getCurrentYearData() {
+            if (!yearlyData[selectedYear]) yearlyData[selectedYear] = getEmptyYearData();
+            return yearlyData[selectedYear];
+        }
+        
+        function syncToCurrentYear() {
+            const yd = getCurrentYearData();
+            yd.electric = [...electricData];
+            yd.gas = [...gasData];
+            yd.supplyCost = [...supplyCostData];
+            yd.dtCost = [...dtCostData];
+            yd.accounts = [...accountsData];
+            yd.dataSource = dataSource;
+            yd.updatedAt = new Date().toISOString();
+        }
+        
+        function loadFromYear(year) {
+            const yd = yearlyData[year] || getEmptyYearData();
+            electricData = [...yd.electric];
+            gasData = [...yd.gas];
+            supplyCostData = [...(yd.supplyCost || Array(12).fill(0))];
+            dtCostData = [...(yd.dtCost || Array(12).fill(0))];
+            accountsData = [...(yd.accounts || [])];
+            dataSource = yd.dataSource || 'manual';
+        }
+        
+        function getContextKey() {
+            if (activeAccount && activeClient) return `${activeClient.id}_${activeAccount.id}`;
+            if (activeClient) return activeClient.id;
+            return null;
+        }
+
+        // ============================================================
+        // INITIALIZATION
+        // ============================================================
         document.addEventListener('DOMContentLoaded', () => {
+            initYearSelector();
             initTabs();
             renderUsageGrids();
+            renderCostGrids();
             initCharts();
             initClientContext();
             loadHistory();
+            updateDataLevelIndicator();
         });
         
-        // Tabs
+        function initYearSelector() {
+            const yearSelect = document.getElementById('yearSelect');
+            const importYear = document.getElementById('importYear');
+            const historyFilter = document.getElementById('historyYearFilter');
+            const currentYear = new Date().getFullYear();
+            const years = [];
+            for (let y = currentYear - 2; y <= currentYear + 2; y++) years.push(y);
+            
+            [yearSelect, importYear].forEach(sel => {
+                if (!sel) return;
+                sel.innerHTML = years.map(y => 
+                    `<option value="${y}" ${y == currentYear ? 'selected' : ''}>${y}</option>`
+                ).join('');
+            });
+            
+            // History filter includes "All Years"
+            if (historyFilter) {
+                historyFilter.innerHTML = '<option value="all">All Years</option>' + 
+                    years.map(y => `<option value="${y}">${y}</option>`).join('');
+            }
+            
+            selectedYear = currentYear.toString();
+            updateYearBadge();
+        }
+        
+        function onYearChanged() {
+            // Save current year's data before switching
+            syncToCurrentYear();
+            
+            selectedYear = document.getElementById('yearSelect').value;
+            loadFromYear(selectedYear);
+            updateUIFromData();
+            updateYearBadge();
+            updateDataLevelIndicator();
+            renderAccountBreakdown();
+        }
+        
+        function updateYearBadge() {
+            const badge = document.getElementById('yearDataBadge');
+            const yd = yearlyData[selectedYear];
+            if (yd && (yd.electric?.some(v => v > 0) || yd.gas?.some(v => v > 0))) {
+                badge.textContent = 'Has Data';
+                badge.classList.add('has-data');
+            } else {
+                badge.textContent = 'No Data';
+                badge.classList.remove('has-data');
+            }
+        }
+
+        // ============================================================
+        // TABS
+        // ============================================================
         function initTabs() {
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -908,64 +1202,139 @@
                     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                     btn.classList.add('active');
                     document.getElementById(`tab-${tab}`).classList.add('active');
-                    
                     if (tab === 'history') loadHistory();
                 });
             });
         }
-        
-        // Render Usage Grids
+
+        // ============================================================
+        // RENDER GRIDS
+        // ============================================================
         function renderUsageGrids() {
-            const electricGrid = document.getElementById('electricGrid');
-            const gasGrid = document.getElementById('gasGrid');
-            
-            electricGrid.innerHTML = MONTHS.map((m, i) => `
-                <div class="usage-item">
+            document.getElementById('electricGrid').innerHTML = MONTHS.map((m, i) => `
+                <div class="usage-item" id="elecItem-${i}">
                     <label>${m}</label>
                     <input type="number" id="electric-${i}" value="0" min="0" 
-                           onchange="updateElectric(${i}, this.value)" 
-                           onfocus="this.select()">
+                           onchange="updateElectric(${i}, this.value)" onfocus="this.select()">
                 </div>
             `).join('');
             
-            gasGrid.innerHTML = MONTHS.map((m, i) => `
-                <div class="usage-item">
+            document.getElementById('gasGrid').innerHTML = MONTHS.map((m, i) => `
+                <div class="usage-item" id="gasItem-${i}">
                     <label>${m}</label>
                     <input type="number" id="gas-${i}" value="0" min="0" class="gas"
-                           onchange="updateGas(${i}, this.value)" 
-                           onfocus="this.select()">
+                           onchange="updateGas(${i}, this.value)" onfocus="this.select()">
                 </div>
             `).join('');
         }
         
-        // Update handlers
+        function renderCostGrids() {
+            document.getElementById('supplyCostGrid').innerHTML = MONTHS.map((m, i) => `
+                <div class="usage-item">
+                    <label>${m}</label>
+                    <input type="number" id="supply-${i}" value="0" min="0" class="cost" step="0.01"
+                           onchange="updateSupplyCost(${i}, this.value)" onfocus="this.select()">
+                </div>
+            `).join('');
+            
+            document.getElementById('dtCostGrid').innerHTML = MONTHS.map((m, i) => `
+                <div class="usage-item">
+                    <label>${m}</label>
+                    <input type="number" id="dt-${i}" value="0" min="0" class="cost" step="0.01"
+                           onchange="updateDTCost(${i}, this.value)" onfocus="this.select()">
+                </div>
+            `).join('');
+        }
+        
+        // ============================================================
+        // UPDATE HANDLERS
+        // ============================================================
         function updateElectric(index, value) {
             electricData[index] = parseFloat(value) || 0;
+            dataSource = 'manual';
             updateSummary('electric');
             updateChart('electric');
+            updateDataLevelIndicator();
+            checkBudgetPrompt();
         }
         
         function updateGas(index, value) {
             gasData[index] = parseFloat(value) || 0;
+            dataSource = 'manual';
             updateSummary('gas');
             updateChart('gas');
+            updateDataLevelIndicator();
         }
         
-        // Update Summary
+        function updateSupplyCost(index, value) {
+            supplyCostData[index] = parseFloat(value) || 0;
+            updateCostSummary();
+            updateCostChart();
+            updateDataLevelIndicator();
+        }
+        
+        function updateDTCost(index, value) {
+            dtCostData[index] = parseFloat(value) || 0;
+            updateCostSummary();
+            updateCostChart();
+            updateDataLevelIndicator();
+        }
+
+        // ============================================================
+        // SUMMARIES
+        // ============================================================
         function updateSummary(type) {
             const data = type === 'electric' ? electricData : gasData;
             const total = data.reduce((a, b) => a + b, 0);
             const avg = total / 12;
             const peakIndex = data.indexOf(Math.max(...data));
             const peak = data[peakIndex];
+            const cap = type.charAt(0).toUpperCase() + type.slice(1);
             
-            document.getElementById(`total${type.charAt(0).toUpperCase() + type.slice(1)}`).textContent = total.toLocaleString();
-            document.getElementById(`avg${type.charAt(0).toUpperCase() + type.slice(1)}`).textContent = Math.round(avg).toLocaleString();
-            document.getElementById(`peak${type.charAt(0).toUpperCase() + type.slice(1)}`).textContent = peak > 0 ? MONTHS[peakIndex] : '-';
-            document.getElementById(`peak${type.charAt(0).toUpperCase() + type.slice(1)}Value`).textContent = peak > 0 ? `${peak.toLocaleString()} ${type === 'electric' ? 'kWh' : 'Therms'}` : '';
+            document.getElementById(`total${cap}`).textContent = total.toLocaleString();
+            document.getElementById(`avg${cap}`).textContent = Math.round(avg).toLocaleString();
+            document.getElementById(`peak${cap}`).textContent = peak > 0 ? MONTHS[peakIndex] : '-';
+            document.getElementById(`peak${cap}Value`).textContent = peak > 0 ? `${peak.toLocaleString()} ${type === 'electric' ? 'kWh' : 'Therms'}` : '';
         }
         
-        // Charts
+        function updateCostSummary() {
+            const totalSupply = supplyCostData.reduce((a, b) => a + b, 0);
+            const totalDT = dtCostData.reduce((a, b) => a + b, 0);
+            const totalAll = totalSupply + totalDT;
+            const totalElec = electricData.reduce((a, b) => a + b, 0);
+            const avgRate = totalElec > 0 ? (totalAll / totalElec) : 0;
+            
+            document.getElementById('totalSupply').textContent = '$' + totalSupply.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('totalDT').textContent = '$' + totalDT.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('totalCost').textContent = '$' + totalAll.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('avgRate').textContent = avgRate > 0 ? '$' + avgRate.toFixed(4) : '-';
+        }
+        
+        function updateDataLevelIndicator() {
+            const hasUsage = electricData.some(v => v > 0) || gasData.some(v => v > 0);
+            const hasSupply = supplyCostData.some(v => v > 0);
+            const hasDT = dtCostData.some(v => v > 0);
+            
+            setLevelDot('levelUsage', hasUsage);
+            setLevelDot('levelSupply', hasSupply);
+            setLevelDot('levelDT', hasDT);
+        }
+        
+        function setLevelDot(id, active) {
+            const el = document.getElementById(id);
+            const dot = el.querySelector('.data-level-dot');
+            if (active) {
+                dot.classList.add('active');
+                el.classList.add('active');
+            } else {
+                dot.classList.remove('active');
+                el.classList.remove('active');
+            }
+        }
+
+        // ============================================================
+        // CHARTS
+        // ============================================================
         function initCharts() {
             const chartConfig = (type) => ({
                 type: 'bar',
@@ -976,32 +1345,49 @@
                         data: type === 'electric' ? electricData : gasData,
                         backgroundColor: type === 'electric' ? 'rgba(255, 107, 53, 0.7)' : 'rgba(59, 130, 246, 0.7)',
                         borderColor: type === 'electric' ? '#FF6B35' : '#3b82f6',
-                        borderWidth: 1,
-                        borderRadius: 4
+                        borderWidth: 1, borderRadius: 4
                     }]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    },
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
                     scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: 'rgba(255,255,255,0.1)' },
-                            ticks: { color: '#a0aec0' }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: { color: '#a0aec0' }
-                        }
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#a0aec0' } },
+                        x: { grid: { display: false }, ticks: { color: '#a0aec0' } }
                     }
                 }
             });
             
             electricChart = new Chart(document.getElementById('electricChart'), chartConfig('electric'));
             gasChart = new Chart(document.getElementById('gasChart'), chartConfig('gas'));
+            
+            // Cost stacked chart
+            costChart = new Chart(document.getElementById('costChart'), {
+                type: 'bar',
+                data: {
+                    labels: MONTHS,
+                    datasets: [
+                        { label: 'Supply Cost', data: supplyCostData, backgroundColor: '#00a3e0', borderWidth: 0, borderRadius: 2 },
+                        { label: 'DT Cost', data: dtCostData, backgroundColor: '#003d5c', borderWidth: 0, borderRadius: 2 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#a0aec0' } },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => ctx.dataset.label + ': $' + ctx.parsed.y.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}),
+                                footer: items => { let t = 0; items.forEach(i => t += i.parsed.y); return 'Total: $' + t.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2}); }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { stacked: true, grid: { display: false }, ticks: { color: '#a0aec0' } },
+                        y: { stacked: true, beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#a0aec0', callback: v => '$' + v.toLocaleString() } }
+                    }
+                }
+            });
         }
         
         function updateChart(type) {
@@ -1011,291 +1397,253 @@
             chart.update();
         }
         
-        // Client Context
+        function updateCostChart() {
+            costChart.data.datasets[0].data = [...supplyCostData];
+            costChart.data.datasets[1].data = [...dtCostData];
+            costChart.update();
+        }
+
+        // ============================================================
+        // CLIENT CONTEXT (same pattern as before)
+        // ============================================================
         function initClientContext() {
-            // Set up message listener FIRST (always works)
             window.addEventListener('message', handleMessage);
-            console.log('[EnergyUtil] Message listener set up');
-            
-            // Request active client from parent
             if (window.parent !== window) {
                 window.parent.postMessage({ type: 'REQUEST_ACTIVE_CLIENT' }, '*');
-                console.log('[EnergyUtil] Requested active client from parent');
             }
-            
-            // Try to directly access ClientStore from parent (with retry)
             tryConnectToClientStore(0);
         }
         
         function tryConnectToClientStore(attempt) {
             const maxAttempts = 10;
             const ClientStore = window.parent?.SecureEnergyClients || window.SecureEnergyClients;
-            
             if (ClientStore) {
-                console.log('[EnergyUtil] Connected to ClientStore on attempt', attempt + 1);
-                
-                // Get current active client and account directly
                 const client = ClientStore.getActiveClient?.();
                 const account = ClientStore.getActiveAccount?.();
-                
-                if (client) {
-                    console.log('[EnergyUtil] Got active client from ClientStore:', client.name, 'Account:', account?.accountName);
-                    setActiveClient(client, account);
-                } else {
-                    console.log('[EnergyUtil] No active client currently set');
-                }
-                
-                // Subscribe to ClientStore events for real-time updates
+                if (client) setActiveClient(client, account);
                 ClientStore.subscribe?.((event, data) => {
-                    console.log('[EnergyUtil] ClientStore event received:', event);
-                    if (event === 'activeClientChanged') {
-                        console.log('[EnergyUtil] ClientStore activeClientChanged - Client:', data.client?.name);
-                        setActiveClient(data.client, data.account || null);
-                    }
-                    if (event === 'activeAccountChanged') {
-                        console.log('[EnergyUtil] ClientStore activeAccountChanged - Account:', data.account?.accountName);
-                        setActiveAccount(data.account, data.client);
-                    }
+                    if (event === 'activeClientChanged') setActiveClient(data.client, data.account || null);
+                    if (event === 'activeAccountChanged') setActiveAccount(data.account, data.client);
                 });
-                console.log('[EnergyUtil] Subscribed to ClientStore events');
             } else if (attempt < maxAttempts) {
-                // Retry after a short delay
-                console.log('[EnergyUtil] ClientStore not available, retrying... (attempt', attempt + 1, ')');
                 setTimeout(() => tryConnectToClientStore(attempt + 1), 100);
-            } else {
-                console.warn('[EnergyUtil] Could not connect to ClientStore after', maxAttempts, 'attempts');
             }
         }
         
         function handleMessage(event) {
             const data = event.data;
             if (!data || !data.type) return;
-            
-            // Log all relevant messages for debugging
-            if (data.type.includes('CLIENT') || data.type.includes('ACCOUNT')) {
-                console.log('[EnergyUtil] Message received:', data.type, data);
-            }
-            
-            if (data.type === 'ACTIVE_CLIENT_CHANGED' || data.type === 'ACTIVE_CLIENT_RESPONSE') {
-                console.log('[EnergyUtil] Processing', data.type, '- Client:', data.client?.name, 'Account:', data.account?.accountName);
-                setActiveClient(data.client, data.account || null);
-            }
-            
-            if (data.type === 'ACTIVE_ACCOUNT_CHANGED') {
-                console.log('[EnergyUtil] Processing ACTIVE_ACCOUNT_CHANGED - Account:', data.account?.accountName, 'Client:', data.client?.name);
-                // Account changed under same client
-                setActiveAccount(data.account, data.client);
-            }
+            if (data.type === 'ACTIVE_CLIENT_CHANGED' || data.type === 'ACTIVE_CLIENT_RESPONSE') setActiveClient(data.client, data.account || null);
+            if (data.type === 'ACTIVE_ACCOUNT_CHANGED') setActiveAccount(data.account, data.client);
         }
         
         function setActiveClient(client, account = null) {
-            console.log('[EnergyUtil] setActiveClient called - Client:', client?.name, 'Account:', account?.accountName);
             activeClient = client;
             activeAccount = account;
             updateContextIndicator();
-            
-            if (client) {
-                loadContextUsage();
-            }
-            
-            // Refresh history to show only profiles for the active context
+            if (client) loadContextUsage();
             loadHistory();
         }
         
         function setActiveAccount(account, client = null) {
-            console.log('[EnergyUtil] setActiveAccount called - Account:', account?.accountName, 'Client:', client?.name);
-            // If client provided and different, update it
-            if (client && (!activeClient || activeClient.id !== client.id)) {
-                activeClient = client;
-            }
+            if (client && (!activeClient || activeClient.id !== client.id)) activeClient = client;
             activeAccount = account;
             updateContextIndicator();
             loadContextUsage();
-            
-            // Refresh history to show only profiles for the active context
             loadHistory();
         }
         
         function updateContextIndicator() {
             const indicator = document.getElementById('clientIndicator');
-            
             if (activeClient) {
                 indicator.classList.remove('no-client');
-                
                 if (activeAccount) {
-                    // Has both client and account
                     indicator.classList.add('has-account');
-                    indicator.innerHTML = `
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                            <polyline points="22 4 12 14.01 9 11.01"/>
-                        </svg>
-                        <div class="context-display">
-                            <span class="context-client">${activeClient.name}</span>
-                            <span class="context-account">${activeAccount.accountName || activeAccount.id}</span>
-                        </div>
-                    `;
+                    indicator.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><div class="context-display"><span class="context-client">${activeClient.name}</span><span class="context-account">${activeAccount.accountName || activeAccount.id}</span></div>`;
                 } else {
-                    // Client only, no account
                     indicator.classList.remove('has-account');
-                    indicator.innerHTML = `
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                            <polyline points="22 4 12 14.01 9 11.01"/>
-                        </svg>
-                        <span id="clientName">${activeClient.name}</span>
-                    `;
+                    indicator.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span id="clientName">${activeClient.name}</span>`;
                 }
             } else {
                 indicator.classList.add('no-client');
                 indicator.classList.remove('has-account');
-                indicator.innerHTML = `
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                    </svg>
-                    <span id="clientName">No client selected</span>
-                `;
+                indicator.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span id="clientName">No client selected</span>`;
             }
         }
-        
-        function loadContextUsage() {
+
+        // ============================================================
+        // LOAD CONTEXT USAGE (with multi-year + Azure support)
+        // ============================================================
+        async function loadContextUsage() {
             const contextKey = getContextKey();
             if (!contextKey) return;
             
-            // Clear current data first
+            // Reset all year data
+            yearlyData = {};
             electricData = Array(12).fill(0);
             gasData = Array(12).fill(0);
+            supplyCostData = Array(12).fill(0);
+            dtCostData = Array(12).fill(0);
+            accountsData = [];
             
-            // Try UsageProfileStore first (GitHub-synced centralized store)
-            const ProfileStore = window.parent?.UsageProfileStore || window.UsageProfileStore;
-            if (ProfileStore && ProfileStore.getByContext) {
-                const profile = ProfileStore.getByContext(activeClient?.id, activeAccount?.id);
-                if (profile && (profile.electricUsage?.some(v => v > 0) || profile.gasUsage?.some(v => v > 0))) {
-                    electricData = [...(profile.electricUsage || Array(12).fill(0))];
-                    gasData = [...(profile.gasUsage || Array(12).fill(0))];
-                    updateUIFromData();
-                    console.log('[EnergyUtil] Loaded from UsageProfileStore:', profile.name);
-                    return;
+            // Try Azure first (via AzureDataService)
+            let loaded = false;
+            try {
+                const ADS = window.parent?.AzureDataService || window.AzureDataService;
+                if (ADS && ADS.get) {
+                    const clientsData = await ADS.get('clients.json');
+                    if (clientsData) {
+                        const clientRecord = Array.isArray(clientsData) 
+                            ? clientsData.find(c => c.id === activeClient.id) 
+                            : null;
+                        if (clientRecord?.energyUtilization) {
+                            yearlyData = clientRecord.energyUtilization;
+                            loadFromYear(selectedYear);
+                            updateUIFromData();
+                            updateYearBadge();
+                            updateDataLevelIndicator();
+                            renderAccountBreakdown();
+                            loaded = true;
+                            console.log('[EnergyUtil] Loaded from Azure - years:', Object.keys(yearlyData));
+                        }
+                    }
+                }
+            } catch(e) { console.warn('[EnergyUtil] Azure load failed, trying fallback:', e); }
+            
+            // Try UsageProfileStore
+            if (!loaded) {
+                const ProfileStore = window.parent?.UsageProfileStore || window.UsageProfileStore;
+                if (ProfileStore && ProfileStore.getByContext) {
+                    const profile = ProfileStore.getByContext(activeClient?.id, activeAccount?.id);
+                    if (profile) {
+                        // Legacy profile (single year)
+                        const yd = getEmptyYearData();
+                        yd.electric = [...(profile.electricUsage || Array(12).fill(0))];
+                        yd.gas = [...(profile.gasUsage || Array(12).fill(0))];
+                        yd.supplyCost = [...(profile.supplyCost || Array(12).fill(0))];
+                        yd.dtCost = [...(profile.dtCost || Array(12).fill(0))];
+                        yd.dataSource = 'imported';
+                        yearlyData[selectedYear] = yd;
+                        loadFromYear(selectedYear);
+                        updateUIFromData();
+                        loaded = true;
+                        console.log('[EnergyUtil] Loaded from UsageProfileStore');
+                    }
                 }
             }
             
-            // Fallback: try localStorage with context key
-            const stored = localStorage.getItem(`usage_${contextKey}`);
-            if (stored) {
-                try {
-                    const profile = JSON.parse(stored);
-                    if (profile.electric) {
-                        electricData = [...profile.electric];
-                    }
-                    if (profile.gas) {
-                        gasData = [...profile.gas];
-                    }
-                    updateUIFromData();
-                    console.log('[EnergyUtil] Loaded from localStorage:', contextKey);
-                    return;
-                } catch {}
-            }
-            
-            // Fallback: try client-only key if we have account but no account-specific data
-            if (activeAccount && activeClient) {
-                // First try UsageProfileStore for client-level
-                if (ProfileStore && ProfileStore.getByContext) {
-                    const clientProfile = ProfileStore.getByContext(activeClient.id, null);
-                    if (clientProfile && (clientProfile.electricUsage?.some(v => v > 0) || clientProfile.gasUsage?.some(v => v > 0))) {
-                        electricData = [...(clientProfile.electricUsage || Array(12).fill(0))];
-                        gasData = [...(clientProfile.gasUsage || Array(12).fill(0))];
-                        updateUIFromData();
-                        showToast('Loaded parent-level usage (no account-specific data yet)', 'info');
-                        console.log('[EnergyUtil] Loaded parent profile from UsageProfileStore');
-                        return;
-                    }
+            // Try localStorage
+            if (!loaded) {
+                const stored = localStorage.getItem(`usage_v2_${contextKey}`);
+                if (stored) {
+                    try {
+                        const parsed = JSON.parse(stored);
+                        if (parsed.yearlyData) {
+                            yearlyData = parsed.yearlyData;
+                            loadFromYear(selectedYear);
+                            updateUIFromData();
+                            loaded = true;
+                        }
+                    } catch(e) {}
                 }
                 
-                // Then try localStorage
-                const clientOnlyKey = `usage_${activeClient.id}`;
-                const clientStored = localStorage.getItem(clientOnlyKey);
-                if (clientStored) {
-                    try {
-                        const profile = JSON.parse(clientStored);
-                        if (profile.electric) {
-                            electricData = [...profile.electric];
-                        }
-                        if (profile.gas) {
-                            gasData = [...profile.gas];
-                        }
-                        updateUIFromData();
-                        // Show toast that we're using parent-level data
-                        showToast('Loaded parent-level usage (no account-specific data yet)', 'info');
-                        return;
-                    } catch {}
+                // Legacy localStorage format
+                if (!loaded) {
+                    const legacyStored = localStorage.getItem(`usage_${contextKey}`);
+                    if (legacyStored) {
+                        try {
+                            const profile = JSON.parse(legacyStored);
+                            const yd = getEmptyYearData();
+                            if (profile.electric) yd.electric = [...profile.electric];
+                            if (profile.gas) yd.gas = [...profile.gas];
+                            yearlyData[selectedYear] = yd;
+                            loadFromYear(selectedYear);
+                            updateUIFromData();
+                            loaded = true;
+                        } catch(e) {}
+                    }
                 }
             }
             
-            // Check if client has usage in store
-            if (window.parent?.SecureEnergyClients && activeClient) {
-                const client = window.parent.SecureEnergyClients.getClient(activeClient.id);
-                if (client?.usageProfile) {
-                    electricData = [...(client.usageProfile.electric || Array(12).fill(0))];
-                    gasData = [...(client.usageProfile.gas || Array(12).fill(0))];
-                    updateUIFromData();
-                    return;
+            if (!loaded) {
+                updateUIFromData();
+                if (activeClient) {
+                    const displayName = activeAccount ? `${activeClient.name} → ${activeAccount.accountName || 'Account'}` : activeClient.name;
+                    document.getElementById('noUsageClientName').textContent = displayName;
+                    document.getElementById('noUsageYear').textContent = selectedYear;
+                    document.getElementById('noUsageModal').classList.add('show');
                 }
             }
             
-            // No usage found - update UI with zeros and prompt
-            updateUIFromData();
-            
-            if (activeClient) {
-                const displayName = activeAccount 
-                    ? `${activeClient.name} → ${activeAccount.accountName || 'Account'}` 
-                    : activeClient.name;
-                document.getElementById('noUsageClientName').textContent = displayName;
-                document.getElementById('noUsageModal').classList.add('show');
-            }
+            updateYearBadge();
+            updateDataLevelIndicator();
+            renderAccountBreakdown();
         }
         
         function updateUIFromData() {
             electricData.forEach((v, i) => document.getElementById(`electric-${i}`).value = v);
             gasData.forEach((v, i) => document.getElementById(`gas-${i}`).value = v);
+            supplyCostData.forEach((v, i) => document.getElementById(`supply-${i}`).value = v ? v.toFixed(2) : 0);
+            dtCostData.forEach((v, i) => document.getElementById(`dt-${i}`).value = v ? v.toFixed(2) : 0);
             updateSummary('electric');
             updateSummary('gas');
+            updateCostSummary();
             updateChart('electric');
             updateChart('gas');
+            updateCostChart();
         }
-        
-        // Legacy function for backward compatibility
-        function loadClientUsage(clientId) {
-            loadContextUsage();
-        }
-        
-        function closeNoUsageModal() {
-            document.getElementById('noUsageModal').classList.remove('show');
-        }
-        
-        function startUsageEntry() {
-            closeNoUsageModal();
-            // Switch to electric tab and focus first input
-            document.querySelector('[data-tab="electric"]').click();
-            setTimeout(() => document.getElementById('electric-0').focus(), 100);
-        }
-        
-        // Save to Client
-        async function saveToClient() {
-            if (!activeClient) {
-                showToast('Please select a client first', 'warning');
-                return;
+
+        // ============================================================
+        // DUPLICATE DETECTION
+        // ============================================================
+        function checkForDuplicates(year, newData) {
+            const existing = yearlyData[year];
+            if (!existing) return { hasDuplicates: false, duplicateMonths: [] };
+            
+            const duplicateMonths = [];
+            for (let i = 0; i < 12; i++) {
+                const existingHasData = (existing.electric[i] > 0) || (existing.gas[i] > 0) || 
+                                         (existing.supplyCost?.[i] > 0) || (existing.dtCost?.[i] > 0);
+                const newHasData = (newData.electric?.[i] > 0) || (newData.gas?.[i] > 0) ||
+                                    (newData.supplyCost?.[i] > 0) || (newData.dtCost?.[i] > 0);
+                if (existingHasData && newHasData) {
+                    duplicateMonths.push({ index: i, month: MONTHS[i], existing: {
+                        electric: existing.electric[i], gas: existing.gas[i],
+                        supply: existing.supplyCost?.[i] || 0, dt: existing.dtCost?.[i] || 0
+                    }, new: {
+                        electric: newData.electric?.[i] || 0, gas: newData.gas?.[i] || 0,
+                        supply: newData.supplyCost?.[i] || 0, dt: newData.dtCost?.[i] || 0
+                    }});
+                }
             }
+            return { hasDuplicates: duplicateMonths.length > 0, duplicateMonths };
+        }
+
+        // ============================================================
+        // SAVE TO CLIENT (with Azure sync)
+        // ============================================================
+        async function saveToClient() {
+            if (!activeClient) { showToast('Please select a client first', 'warning'); return; }
+            
+            // Sync current inputs to yearlyData
+            syncToCurrentYear();
             
             const contextKey = getContextKey();
-            const displayName = activeAccount 
-                ? `${activeClient.name} → ${activeAccount.accountName || 'Account'}` 
-                : activeClient.name;
+            const displayName = activeAccount ? `${activeClient.name} → ${activeAccount.accountName || 'Account'}` : activeClient.name;
             
+            // Build profile for backward compat
             const profile = {
                 electric: [...electricData],
                 gas: [...gasData],
+                supplyCost: [...supplyCostData],
+                dtCost: [...dtCostData],
+                accounts: [...accountsData],
                 totalElectric: electricData.reduce((a, b) => a + b, 0),
                 totalGas: gasData.reduce((a, b) => a + b, 0),
+                totalSupply: supplyCostData.reduce((a, b) => a + b, 0),
+                totalDT: dtCostData.reduce((a, b) => a + b, 0),
+                year: selectedYear,
+                dataSource: dataSource,
                 clientId: activeClient.id,
                 clientName: activeClient.name,
                 accountId: activeAccount?.id || null,
@@ -1303,21 +1651,34 @@
                 updatedAt: new Date().toISOString()
             };
             
-            // Save to parent's client store (at client level for aggregation)
-            if (window.parent?.SecureEnergyClients) {
-                window.parent.SecureEnergyClients.updateClient(activeClient.id, {
-                    usageProfile: profile,
-                    annualUsageMWh: profile.totalElectric / 1000 // Convert kWh to MWh
-                });
-            }
+            // Save v2 format to localStorage (multi-year)
+            localStorage.setItem(`usage_v2_${contextKey}`, JSON.stringify({ yearlyData, lastYear: selectedYear }));
             
-            // Save to localStorage with context key (quick local cache)
+            // Legacy localStorage for backward compat
             localStorage.setItem(`usage_${contextKey}`, JSON.stringify(profile));
             
-            // Save to UsageProfileStore for GitHub sync and cross-device availability
+            // Save to Azure (update client record with energyUtilization)
+            try {
+                const ADS = window.parent?.AzureDataService || window.AzureDataService;
+                if (ADS && ADS.get && ADS.save) {
+                    const clientsData = await ADS.get('clients.json');
+                    if (Array.isArray(clientsData)) {
+                        const clientIndex = clientsData.findIndex(c => c.id === activeClient.id);
+                        if (clientIndex >= 0) {
+                            if (!clientsData[clientIndex].energyUtilization) clientsData[clientIndex].energyUtilization = {};
+                            clientsData[clientIndex].energyUtilization[selectedYear] = getCurrentYearData();
+                            clientsData[clientIndex].annualUsageMWh = profile.totalElectric / 1000;
+                            await ADS.save('clients.json', clientsData);
+                            console.log('[EnergyUtil] Saved to Azure clients.json');
+                        }
+                    }
+                }
+            } catch(e) { console.warn('[EnergyUtil] Azure save failed:', e); }
+            
+            // Save to UsageProfileStore for cross-widget availability
             await saveToUsageProfileStore(profile);
             
-            // Log activity to ActivityLog
+            // Log activity
             logUsageActivity(profile);
             
             // Notify other widgets
@@ -1326,165 +1687,530 @@
                     type: 'CLIENT_USAGE_UPDATED',
                     clientId: activeClient.id,
                     accountId: activeAccount?.id || null,
-                    contextKey: contextKey,
-                    profile: profile
+                    contextKey, profile, year: selectedYear
                 }, '*');
             }
             
-            showToast(`Usage saved for ${displayName}`, 'success');
+            // Update parent SecureEnergyClients
+            if (window.parent?.SecureEnergyClients) {
+                window.parent.SecureEnergyClients.updateClient(activeClient.id, {
+                    usageProfile: profile,
+                    annualUsageMWh: profile.totalElectric / 1000
+                });
+            }
             
-            // Refresh history to show the newly saved profile
+            showToast(`Usage saved for ${displayName} (${selectedYear})`, 'success');
             loadHistory();
+            updateYearBadge();
+            
+            // Prompt budget report
+            showBudgetReportModal();
         }
         
-        // Save to UsageProfileStore (GitHub-synced centralized store)
         async function saveToUsageProfileStore(profile) {
-            // Try to access UsageProfileStore from parent window
             const ProfileStore = window.parent?.UsageProfileStore || window.UsageProfileStore;
-            
             if (ProfileStore && ProfileStore.createOrUpdateByContext) {
                 try {
-                    // Get user info for createdBy field
                     let userInfo = {};
                     try {
                         const user = window.parent?.UserStore?.getCurrentUser?.();
-                        if (user) {
-                            userInfo = {
-                                createdBy: user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : null,
-                                createdByEmail: user.email || null
-                            };
-                        }
-                    } catch (e) { /* ignore */ }
+                        if (user) userInfo = { createdBy: `${user.firstName} ${user.lastName}`, createdByEmail: user.email };
+                    } catch(e) {}
                     
-                    const result = await ProfileStore.createOrUpdateByContext(
-                        profile.clientId,
-                        profile.accountId,
-                        {
-                            name: profile.accountName 
-                                ? `${profile.clientName} → ${profile.accountName}`
-                                : profile.clientName,
-                            clientName: profile.clientName,
-                            accountName: profile.accountName,
-                            electricUsage: profile.electric,
-                            gasUsage: profile.gas,
-                            totalElectric: profile.totalElectric,
-                            totalGas: profile.totalGas,
-                            ...userInfo
-                        }
-                    );
-                    
-                    if (result.success) {
-                        console.log('[EnergyUtil] Profile saved to UsageProfileStore:', result.profile?.id);
-                    } else {
-                        console.warn('[EnergyUtil] UsageProfileStore save failed:', result.error);
-                    }
-                } catch (e) {
-                    console.warn('[EnergyUtil] Failed to save to UsageProfileStore:', e);
-                }
+                    await ProfileStore.createOrUpdateByContext(profile.clientId, profile.accountId, {
+                        name: profile.accountName ? `${profile.clientName} → ${profile.accountName}` : profile.clientName,
+                        clientName: profile.clientName, accountName: profile.accountName,
+                        electricUsage: profile.electric, gasUsage: profile.gas,
+                        supplyCost: profile.supplyCost, dtCost: profile.dtCost,
+                        totalElectric: profile.totalElectric, totalGas: profile.totalGas,
+                        year: profile.year, ...userInfo
+                    });
+                    console.log('[EnergyUtil] Saved to UsageProfileStore');
+                } catch(e) { console.warn('[EnergyUtil] UsageProfileStore save failed:', e); }
             } else {
-                // Fallback: send message to parent to handle the save
+                // Send via postMessage as fallback
                 window.parent?.postMessage({
                     type: 'SAVE_USAGE_PROFILE',
-                    clientId: profile.clientId,
-                    accountId: profile.accountId,
-                    profile: {
-                        name: profile.accountName 
-                            ? `${profile.clientName} → ${profile.accountName}`
-                            : profile.clientName,
-                        clientName: profile.clientName,
-                        accountName: profile.accountName,
-                        electricUsage: profile.electric,
-                        gasUsage: profile.gas,
-                        totalElectric: profile.totalElectric,
-                        totalGas: profile.totalGas
-                    }
+                    clientId: profile.clientId, accountId: profile.accountId,
+                    profileData: profile
                 }, '*');
-                console.log('[EnergyUtil] Sent SAVE_USAGE_PROFILE message to parent');
             }
         }
-        
-        // Log usage entry to ActivityLog
+
+        // ============================================================
+        // ACTIVITY LOGGING
+        // ============================================================
         function logUsageActivity(profile) {
-            // Try to get current user info
-            let userInfo = { userId: null, userName: null, userEmail: null };
+            let userInfo = {};
             try {
-                // First try parent's UserStore
-                if (window.parent?.UserStore) {
-                    const user = window.parent.UserStore.getCurrentUser();
-                    if (user) {
-                        userInfo = {
-                            userId: user.id || null,
-                            userName: user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : null,
-                            userEmail: user.email || null
-                        };
-                    }
-                }
-                // Fallback to localStorage
-                if (!userInfo.userId) {
-                    const sessionData = localStorage.getItem('secureEnergy_currentUser');
-                    if (sessionData) {
-                        const user = JSON.parse(sessionData);
-                        userInfo = {
-                            userId: user.id || null,
-                            userName: user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : null,
-                            userEmail: user.email || null
-                        };
-                    }
-                }
-            } catch (e) { 
-                console.warn('[EnergyUtil] Could not get user info for activity log:', e);
+                const user = window.parent?.UserStore?.getCurrentUser?.();
+                if (user) userInfo = { userId: user.id, userEmail: user.email, userName: `${user.firstName} ${user.lastName}` };
+            } catch(e) {
+                try { const u = JSON.parse(localStorage.getItem('ses_current_user')); if (u) userInfo = { userId: u.id, userEmail: u.email, userName: u.name || `${u.firstName||''} ${u.lastName||''}`.trim() }; } catch(e2) {}
             }
             
-            // Try to use parent's ActivityLog
-            if (window.parent?.ActivityLog?.logUsageEntry) {
-                window.parent.ActivityLog.logUsageEntry({
-                    ...userInfo,
-                    clientId: profile.clientId,
-                    clientName: profile.clientName,
-                    accountId: profile.accountId,
-                    accountName: profile.accountName,
-                    totalElectric: profile.totalElectric,
-                    totalGas: profile.totalGas,
-                    electricData: profile.electric,
-                    gasData: profile.gas
-                });
-                console.log('[EnergyUtil] Usage entry logged to ActivityLog');
-            } else if (window.parent?.ActivityLog?.log) {
-                // Fallback to generic log method
-                window.parent.ActivityLog.log({
-                    ...userInfo,
-                    widget: 'energy-utilization',
-                    action: 'Usage Entry',
-                    clientName: profile.clientName,
-                    data: {
-                        clientId: profile.clientId,
-                        clientName: profile.clientName,
-                        accountId: profile.accountId,
-                        accountName: profile.accountName,
-                        totalElectric: profile.totalElectric,
-                        totalGas: profile.totalGas
-                    }
-                });
-                console.log('[EnergyUtil] Usage entry logged to ActivityLog (generic)');
+            const logData = {
+                ...userInfo,
+                widget: 'energy-utilization',
+                action: 'Usage Entry',
+                clientId: profile.clientId, clientName: profile.clientName,
+                accountId: profile.accountId, accountName: profile.accountName,
+                year: profile.year, dataSource: profile.dataSource,
+                totalElectric: profile.totalElectric, totalGas: profile.totalGas,
+                totalSupply: profile.totalSupply, totalDT: profile.totalDT,
+                accountCount: profile.accounts?.length || 0
+            };
+            
+            if (window.parent?.ActivityLog?.log) {
+                window.parent.ActivityLog.log(logData);
             } else {
-                // Send message to parent to log
-                window.parent?.postMessage({
-                    type: 'LOG_USAGE_ACTIVITY',
-                    ...userInfo,
-                    clientId: profile.clientId,
-                    clientName: profile.clientName,
-                    accountId: profile.accountId,
-                    accountName: profile.accountName,
-                    totalElectric: profile.totalElectric,
-                    totalGas: profile.totalGas,
-                    electricData: profile.electric,
-                    gasData: profile.gas
-                }, '*');
-                console.log('[EnergyUtil] Usage entry sent via postMessage');
+                window.parent?.postMessage({ type: 'LOG_USAGE_ACTIVITY', ...logData }, '*');
+            }
+        }
+
+        // ============================================================
+        // IMPORT HANDLING (Updated 3-Level Format)
+        // ============================================================
+        function showImportModal() {
+            document.getElementById('importYear').value = selectedYear;
+            document.getElementById('importPreview').style.display = 'none';
+            document.getElementById('confirmImportBtn').style.display = 'none';
+            document.getElementById('importFile').value = '';
+            pendingImportData = null;
+            document.getElementById('importModal').classList.add('show');
+        }
+        
+        function closeImportModal() {
+            document.getElementById('importModal').classList.remove('show');
+            pendingImportData = null;
+        }
+        
+        function handleImportFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const wb = XLSX.read(data, { type: 'array' });
+                    
+                    // Try 3-level format first (By Account sheet)
+                    if (wb.Sheets['By Account']) {
+                        parseThreeLevelImport(wb);
+                    } else {
+                        // Fallback to simple format
+                        parseSimpleImport(wb);
+                    }
+                } catch(err) {
+                    showToast('Failed to parse file: ' + err.message, 'error');
+                    console.error(err);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+        
+        function parseThreeLevelImport(wb) {
+            const sheet = wb.Sheets['By Account'];
+            const range = XLSX.utils.decode_range(sheet['!ref']);
+            
+            const importYear = document.getElementById('importYear').value;
+            const accounts = [];
+            const totalUsage = Array(12).fill(0);
+            const totalSupply = Array(12).fill(0);
+            const totalDT = Array(12).fill(0);
+            
+            // Find section boundaries by scanning for title rows containing key phrases
+            let usageStartRow = -1, supplyStartRow = -1, dtStartRow = -1;
+            
+            for (let r = 0; r <= range.e.r; r++) {
+                const cell = sheet[XLSX.utils.encode_cell({ r, c: 0 })];
+                if (!cell || !cell.v) continue;
+                const val = String(cell.v).toLowerCase();
+                
+                if (val.includes('usage') && val.includes('kwh') && val.includes('account')) {
+                    usageStartRow = r;
+                } else if (val.includes('supply cost') && val.includes('account')) {
+                    supplyStartRow = r;
+                } else if (val.includes('dt cost') && val.includes('account')) {
+                    dtStartRow = r;
+                }
+            }
+            
+            // If we couldn't find labeled sections, try positional approach
+            // (standard format: usage at row 0, supply 12 rows down, DT 24 rows down)
+            if (usageStartRow === -1) {
+                // Look for first "Account" header
+                for (let r = 0; r <= Math.min(range.e.r, 5); r++) {
+                    const cell = sheet[XLSX.utils.encode_cell({ r, c: 0 })];
+                    if (cell && String(cell.v).toLowerCase().includes('account')) {
+                        usageStartRow = r - 2; // Title is 2 rows above header
+                        break;
+                    }
+                }
+                if (usageStartRow === -1) usageStartRow = 0;
+            }
+            
+            // Find account data rows in usage section
+            const usageHeaderRow = usageStartRow + 2; // Header row is title+1 blank+header
+            const accountRows = [];
+            
+            for (let r = usageHeaderRow + 1; r <= range.e.r; r++) {
+                const cell = sheet[XLSX.utils.encode_cell({ r, c: 0 })];
+                if (!cell || !cell.v) break; // Empty row = end of accounts
+                const name = String(cell.v);
+                if (name.toLowerCase().includes('total')) break; // Total row = end
+                accountRows.push(r);
+                
+                const account = { name, usage: [], supplyCost: [], dtCost: [] };
+                for (let c = 1; c <= 12; c++) {
+                    const usageCell = sheet[XLSX.utils.encode_cell({ r, c })];
+                    const val = usageCell ? (parseFloat(usageCell.v) || 0) : 0;
+                    account.usage.push(val);
+                    totalUsage[c - 1] += val;
+                }
+                accounts.push(account);
+            }
+            
+            // Parse supply cost section
+            if (supplyStartRow === -1) {
+                // Positional: 12 rows after usage accounts start
+                supplyStartRow = usageHeaderRow - 2 + 12;
+            }
+            const supplyHeaderRow = supplyStartRow + 2;
+            
+            accounts.forEach((account, idx) => {
+                const r = supplyHeaderRow + 1 + idx;
+                account.supplyCost = [];
+                for (let c = 1; c <= 12; c++) {
+                    const cell = sheet[XLSX.utils.encode_cell({ r, c })];
+                    const val = cell ? (parseFloat(cell.v) || 0) : 0;
+                    account.supplyCost.push(val);
+                    totalSupply[c - 1] += val;
+                }
+            });
+            
+            // Parse DT cost section
+            if (dtStartRow === -1) {
+                dtStartRow = supplyStartRow + 12;
+            }
+            const dtHeaderRow = dtStartRow + 2;
+            
+            accounts.forEach((account, idx) => {
+                const r = dtHeaderRow + 1 + idx;
+                account.dtCost = [];
+                for (let c = 1; c <= 12; c++) {
+                    const cell = sheet[XLSX.utils.encode_cell({ r, c })];
+                    const val = cell ? (parseFloat(cell.v) || 0) : 0;
+                    account.dtCost.push(val);
+                    totalDT[c - 1] += val;
+                }
+            });
+            
+            // Build pending import data
+            pendingImportData = {
+                type: 'three-level',
+                year: importYear,
+                electric: totalUsage,
+                gas: Array(12).fill(0), // 3-level format is typically electric only
+                supplyCost: totalSupply,
+                dtCost: totalDT,
+                accounts: accounts
+            };
+            
+            // Show preview with duplicate detection
+            showImportPreview(pendingImportData);
+        }
+        
+        function parseSimpleImport(wb) {
+            const ws = wb.Sheets['Usage Data'] || wb.Sheets['Simple Usage'] || wb.Sheets[wb.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(ws, { header: 1 });
+            const importYear = document.getElementById('importYear').value;
+            
+            let startRow = 0;
+            for (let i = 0; i < Math.min(json.length, 10); i++) {
+                if (json[i]?.[0] && typeof json[i][0] === 'string' && json[i][0].toLowerCase().includes('month')) {
+                    startRow = i + 1;
+                    break;
+                }
+            }
+            
+            const elec = Array(12).fill(0);
+            const gas = Array(12).fill(0);
+            let count = 0;
+            
+            json.forEach((row, i) => {
+                if (i < startRow) return;
+                const monthIndex = i - startRow;
+                if (monthIndex >= 12) return;
+                elec[monthIndex] = parseFloat(row[1]) || 0;
+                gas[monthIndex] = parseFloat(row[2]) || 0;
+                if (elec[monthIndex] > 0 || gas[monthIndex] > 0) count++;
+            });
+            
+            pendingImportData = {
+                type: 'simple',
+                year: importYear,
+                electric: elec,
+                gas: gas,
+                supplyCost: Array(12).fill(0),
+                dtCost: Array(12).fill(0),
+                accounts: []
+            };
+            
+            showImportPreview(pendingImportData);
+        }
+        
+        function showImportPreview(importData) {
+            const preview = document.getElementById('importPreview');
+            const year = importData.year;
+            const duplicates = checkForDuplicates(year, importData);
+            
+            let html = `<div class="import-preview"><h4>Import Preview — ${year}</h4>`;
+            
+            if (importData.type === 'three-level' && importData.accounts.length > 0) {
+                html += `<p style="font-size:0.8rem;color:var(--success);margin-bottom:8px;">✓ 3-Level data detected: ${importData.accounts.length} accounts with Usage, Supply Cost, and DT Cost</p>`;
+            } else {
+                html += `<p style="font-size:0.8rem;color:var(--warning);margin-bottom:8px;">⚠ Simple format — only Usage data. Import the 3-level template for complete budget reports.</p>`;
+            }
+            
+            if (duplicates.hasDuplicates) {
+                html += `<div class="conflict-panel"><h4>⚠ ${duplicates.duplicateMonths.length} month(s) already have data for ${year}</h4>`;
+                html += `<p>Existing data will be overwritten for: ${duplicates.duplicateMonths.map(d => d.month).join(', ')}</p></div>`;
+            }
+            
+            html += `<div class="import-preview-grid">`;
+            html += `<span class="header">Month</span><span class="header">Usage (kWh)</span><span class="header">Supply ($)</span><span class="header">DT ($)</span>`;
+            
+            for (let i = 0; i < 12; i++) {
+                const isDuplicate = duplicates.duplicateMonths.some(d => d.index === i);
+                const hasNew = (importData.electric[i] > 0 || importData.supplyCost[i] > 0 || importData.dtCost[i] > 0);
+                const cls = isDuplicate ? 'duplicate' : (hasNew ? 'new-data' : '');
+                html += `<span class="${cls}">${MONTHS[i]}${isDuplicate ? ' ⚠' : ''}</span>`;
+                html += `<span class="${cls}">${importData.electric[i] > 0 ? importData.electric[i].toLocaleString() : '-'}</span>`;
+                html += `<span class="${cls}">${importData.supplyCost[i] > 0 ? '$'+importData.supplyCost[i].toFixed(2) : '-'}</span>`;
+                html += `<span class="${cls}">${importData.dtCost[i] > 0 ? '$'+importData.dtCost[i].toFixed(2) : '-'}</span>`;
+            }
+            html += `</div></div>`;
+            
+            preview.innerHTML = html;
+            preview.style.display = 'block';
+            document.getElementById('confirmImportBtn').style.display = 'inline-flex';
+        }
+        
+        function confirmImport() {
+            if (!pendingImportData) return;
+            
+            const year = pendingImportData.year;
+            const duplicates = checkForDuplicates(year, pendingImportData);
+            
+            if (duplicates.hasDuplicates) {
+                // Show conflict modal
+                document.getElementById('duplicateMessage').textContent = 
+                    `${duplicates.duplicateMonths.length} month(s) in ${year} already have data. How would you like to proceed?`;
+                
+                let detailHtml = '<div style="font-size:0.8rem;max-height:200px;overflow-y:auto;">';
+                duplicates.duplicateMonths.forEach(d => {
+                    detailHtml += `<div style="padding:4px 0;border-bottom:1px solid var(--border);">
+                        <strong>${d.month}:</strong> Existing: ${d.existing.electric.toLocaleString()} kWh → New: ${d.new.electric.toLocaleString()} kWh
+                    </div>`;
+                });
+                detailHtml += '</div>';
+                document.getElementById('duplicateDetails').innerHTML = detailHtml;
+                document.getElementById('duplicateModal').classList.add('show');
+            } else {
+                applyImport('overwrite');
             }
         }
         
-        // Clear Usage
+        function resolveConflict(action) {
+            closeDuplicateModal();
+            applyImport(action);
+        }
+        
+        function applyImport(conflictAction) {
+            if (!pendingImportData) return;
+            
+            const year = pendingImportData.year;
+            
+            // Ensure year entry exists
+            if (!yearlyData[year]) yearlyData[year] = getEmptyYearData();
+            const yd = yearlyData[year];
+            
+            for (let i = 0; i < 12; i++) {
+                const existingHasData = (yd.electric[i] > 0) || (yd.gas[i] > 0) || (yd.supplyCost[i] > 0) || (yd.dtCost[i] > 0);
+                const newHasData = (pendingImportData.electric[i] > 0) || (pendingImportData.gas[i] > 0) || 
+                                    (pendingImportData.supplyCost[i] > 0) || (pendingImportData.dtCost[i] > 0);
+                
+                if (existingHasData && newHasData && conflictAction === 'skip') {
+                    continue; // Skip duplicates
+                }
+                
+                // Apply new data
+                if (newHasData || conflictAction === 'overwrite') {
+                    if (pendingImportData.electric[i] > 0 || conflictAction === 'overwrite') yd.electric[i] = pendingImportData.electric[i];
+                    if (pendingImportData.gas[i] > 0 || conflictAction === 'overwrite') yd.gas[i] = pendingImportData.gas[i];
+                    if (pendingImportData.supplyCost[i] > 0 || conflictAction === 'overwrite') yd.supplyCost[i] = pendingImportData.supplyCost[i];
+                    if (pendingImportData.dtCost[i] > 0 || conflictAction === 'overwrite') yd.dtCost[i] = pendingImportData.dtCost[i];
+                }
+            }
+            
+            // Store accounts breakdown
+            if (pendingImportData.accounts?.length > 0) {
+                yd.accounts = pendingImportData.accounts;
+            }
+            
+            yd.dataSource = 'imported';
+            yd.updatedAt = new Date().toISOString();
+            
+            // Switch to imported year and update UI
+            selectedYear = year;
+            document.getElementById('yearSelect').value = year;
+            loadFromYear(year);
+            updateUIFromData();
+            updateYearBadge();
+            updateDataLevelIndicator();
+            renderAccountBreakdown();
+            
+            const importedCount = pendingImportData.electric.filter(v => v > 0).length + 
+                                   pendingImportData.supplyCost.filter(v => v > 0).length;
+            
+            closeImportModal();
+            showToast(`Imported ${pendingImportData.accounts?.length || 0} accounts, ${importedCount} data points for ${year}`, 'success');
+            
+            pendingImportData = null;
+        }
+        
+        function closeDuplicateModal() {
+            document.getElementById('duplicateModal').classList.remove('show');
+        }
+
+        // ============================================================
+        // ACCOUNT BREAKDOWN DISPLAY
+        // ============================================================
+        function renderAccountBreakdown() {
+            const container = document.getElementById('accountBreakdown');
+            if (!accountsData || accountsData.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            container.style.display = 'block';
+            let html = `<div class="account-breakdown">
+                <h4 style="padding:12px;font-size:0.85rem;">Account Breakdown (${selectedYear}) — ${accountsData.length} accounts</h4>
+                <table>
+                    <thead><tr><th>Account</th>`;
+            MONTHS.forEach(m => html += `<th style="text-align:right;">${m}</th>`);
+            html += `<th style="text-align:right;">Total</th></tr></thead><tbody>`;
+            
+            accountsData.forEach(acc => {
+                const total = acc.usage?.reduce((a, b) => a + b, 0) || 0;
+                html += `<tr><td style="font-size:0.7rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${acc.name}">${acc.name}</td>`;
+                (acc.usage || []).forEach(v => html += `<td style="text-align:right;font-size:0.75rem;">${v > 0 ? v.toLocaleString() : '-'}</td>`);
+                html += `<td style="text-align:right;font-weight:600;font-size:0.75rem;">${total.toLocaleString()}</td></tr>`;
+            });
+            
+            // Total row
+            html += `<tr class="total-row"><td>Total</td>`;
+            for (let i = 0; i < 12; i++) {
+                const monthTotal = accountsData.reduce((sum, acc) => sum + ((acc.usage || [])[i] || 0), 0);
+                html += `<td style="text-align:right;font-size:0.75rem;">${monthTotal.toLocaleString()}</td>`;
+            }
+            const grandTotal = electricData.reduce((a, b) => a + b, 0);
+            html += `<td style="text-align:right;font-size:0.75rem;">${grandTotal.toLocaleString()}</td></tr>`;
+            html += `</tbody></table></div>`;
+            
+            container.innerHTML = html;
+        }
+
+        // ============================================================
+        // BUDGET REPORT PROMPTS
+        // ============================================================
+        function checkBudgetPrompt() {
+            const hasUsage = electricData.some(v => v > 0);
+            const hasSupply = supplyCostData.some(v => v > 0);
+            const hasDT = dtCostData.some(v => v > 0);
+            
+            // Show prompt if user just entered usage data
+            if (hasUsage) {
+                updateBudgetCompleteness('budgetCompletenessElectric', hasUsage, hasSupply, hasDT);
+                // Only show inline prompt if not recently dismissed
+                if (!sessionStorage.getItem(`budget_prompt_dismissed_${selectedYear}`)) {
+                    document.getElementById('budgetPromptElectric').classList.add('show');
+                }
+            }
+        }
+        
+        function updateBudgetCompleteness(containerId, hasUsage, hasSupply, hasDT) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            const allComplete = hasUsage && hasSupply && hasDT;
+            
+            let html = `<div class="data-completeness">
+                <span class="data-check ${hasUsage ? 'complete' : 'missing'}"><span class="check-icon">${hasUsage ? '✅' : '⬜'}</span> Usage</span>
+                <span class="data-check ${hasSupply ? 'complete' : 'missing'}"><span class="check-icon">${hasSupply ? '✅' : '⬜'}</span> Supply Cost</span>
+                <span class="data-check ${hasDT ? 'complete' : 'missing'}"><span class="check-icon">${hasDT ? '✅' : '⬜'}</span> DT Cost</span>
+            </div>`;
+            
+            if (!allComplete && dataSource === 'manual') {
+                html += `<div class="manual-note">💡 For a more complete budget report, provide all 3 data levels (Usage, Supply Cost, DT Cost). Import the 3-level Excel template for the most comprehensive analysis.</div>`;
+            } else if (allComplete) {
+                html += `<p style="color:var(--success);font-size:0.8rem;">✓ All 3 data levels available — full budget report ready!</p>`;
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        function dismissBudgetPrompt(tab) {
+            document.getElementById(`budgetPrompt${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.remove('show');
+            sessionStorage.setItem(`budget_prompt_dismissed_${selectedYear}`, 'true');
+        }
+        
+        function showBudgetReportModal() {
+            const hasUsage = electricData.some(v => v > 0);
+            if (!hasUsage) return;
+            
+            const hasSupply = supplyCostData.some(v => v > 0);
+            const hasDT = dtCostData.some(v => v > 0);
+            const displayName = activeAccount ? `${activeClient.name} → ${activeAccount.accountName || 'Account'}` : activeClient?.name || 'Client';
+            
+            document.getElementById('budgetClientName').textContent = displayName;
+            document.getElementById('budgetYearLabel').textContent = selectedYear;
+            
+            updateBudgetCompleteness('budgetDataStatus', hasUsage, hasSupply, hasDT);
+            document.getElementById('budgetReportModal').classList.add('show');
+        }
+        
+        function closeBudgetReportModal() {
+            document.getElementById('budgetReportModal').classList.remove('show');
+        }
+        
+        function launchBudgetReport() {
+            closeBudgetReportModal();
+            // Send data to budget tool widget
+            if (window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'LAUNCH_BUDGET_TOOL',
+                    clientId: activeClient?.id,
+                    clientName: activeClient?.name,
+                    accountId: activeAccount?.id,
+                    year: selectedYear,
+                    data: {
+                        electric: [...electricData],
+                        gas: [...gasData],
+                        supplyCost: [...supplyCostData],
+                        dtCost: [...dtCostData],
+                        accounts: [...accountsData]
+                    }
+                }, '*');
+            }
+            showToast('Opening Budget Tool...', 'info');
+        }
+
+        // ============================================================
+        // CLEAR
+        // ============================================================
         function clearUsage(type) {
             if (type === 'electric') {
                 electricData = Array(12).fill(0);
@@ -1497,307 +2223,164 @@
                 updateSummary('gas');
                 updateChart('gas');
             }
+            updateDataLevelIndicator();
         }
         
         // ============================================================
-        // ENHANCED EXPORT WITH METADATA
+        // EXPORT
         // ============================================================
         function exportUsage() {
             const wb = XLSX.utils.book_new();
-            
-            // Get metadata rows
             const metadataRows = ExportMetadata.generateMetadataRows({
+                'Data Year': selectedYear,
                 'Total Electric Usage': electricData.reduce((a, b) => a + b, 0).toLocaleString() + ' kWh',
                 'Total Gas Usage': gasData.reduce((a, b) => a + b, 0).toLocaleString() + ' Therms',
-                'Peak Electric Month': MONTHS[electricData.indexOf(Math.max(...electricData))] || 'N/A',
-                'Peak Gas Month': MONTHS[gasData.indexOf(Math.max(...gasData))] || 'N/A'
+                'Total Supply Cost': '$' + supplyCostData.reduce((a, b) => a + b, 0).toLocaleString(undefined, {minimumFractionDigits:2}),
+                'Total DT Cost': '$' + dtCostData.reduce((a, b) => a + b, 0).toLocaleString(undefined, {minimumFractionDigits:2}),
+                'Data Source': dataSource
             });
             
-            // Create combined data with metadata
             const data = [
                 ...metadataRows,
-                ['MONTHLY USAGE DATA'],
-                ['Month', 'Electric (kWh)', 'Gas (Therms)'],
-                ...FULL_MONTHS.map((m, i) => [m, electricData[i], gasData[i]]),
-                ['', '', ''],
-                ['TOTALS', electricData.reduce((a, b) => a + b, 0), gasData.reduce((a, b) => a + b, 0)],
-                ['AVERAGES', Math.round(electricData.reduce((a, b) => a + b, 0) / 12), Math.round(gasData.reduce((a, b) => a + b, 0) / 12)]
+                ['MONTHLY USAGE DATA — ' + selectedYear],
+                ['Month', 'Electric (kWh)', 'Gas (Therms)', 'Supply Cost ($)', 'DT Cost ($)', 'Total Cost ($)'],
+                ...FULL_MONTHS.map((m, i) => [m, electricData[i], gasData[i], supplyCostData[i], dtCostData[i], supplyCostData[i] + dtCostData[i]]),
+                [''], 
+                ['TOTALS', electricData.reduce((a,b)=>a+b,0), gasData.reduce((a,b)=>a+b,0), supplyCostData.reduce((a,b)=>a+b,0), dtCostData.reduce((a,b)=>a+b,0), supplyCostData.reduce((a,b)=>a+b,0) + dtCostData.reduce((a,b)=>a+b,0)]
             ];
             
             const ws = XLSX.utils.aoa_to_sheet(data);
-            
-            // Set column widths
-            ws['!cols'] = [{ wch: 25 }, { wch: 20 }, { wch: 20 }];
-            
-            // Add merge for title
-            ws['!merges'] = [
-                { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }
-            ];
-            
+            ws['!cols'] = [{ wch: 25 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
+            ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }];
             XLSX.utils.book_append_sheet(wb, ws, 'Usage Profile');
             
-            // Generate filename with client name and date
-            const filename = ExportMetadata.generateFilename('Usage_Profile');
-            
-            XLSX.writeFile(wb, filename);
-            showToast('Usage profile exported with metadata', 'success');
+            XLSX.writeFile(wb, ExportMetadata.generateFilename('Usage_Profile'));
+            showToast('Usage profile exported', 'success');
         }
-        
-        // Import
-        function showImportModal() {
-            document.getElementById('importModal').classList.add('show');
-        }
-        
-        function closeImportModal() {
-            document.getElementById('importModal').classList.remove('show');
-            document.getElementById('importFile').value = '';
-        }
-        
-        function handleImport(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const wb = XLSX.read(data, { type: 'array' });
-                    
-                    // Try to find the data sheet (could be "Usage Data" from template or first sheet)
-                    let ws = wb.Sheets['Usage Data'] || wb.Sheets[wb.SheetNames[0]];
-                    const json = XLSX.utils.sheet_to_json(ws, { header: 1 });
-                    
-                    const importType = document.getElementById('importType').value;
-                    
-                    // Try to parse - expect Month, Electric, Gas columns or just Month, Value
-                    let startRow = 0;
-                    // Find the header row (look for "Month" or similar)
-                    for (let i = 0; i < Math.min(json.length, 10); i++) {
-                        const row = json[i];
-                        if (row && row[0] && typeof row[0] === 'string' && 
-                            row[0].toLowerCase().includes('month')) {
-                            startRow = i + 1;
-                            break;
-                        }
-                    }
-                    
-                    let importedCount = 0;
-                    json.forEach((row, i) => {
-                        if (i < startRow) return; // Skip header and anything before
-                        const monthIndex = i - startRow;
-                        if (monthIndex >= 12) return; // Only 12 months
-                        
-                        if (importType === 'electric' || importType === 'both') {
-                            const elecVal = parseFloat(row[1]) || 0;
-                            electricData[monthIndex] = elecVal;
-                            document.getElementById(`electric-${monthIndex}`).value = elecVal;
-                            if (elecVal > 0) importedCount++;
-                        }
-                        
-                        if (importType === 'gas' || importType === 'both') {
-                            const gasVal = parseFloat(importType === 'both' ? row[2] : row[1]) || 0;
-                            gasData[monthIndex] = gasVal;
-                            document.getElementById(`gas-${monthIndex}`).value = gasVal;
-                            if (gasVal > 0) importedCount++;
-                        }
-                    });
-                    
-                    updateSummary('electric');
-                    updateSummary('gas');
-                    updateChart('electric');
-                    updateChart('gas');
-                    
-                    closeImportModal();
-                    showToast(`Imported ${importedCount} values successfully`, 'success');
-                } catch (err) {
-                    showToast('Failed to parse file', 'error');
-                    console.error(err);
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        }
-        
-        // History
-        // History - FILTERED by active client/account context
+
+        // ============================================================
+        // HISTORY (Multi-year aware)
+        // ============================================================
         function loadHistory() {
             const list = document.getElementById('historyList');
+            const yearFilter = document.getElementById('historyYearFilter')?.value || 'all';
             
-            // If no active client, show message that selection is required
             if (!activeClient) {
-                list.innerHTML = `
-                    <div class="empty-state">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                        </svg>
-                        <p>Select a client to view usage history</p>
-                    </div>
-                `;
+                list.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><p>Select a client to view usage history</p></div>`;
                 return;
             }
             
-            const activeClientId = activeClient.id;
-            const activeAccountId = activeAccount?.id || null;
-            
-            // Get profiles filtered by active client
+            // Collect profiles from localStorage (v2 format)
             const profiles = [];
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key.startsWith('usage_')) {
-                    try {
-                        const profile = JSON.parse(localStorage.getItem(key));
-                        const contextKey = key.replace('usage_', '');
-                        
-                        // Parse context key - could be "clientId" or "clientId_accountId"
-                        const parts = contextKey.split('_');
-                        const profileClientId = parts[0];
-                        const profileAccountId = parts.length > 1 ? parts.slice(1).join('_') : null;
-                        
-                        // FILTER: Only include profiles for the active client
-                        if (profileClientId !== activeClientId) {
-                            continue; // Skip profiles for other clients
-                        }
-                        
-                        // If an account is active, show account-specific OR client-level profiles
-                        if (activeAccountId) {
-                            if (profileAccountId && profileAccountId !== activeAccountId) {
-                                continue; // Skip other accounts' profiles
-                            }
-                        } else {
-                            // No account selected - only show client-level profile
-                            if (profileAccountId) {
-                                continue; // Skip account-specific profiles
-                            }
-                        }
-                        
-                        let displayName = contextKey;
-                        let clientName = activeClient.name;
-                        let accountName = null;
-                        
-                        // Get account name if applicable
-                        if (profileAccountId && activeClient.accounts) {
-                            const account = activeClient.accounts.find(a => a.id === profileAccountId);
-                            if (account) {
-                                accountName = account.accountName || profileAccountId;
-                                displayName = `${clientName} → ${accountName}`;
-                            }
-                        } else {
-                            displayName = clientName;
-                        }
-                        
-                        // Use stored names as fallback
-                        if (profile.clientName) clientName = profile.clientName;
-                        if (profile.accountName) accountName = profile.accountName;
-                        if (accountName && clientName) {
-                            displayName = `${clientName} → ${accountName}`;
-                        } else if (clientName) {
-                            displayName = clientName;
-                        }
-                        
-                        profiles.push({
-                            contextKey,
-                            clientId: profileClientId,
-                            accountId: profileAccountId,
-                            clientName,
-                            accountName,
-                            displayName,
-                            isClientLevel: !profileAccountId,
-                            isCurrentContext: (profileAccountId === activeAccountId) || (!profileAccountId && !activeAccountId),
-                            ...profile
+            const contextKey = getContextKey();
+            
+            // Check v2 multi-year data
+            const v2Stored = localStorage.getItem(`usage_v2_${contextKey}`);
+            if (v2Stored) {
+                try {
+                    const parsed = JSON.parse(v2Stored);
+                    if (parsed.yearlyData) {
+                        Object.entries(parsed.yearlyData).forEach(([year, yd]) => {
+                            if (yearFilter !== 'all' && year !== yearFilter) return;
+                            if (!yd.electric?.some(v => v > 0) && !yd.gas?.some(v => v > 0)) return;
+                            
+                            profiles.push({
+                                year,
+                                displayName: activeAccount ? `${activeClient.name} → ${activeAccount.accountName}` : activeClient.name,
+                                totalElectric: yd.electric.reduce((a,b) => a+b, 0),
+                                totalGas: yd.gas.reduce((a,b) => a+b, 0),
+                                totalSupply: (yd.supplyCost || []).reduce((a,b) => a+b, 0),
+                                totalDT: (yd.dtCost || []).reduce((a,b) => a+b, 0),
+                                accountCount: (yd.accounts || []).length,
+                                dataSource: yd.dataSource || 'manual',
+                                updatedAt: yd.updatedAt,
+                                isCurrentYear: year === selectedYear
+                            });
                         });
-                    } catch {}
-                }
+                    }
+                } catch(e) {}
             }
             
-            // Sort: current context first, then by update date
-            profiles.sort((a, b) => {
-                if (a.isCurrentContext && !b.isCurrentContext) return -1;
-                if (!a.isCurrentContext && b.isCurrentContext) return 1;
-                if (a.isClientLevel && !b.isClientLevel) return -1;
-                if (!a.isClientLevel && b.isClientLevel) return 1;
-                const dateA = a.updatedAt ? new Date(a.updatedAt) : new Date(0);
-                const dateB = b.updatedAt ? new Date(b.updatedAt) : new Date(0);
-                return dateB - dateA;
+            // Also check for current yearlyData in memory
+            Object.entries(yearlyData).forEach(([year, yd]) => {
+                if (yearFilter !== 'all' && year !== yearFilter) return;
+                if (!yd.electric?.some(v => v > 0) && !yd.gas?.some(v => v > 0)) return;
+                if (profiles.some(p => p.year === year)) return; // Skip if already listed
+                
+                profiles.push({
+                    year,
+                    displayName: activeAccount ? `${activeClient.name} → ${activeAccount.accountName}` : activeClient.name,
+                    totalElectric: yd.electric.reduce((a,b) => a+b, 0),
+                    totalGas: yd.gas.reduce((a,b) => a+b, 0),
+                    totalSupply: (yd.supplyCost || []).reduce((a,b) => a+b, 0),
+                    totalDT: (yd.dtCost || []).reduce((a,b) => a+b, 0),
+                    accountCount: (yd.accounts || []).length,
+                    dataSource: yd.dataSource || 'manual',
+                    updatedAt: yd.updatedAt,
+                    isCurrentYear: year === selectedYear
+                });
             });
             
+            profiles.sort((a, b) => parseInt(b.year) - parseInt(a.year));
+            
             if (profiles.length === 0) {
-                const contextName = activeAccount 
-                    ? `${activeClient.name} → ${activeAccount.accountName || 'Account'}`
-                    : activeClient.name;
-                list.innerHTML = `
-                    <div class="empty-state">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-                        </svg>
-                        <p>No saved usage profiles for ${contextName}</p>
-                        <p style="font-size:0.85em;opacity:0.7;">Enter usage data above and save to create a profile</p>
-                    </div>
-                `;
+                list.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg><p>No saved usage profiles for ${activeClient.name}</p><p style="font-size:0.85em;opacity:0.7;">Enter usage data and save to create a profile</p></div>`;
                 return;
             }
             
             list.innerHTML = profiles.map(p => `
-                <div class="history-item ${p.isCurrentContext ? 'current-context' : ''}">
+                <div class="history-item ${p.isCurrentYear ? 'current-context' : ''}">
                     <div class="history-item-info">
                         <div class="history-item-title">
                             ${p.displayName}
-                            ${p.isCurrentContext ? '<span class="context-badge">Current</span>' : ''}
-                            ${p.isClientLevel && activeAccount ? '<span class="parent-badge">Parent</span>' : ''}
+                            <span class="year-badge ${p.isCurrentYear ? 'has-data' : ''}">${p.year}</span>
+                            ${p.isCurrentYear ? '<span class="context-badge">Active</span>' : ''}
+                            ${p.dataSource === 'imported' ? '<span style="font-size:0.65rem;padding:2px 6px;border-radius:4px;background:rgba(59,130,246,0.2);color:#3b82f6;">Imported</span>' : ''}
                         </div>
                         <div class="history-item-meta">
                             ${p.totalElectric?.toLocaleString() || 0} kWh | ${p.totalGas?.toLocaleString() || 0} Therms
+                            ${p.totalSupply > 0 ? ' | Supply: $' + p.totalSupply.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0}) : ''}
+                            ${p.accountCount > 0 ? ' | ' + p.accountCount + ' accounts' : ''}
                             ${p.updatedAt ? ' | ' + new Date(p.updatedAt).toLocaleDateString() : ''}
                         </div>
                     </div>
-                    <button class="btn btn-sm btn-secondary" onclick="loadProfile('${p.contextKey}')">Load</button>
+                    <button class="btn btn-sm btn-secondary" onclick="switchToYear('${p.year}')">Load</button>
                 </div>
             `).join('');
         }
         
-        function loadProfile(contextKey) {
-            // Parse context key to get client and account IDs
-            const parts = contextKey.split('_');
-            const clientId = parts[0];
-            const accountId = parts.length > 1 ? parts.slice(1).join('_') : null;
-            
-            // Load from localStorage
-            const stored = localStorage.getItem(`usage_${contextKey}`);
-            if (stored) {
-                try {
-                    const profile = JSON.parse(stored);
-                    electricData = [...(profile.electric || Array(12).fill(0))];
-                    gasData = [...(profile.gas || Array(12).fill(0))];
-                    updateUIFromData();
-                    
-                    // Update display
-                    let displayName = contextKey;
-                    if (window.parent?.SecureEnergyClients) {
-                        const client = window.parent.SecureEnergyClients.getClient(clientId);
-                        if (client) {
-                            displayName = client.name;
-                            if (accountId && client.accounts) {
-                                const account = client.accounts.find(a => a.id === accountId);
-                                if (account) {
-                                    displayName = `${client.name} → ${account.accountName || accountId}`;
-                                }
-                            }
-                        }
-                    }
-                    
-                    document.querySelector('[data-tab="electric"]').click();
-                    showToast(`Loaded profile for ${displayName}`, 'success');
-                } catch (e) {
-                    showToast('Failed to load profile', 'error');
-                }
-            }
+        function switchToYear(year) {
+            syncToCurrentYear();
+            selectedYear = year;
+            document.getElementById('yearSelect').value = year;
+            loadFromYear(year);
+            updateUIFromData();
+            updateYearBadge();
+            updateDataLevelIndicator();
+            renderAccountBreakdown();
+            document.querySelector('[data-tab="electric"]').click();
+            showToast(`Loaded ${year} data`, 'success');
         }
-        
-        // Toast
+
+        // ============================================================
+        // MODALS
+        // ============================================================
+        function closeNoUsageModal() { document.getElementById('noUsageModal').classList.remove('show'); }
+        function startUsageEntry() {
+            closeNoUsageModal();
+            document.querySelector('[data-tab="electric"]').click();
+            setTimeout(() => document.getElementById('electric-0').focus(), 100);
+        }
+
+        // ============================================================
+        // TOAST
+        // ============================================================
         function showToast(message, type = 'info') {
             const toast = document.createElement('div');
             toast.className = 'toast ' + type;
             toast.textContent = message;
             document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
+            setTimeout(() => toast.remove(), 3500);
         }
     </script>
 </body>

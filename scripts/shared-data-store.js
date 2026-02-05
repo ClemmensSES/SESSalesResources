@@ -312,8 +312,14 @@ const UsageProfileStore = {
             accountName: profileData.accountName || null,
             electricUsage: profileData.electricUsage || profileData.electric || Array(12).fill(0),
             gasUsage: profileData.gasUsage || profileData.gas || Array(12).fill(0),
+            supplyCost: profileData.supplyCost || Array(12).fill(0),
+            dtCost: profileData.dtCost || Array(12).fill(0),
             totalElectric: profileData.totalElectric || (profileData.electricUsage || profileData.electric || []).reduce((a, b) => a + b, 0),
             totalGas: profileData.totalGas || (profileData.gasUsage || profileData.gas || []).reduce((a, b) => a + b, 0),
+            totalSupplyCost: profileData.totalSupplyCost || (profileData.supplyCost || []).reduce((a, b) => a + (Number(b) || 0), 0),
+            totalDTCost: profileData.totalDTCost || (profileData.dtCost || []).reduce((a, b) => a + (Number(b) || 0), 0),
+            year: profileData.year || new Date().getFullYear(),
+            dataSource: profileData.dataSource || 'manual',
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             createdBy: profileData.createdBy || null,
@@ -343,6 +349,12 @@ const UsageProfileStore = {
             const gas = updates.gasUsage || updates.gas;
             updates.gasUsage = gas;
             updates.totalGas = gas.reduce((a, b) => a + b, 0);
+        }
+        if (updates.supplyCost) {
+            updates.totalSupplyCost = updates.supplyCost.reduce((a, b) => a + (Number(b) || 0), 0);
+        }
+        if (updates.dtCost) {
+            updates.totalDTCost = updates.dtCost.reduce((a, b) => a + (Number(b) || 0), 0);
         }
         
         this.profiles[idx] = {

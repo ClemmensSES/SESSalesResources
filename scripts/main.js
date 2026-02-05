@@ -1,5 +1,21 @@
 /**
- * Secure Energy Analytics Portal - Main Controller v3.2
+ * Secure Energy Analytics Portal - Main Controller v3.4
+ * 
+ * v3.4 Updates:
+ * - Dual Layout Mode: Wide (single-column) or Grid (2-per-row) — user toggleable
+ * - Layout toggle bar with Wide/Grid buttons above widget grid
+ * - Per-widget width toggle in Grid mode (full-width or half-width, orange accent)
+ * - Admin can set default layout mode per user (create/edit user forms)
+ * - Width preference saved per-widget in WidgetLayout config
+ * - Grid mode auto-falls to single column on tablets (≤1024px)
+ * 
+ * v3.3 Updates:
+ * - Dock Panel System: ALL widgets render as dock panels with 3 window controls
+ * - Three window controls: Minimize (collapse), Maximize (full viewport), Pop-out (new window)
+ * - Maximized widgets overlay the viewport with backdrop, data stays synced
+ * - Popped-out widgets get BroadcastChannel sync for real-time data refresh
+ * - Enhanced energy utilization handlers: multi-year, 3-level data (Usage/Supply/DT)
+ * - LAUNCH_BUDGET_TOOL message handler for budget report integration
  * 
  * v3.2 Updates:
  * - Client Command Center: docked full-width at top of screen (not in widget grid)
@@ -112,8 +128,25 @@ window.setTheme = function(theme) {
 function loadSavedTheme() { window.setTheme(localStorage.getItem('secureEnergy_theme') || 'dark'); }
 
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('[Portal] Initializing v3.1 - Password Security + Force Reset...');
+    console.log('[Portal] Initializing v3.3 - Dock Panel System + Multi-Year Energy...');
     loadSavedTheme();
+    
+    // Initialize BroadcastChannel for pop-out window sync
+    try {
+        window.portalChannel = new BroadcastChannel('ses_portal_sync');
+        window.portalChannel.onmessage = function(event) {
+            // Relay BroadcastChannel messages to all iframes
+            if (event.data?.type) {
+                document.querySelectorAll('iframe').forEach(iframe => {
+                    try { iframe.contentWindow.postMessage(event.data, '*'); } catch(e) {}
+                });
+            }
+        };
+        console.log('[Portal] BroadcastChannel "ses_portal_sync" initialized for pop-out sync');
+    } catch(e) {
+        console.warn('[Portal] BroadcastChannel not supported:', e.message);
+    }
+    
     await UserStore.init();
     await ActivityLog.init();
     await SecureEnergyData.init();
@@ -631,6 +664,17 @@ function renderWidgets(user) {
     // === DOCK: Client Command Center above widget grid ===
     renderCommandCenterDock(user);
     
+    // === LAYOUT MODE: Determine wide vs grid ===
+    // Priority: user toggle > admin default > 'wide'
+    let layoutMode = localStorage.getItem('layoutMode_' + user.id);
+    if (!layoutMode) {
+        // Check admin-assigned default
+        layoutMode = user.layoutMode || user.permissions?.defaultLayoutMode || 'wide';
+    }
+    container.classList.remove('layout-wide', 'layout-grid');
+    container.classList.add('layout-' + layoutMode);
+    window._currentLayoutMode = layoutMode;
+    
     let availableWidgets = DEFAULT_WIDGETS.filter(w => {
         if (w.adminOnly && user.role !== 'admin') return false;
         if (user.permissions && user.permissions[w.id] === false) return false;
@@ -646,10 +690,27 @@ function renderWidgets(user) {
             return aIdx - bIdx;
         });
     }
-    const resetBtn = document.createElement('div');
-    resetBtn.className = 'widget-layout-controls';
-    resetBtn.innerHTML = '<button class="layout-reset-btn" onclick="resetWidgetLayout()" title="Reset widget layout to default"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> Reset Layout</button>';
-    container.appendChild(resetBtn);
+    
+    // Layout controls bar: toggle + reset
+    const layoutBar = document.createElement('div');
+    layoutBar.className = 'widget-layout-controls';
+    const wideActive = layoutMode === 'wide';
+    layoutBar.innerHTML = 
+        '<div class="layout-toggle-group">' +
+            '<button class="layout-mode-btn' + (wideActive ? ' active' : '') + '" onclick="setLayoutMode(\'wide\')" title="Wide single-column layout">' +
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="7" rx="1"/><rect x="3" y="14" width="18" height="7" rx="1"/></svg>' +
+                ' Wide' +
+            '</button>' +
+            '<button class="layout-mode-btn' + (!wideActive ? ' active' : '') + '" onclick="setLayoutMode(\'grid\')" title="Two-column grid layout">' +
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>' +
+                ' Grid' +
+            '</button>' +
+        '</div>' +
+        '<button class="layout-reset-btn" onclick="resetWidgetLayout()" title="Reset widget layout to default">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> Reset Layout' +
+        '</button>';
+    container.appendChild(layoutBar);
+    
     availableWidgets.forEach(w => container.appendChild(createWidgetElement(w, user)));
     if (user.role === 'admin') initAdminWidget();
     initAIAssistantWidget();
@@ -661,14 +722,18 @@ function createWidgetElement(widget, user) {
     const div = document.createElement('div');
     const savedConfig = WidgetLayout.getWidgetConfig(user.id, widget.id) || {};
     const isCollapsed = savedConfig.collapsed || false;
-    const isFullWidth = savedConfig.fullWidth !== undefined ? savedConfig.fullWidth : widget.fullWidth;
     const currentHeight = savedConfig.height || widget.defaultHeight || 500;
     const isDoubleHeight = widget.doubleHeight || false;
     const isAdminWide = widget.adminWide || false;
+    const layoutMode = window._currentLayoutMode || 'wide';
+    
+    // Determine width: in grid mode, respect saved or default fullWidth; in wide mode always full
+    const isFullWidth = layoutMode === 'wide' ? true :
+        (savedConfig.fullWidth !== undefined ? savedConfig.fullWidth : (widget.fullWidth || isAdminWide || isDoubleHeight));
     
     let classList = 'widget';
-    if (isAdminWide) classList += ' admin-wide';
     if (isFullWidth) classList += ' full-width';
+    if (isAdminWide) classList += ' admin-wide';
     if (isCollapsed) classList += ' collapsed';
     if (isDoubleHeight) classList += ' double-height';
     
@@ -676,19 +741,40 @@ function createWidgetElement(widget, user) {
     div.dataset.widgetId = widget.id;
     div.draggable = true;
     
-    const controlsHtml = '<div class="widget-controls"><button class="widget-ctrl-btn collapse-btn" onclick="toggleWidgetCollapse(\'' + widget.id + '\')" title="' + (isCollapsed ? 'Expand' : 'Collapse') + '"><svg class="collapse-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="' + (isCollapsed ? '6 9 12 15 18 9' : '18 15 12 9 6 15') + '"/></svg></button><button class="widget-ctrl-btn width-btn" onclick="toggleWidgetWidth(\'' + widget.id + '\')" title="' + (isFullWidth ? 'Standard width' : 'Full width') + '"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + (isFullWidth ? '<path d="M4 14h6v6H4zM14 4h6v6h-6z"/><path d="M14 14h6v6h-6z"/><path d="M4 4h6v6H4z"/>' : '<path d="M3 8V5a2 2 0 0 1 2-2h3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M21 16v3a2 2 0 0 1-2 2h-3"/>') + '</svg></button><div class="widget-drag-handle" title="Drag to reorder"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg></div></div>';
+    // === SVG Icons for the 3 window controls ===
+    const minimizeIcon = '<svg class="collapse-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="' + (isCollapsed ? '6 9 12 15 18 9' : '18 15 12 9 6 15') + '"/></svg>';
+    const maximizeIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+    const restoreIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>';
+    const popoutIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+    const dragIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>';
     
-    const popoutBtn = widget.src ? '<button class="widget-btn" onclick="popoutWidget(\'' + widget.id + '\')" title="Pop out"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>' : '';
+    // Width toggle icon — only visible in grid mode
+    const widthIcon = isFullWidth
+        ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="7" height="14" rx="1"/><rect x="14" y="5" width="7" height="14" rx="1"/></svg>'
+        : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>';
+
+    // === Window Controls: Drag | Width | Minimize | Maximize | Pop-out ===
+    const hasPopout = widget.src || widget.id === 'client-command-center';
+    const windowControls = 
+        '<div class="dock-panel-controls">' +
+            '<div class="dock-drag-handle" title="Drag to reorder">' + dragIcon + '</div>' +
+            '<button class="dock-ctrl-btn width-btn grid-only-ctrl" onclick="toggleWidgetWidth(\'' + widget.id + '\')" title="' + (isFullWidth ? 'Half width' : 'Full width') + '">' + widthIcon + '</button>' +
+            '<button class="dock-ctrl-btn minimize-btn" onclick="toggleWidgetCollapse(\'' + widget.id + '\')" title="' + (isCollapsed ? 'Expand' : 'Minimize') + '">' + minimizeIcon + '</button>' +
+            '<button class="dock-ctrl-btn maximize-btn" onclick="toggleWidgetMaximize(\'' + widget.id + '\')" title="Maximize">' + maximizeIcon + '</button>' +
+            (hasPopout ? '<button class="dock-ctrl-btn popout-btn" onclick="popoutWidget(\'' + widget.id + '\')" title="Open in new window">' + popoutIcon + '</button>' : '') +
+        '</div>';
+    
     const contentStyle = 'height:' + currentHeight + 'px;' + (isCollapsed ? 'display:none;' : '');
     
     if (widget.embedded && widget.id === 'user-admin') {
-        div.innerHTML = '<div class="widget-header"><div class="widget-title">' + widget.icon + '<span>' + widget.name + '</span><span class="widget-badge">ADMIN</span></div><div class="widget-actions">' + controlsHtml + '</div></div><div class="widget-content admin-widget-content" id="adminWidgetContent" style="' + contentStyle + '" data-default-height="' + widget.defaultHeight + '" data-min-height="' + widget.minHeight + '" data-max-height="' + widget.maxHeight + '"></div><div class="widget-resize-handle" data-widget-id="' + widget.id + '"></div>';
+        div.innerHTML = '<div class="dock-panel-header"><div class="dock-panel-title">' + widget.icon + '<span>' + widget.name + '</span><span class="widget-badge">ADMIN</span></div><div class="dock-panel-actions">' + windowControls + '</div></div><div class="widget-content admin-widget-content" id="adminWidgetContent" style="' + contentStyle + '" data-default-height="' + widget.defaultHeight + '" data-min-height="' + widget.minHeight + '" data-max-height="' + widget.maxHeight + '"></div><div class="widget-resize-handle" data-widget-id="' + widget.id + '"></div>';
     } else if (widget.embedded && widget.id === 'ai-assistant') {
-        div.innerHTML = '<div class="widget-header"><div class="widget-title">' + widget.icon + '<span>' + widget.name + '</span><span class="widget-badge" style="background:var(--accent-info);">BETA</span></div><div class="widget-actions">' + controlsHtml + '</div></div><div class="widget-content ai-assistant-content" id="aiAssistantContent" style="' + contentStyle + '" data-default-height="' + widget.defaultHeight + '" data-min-height="' + widget.minHeight + '" data-max-height="' + widget.maxHeight + '"></div><div class="widget-resize-handle" data-widget-id="' + widget.id + '"></div>';
+        div.innerHTML = '<div class="dock-panel-header"><div class="dock-panel-title">' + widget.icon + '<span>' + widget.name + '</span><span class="widget-badge" style="background:var(--accent-info);">BETA</span></div><div class="dock-panel-actions">' + windowControls + '</div></div><div class="widget-content ai-assistant-content" id="aiAssistantContent" style="' + contentStyle + '" data-default-height="' + widget.defaultHeight + '" data-min-height="' + widget.minHeight + '" data-max-height="' + widget.maxHeight + '"></div><div class="widget-resize-handle" data-widget-id="' + widget.id + '"></div>';
     } else if (widget.embedded && widget.id === 'analysis-history') {
-        div.innerHTML = '<div class="widget-header"><div class="widget-title">' + widget.icon + '<span>' + widget.name + '</span></div><div class="widget-actions"><button class="widget-btn" onclick="exportMyAnalysisRecords()" title="Export"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button><button class="widget-btn" onclick="refreshAnalysisHistory()" title="Refresh"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></button>' + controlsHtml + '</div></div><div class="widget-content analysis-history-content" id="analysisHistoryContent" style="' + contentStyle + 'overflow-y:auto;" data-default-height="' + widget.defaultHeight + '" data-min-height="' + widget.minHeight + '" data-max-height="' + widget.maxHeight + '"></div><div class="widget-resize-handle" data-widget-id="' + widget.id + '"></div>';
+        const extraBtns = '<button class="dock-action-btn" onclick="exportMyAnalysisRecords()" title="Export"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button><button class="dock-action-btn" onclick="refreshAnalysisHistory()" title="Refresh"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></button>';
+        div.innerHTML = '<div class="dock-panel-header"><div class="dock-panel-title">' + widget.icon + '<span>' + widget.name + '</span></div><div class="dock-panel-actions">' + extraBtns + windowControls + '</div></div><div class="widget-content analysis-history-content" id="analysisHistoryContent" style="' + contentStyle + 'overflow-y:auto;" data-default-height="' + widget.defaultHeight + '" data-min-height="' + widget.minHeight + '" data-max-height="' + widget.maxHeight + '"></div><div class="widget-resize-handle" data-widget-id="' + widget.id + '"></div>';
     } else {
-        // Determine widget source - use admin version for admin users if available
+        // Standard iframe widget with dock-panel header
         let widgetSrc = widget.src;
         let adminBadge = '';
         if (widget.id === 'feedback' && user.role === 'admin' && widget.adminSrc) {
@@ -696,7 +782,7 @@ function createWidgetElement(widget, user) {
             adminBadge = '<span class="widget-badge">ADMIN</span>';
         }
         
-        div.innerHTML = '<div class="widget-header"><div class="widget-title">' + widget.icon + '<span>' + widget.name + '</span>' + adminBadge + '</div><div class="widget-actions">' + popoutBtn + controlsHtml + '</div></div><div class="widget-content" style="' + contentStyle + '" data-default-height="' + widget.defaultHeight + '" data-min-height="' + widget.minHeight + '" data-max-height="' + widget.maxHeight + '"><iframe class="widget-iframe" src="' + widgetSrc + '" title="' + widget.name + '"></iframe></div><div class="widget-resize-handle" data-widget-id="' + widget.id + '"></div>';
+        div.innerHTML = '<div class="dock-panel-header"><div class="dock-panel-title">' + widget.icon + '<span>' + widget.name + '</span>' + adminBadge + '</div><div class="dock-panel-actions">' + windowControls + '</div></div><div class="widget-content" style="' + contentStyle + '" data-default-height="' + widget.defaultHeight + '" data-min-height="' + widget.minHeight + '" data-max-height="' + widget.maxHeight + '"><iframe class="widget-iframe" src="' + widgetSrc + '" title="' + widget.name + '"></iframe></div><div class="widget-resize-handle" data-widget-id="' + widget.id + '"></div>';
     }
     return div;
 }
@@ -801,27 +887,136 @@ function initResize(e) {
 window.toggleWidgetCollapse = function(widgetId) {
     const widget = document.querySelector('[data-widget-id="' + widgetId + '"]');
     if (!widget) return;
+    // Don't allow minimize while maximized
+    if (widget.classList.contains('maximized')) return;
     const content = widget.querySelector('.widget-content');
-    const collapseBtn = widget.querySelector('.collapse-btn');
+    const minimizeBtn = widget.querySelector('.minimize-btn') || widget.querySelector('.collapse-btn');
     const isCollapsed = widget.classList.toggle('collapsed');
     content.style.display = isCollapsed ? 'none' : '';
-    widget.querySelector('.widget-resize-handle').style.display = isCollapsed ? 'none' : '';
-    const icon = collapseBtn.querySelector('.collapse-icon');
-    icon.innerHTML = '<polyline points="' + (isCollapsed ? '6 9 12 15 18 9' : '18 15 12 9 6 15') + '"/>';
-    collapseBtn.title = isCollapsed ? 'Expand' : 'Collapse';
+    const resizeHandle = widget.querySelector('.widget-resize-handle');
+    if (resizeHandle) resizeHandle.style.display = isCollapsed ? 'none' : '';
+    if (minimizeBtn) {
+        const icon = minimizeBtn.querySelector('.collapse-icon');
+        if (icon) icon.innerHTML = '<polyline points="' + (isCollapsed ? '6 9 12 15 18 9' : '18 15 12 9 6 15') + '"/>';
+        minimizeBtn.title = isCollapsed ? 'Expand' : 'Minimize';
+    }
     if (currentUser) {
         WidgetLayout.saveWidgetConfig(currentUser.id, widgetId, { collapsed: isCollapsed });
-        logWidgetAction(isCollapsed ? 'Widget Collapse' : 'Widget Expand', widgetId);
+        logWidgetAction(isCollapsed ? 'Widget Minimize' : 'Widget Expand', widgetId);
     }
 };
 
+// === MAXIMIZE: Full viewport overlay with backdrop ===
+window.toggleWidgetMaximize = function(widgetId) {
+    const widget = document.querySelector('[data-widget-id="' + widgetId + '"]');
+    if (!widget) return;
+    // Un-collapse first if collapsed
+    if (widget.classList.contains('collapsed')) {
+        toggleWidgetCollapse(widgetId);
+    }
+    const isMaximized = widget.classList.contains('maximized');
+    
+    if (isMaximized) {
+        // === RESTORE from maximized ===
+        widget.classList.remove('maximized');
+        // Restore saved height
+        const content = widget.querySelector('.widget-content');
+        const savedHeight = widget.dataset.preMaxHeight;
+        if (content && savedHeight) content.style.height = savedHeight;
+        // Remove backdrop
+        const backdrop = document.getElementById('widgetMaximizeBackdrop');
+        if (backdrop) backdrop.remove();
+        // Update maximize button icon to "expand"
+        const maxBtn = widget.querySelector('.maximize-btn');
+        if (maxBtn) {
+            maxBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+            maxBtn.title = 'Maximize';
+        }
+        // Re-enable body scroll
+        document.body.style.overflow = '';
+        logWidgetAction('Widget Restore', widgetId);
+    } else {
+        // === MAXIMIZE ===
+        // Save current height for restore
+        const content = widget.querySelector('.widget-content');
+        if (content) widget.dataset.preMaxHeight = content.style.height;
+        // Add backdrop
+        let backdrop = document.getElementById('widgetMaximizeBackdrop');
+        if (!backdrop) {
+            backdrop = document.createElement('div');
+            backdrop.id = 'widgetMaximizeBackdrop';
+            backdrop.className = 'widget-maximize-backdrop';
+            backdrop.onclick = function() { toggleWidgetMaximize(widgetId); };
+            document.body.appendChild(backdrop);
+        }
+        widget.classList.add('maximized');
+        // Update maximize button icon to "restore"
+        const maxBtn = widget.querySelector('.maximize-btn');
+        if (maxBtn) {
+            maxBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>';
+            maxBtn.title = 'Restore';
+        }
+        // Disable body scroll while maximized
+        document.body.style.overflow = 'hidden';
+        logWidgetAction('Widget Maximize', widgetId);
+    }
+};
+
+// === LAYOUT MODE: switch between wide (1-col) and grid (2-col) ===
+window.setLayoutMode = function(mode) {
+    if (!currentUser) return;
+    const container = document.getElementById('widgetsGrid');
+    if (!container) return;
+    
+    window._currentLayoutMode = mode;
+    localStorage.setItem('layoutMode_' + currentUser.id, mode);
+    
+    container.classList.remove('layout-wide', 'layout-grid');
+    container.classList.add('layout-' + mode);
+    
+    // Update toggle buttons
+    container.querySelectorAll('.layout-mode-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent.trim().toLowerCase() === mode);
+    });
+    
+    // In wide mode, force all widgets to full-width; in grid mode, restore saved widths
+    container.querySelectorAll('.widget').forEach(widget => {
+        const widgetId = widget.dataset.widgetId;
+        if (!widgetId) return;
+        if (mode === 'wide') {
+            widget.classList.add('full-width');
+        } else {
+            // Restore saved width preference for grid mode
+            const savedConfig = WidgetLayout.getWidgetConfig(currentUser.id, widgetId) || {};
+            const def = DEFAULT_WIDGETS.find(w => w.id === widgetId);
+            const shouldBeFullWidth = savedConfig.fullWidth !== undefined 
+                ? savedConfig.fullWidth 
+                : (def?.fullWidth || def?.adminWide || def?.doubleHeight || false);
+            widget.classList.toggle('full-width', shouldBeFullWidth);
+        }
+    });
+    
+    logWidgetAction('Layout Mode Changed', 'portal', { mode });
+    showNotification('Layout: ' + (mode === 'wide' ? 'Wide (single column)' : 'Grid (two column)'), 'success');
+};
+
+// === PER-WIDGET WIDTH TOGGLE (only effective in grid mode) ===
 window.toggleWidgetWidth = function(widgetId) {
+    if (window._currentLayoutMode === 'wide') {
+        showNotification('Switch to Grid layout to resize individual widgets', 'info');
+        return;
+    }
     const widget = document.querySelector('[data-widget-id="' + widgetId + '"]');
     if (!widget) return;
     const isFullWidth = widget.classList.toggle('full-width');
+    // Update width button icon
     const widthBtn = widget.querySelector('.width-btn');
-    widthBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + (isFullWidth ? '<path d="M4 14h6v6H4zM14 4h6v6h-6z"/><path d="M14 14h6v6h-6z"/><path d="M4 4h6v6H4z"/>' : '<path d="M3 8V5a2 2 0 0 1 2-2h3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M21 16v3a2 2 0 0 1-2 2h-3"/>') + '</svg>';
-    widthBtn.title = isFullWidth ? 'Standard width' : 'Full width';
+    if (widthBtn) {
+        widthBtn.innerHTML = isFullWidth
+            ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="7" height="14" rx="1"/><rect x="14" y="5" width="7" height="14" rx="1"/></svg>'
+            : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>';
+        widthBtn.title = isFullWidth ? 'Half width' : 'Full width';
+    }
     if (currentUser) {
         WidgetLayout.saveWidgetConfig(currentUser.id, widgetId, { fullWidth: isFullWidth });
         logWidgetAction('Widget Width Toggle', widgetId, { fullWidth: isFullWidth });
@@ -841,12 +1036,44 @@ window.resetWidgetLayout = function() {
 function popoutWidget(id) { 
     // Handle docked Command Center (not in DEFAULT_WIDGETS)
     if (id === 'client-command-center') {
-        window.open('widgets/client-command-center.html', id, 'width=1400,height=900');
+        const win = window.open('widgets/client-command-center.html', id, 'width=1400,height=900');
         logWidgetAction('Widget Popout', id);
+        // Broadcast active client/account to new window after load
+        if (win) {
+            win.addEventListener('load', function() {
+                const client = window.SecureEnergyClients?.getActiveClient?.();
+                const account = window.SecureEnergyClients?.getActiveAccount?.();
+                if (client) {
+                    win.postMessage({ type: 'ACTIVE_CLIENT_CHANGED', client, clientId: client.id, account, accountId: account?.id }, '*');
+                }
+            });
+        }
         return;
     }
     const w = DEFAULT_WIDGETS.find(x => x.id === id); 
-    if (w?.src) { window.open(w.src, id, 'width=1200,height=800'); logWidgetAction('Widget Popout', id); }
+    if (w?.src) { 
+        const win = window.open(w.src, id, 'width=1400,height=900');
+        logWidgetAction('Widget Popout', id);
+        // Send active client + user context to popped-out window
+        if (win) {
+            win.addEventListener('load', function() {
+                if (currentUser) {
+                    win.postMessage({ type: 'CURRENT_USER', user: { id: currentUser.id, username: currentUser.email, name: currentUser.firstName + ' ' + currentUser.lastName, firstName: currentUser.firstName, lastName: currentUser.lastName, email: currentUser.email, role: currentUser.role } }, '*');
+                }
+                const client = window.SecureEnergyClients?.getActiveClient?.();
+                const account = window.SecureEnergyClients?.getActiveAccount?.();
+                if (client) {
+                    win.postMessage({ type: 'ACTIVE_CLIENT_CHANGED', client, clientId: client.id, account, accountId: account?.id }, '*');
+                }
+            });
+        }
+    }
+    // Also broadcast via BroadcastChannel so popped-out widget gets future updates
+    if (window.portalChannel) {
+        try {
+            window.portalChannel.postMessage({ type: 'WIDGET_POPPED_OUT', widgetId: id, timestamp: new Date().toISOString() });
+        } catch(e) {}
+    }
 }
 
 function logWidgetAction(action, widgetId, data) {
@@ -1011,11 +1238,25 @@ function handleWidgetMessage(event) {
         }
     }
     if (event.data?.type === 'UTILIZATION_SAVED' && currentUser) {
-        ActivityLog.log({ userId: currentUser.id, userEmail: currentUser.email, userName: currentUser.firstName + ' ' + currentUser.lastName, widget: 'energy-utilization', action: 'Utilization Data Saved', clientName: event.data.clientName, data: event.data.data || {} });
+        const d = event.data.data || {};
+        ActivityLog.log({ userId: currentUser.id, userEmail: currentUser.email, userName: currentUser.firstName + ' ' + currentUser.lastName, widget: 'energy-utilization', action: 'Utilization Data Saved', clientName: event.data.clientName, data: { 
+            year: d.year || null, 
+            dataSource: d.dataSource || 'manual',
+            totalElectric: d.totalElectric, 
+            totalGas: d.totalGas,
+            totalSupplyCost: d.totalSupplyCost || 0,
+            totalDTCost: d.totalDTCost || 0,
+            accountCount: d.accountCount || 0,
+            ...(d || {})
+        } });
         saveAllWidgetStates();
+        // Broadcast via BroadcastChannel for popped-out widgets
+        if (window.portalChannel) {
+            try { window.portalChannel.postMessage({ type: 'CLIENT_USAGE_UPDATED', clientId: event.data.clientId, clientName: event.data.clientName, data: d }); } catch(e) {}
+        }
     }
     
-    // Handle LOG_USAGE_ACTIVITY message from energy-utilization-widget
+    // Handle LOG_USAGE_ACTIVITY message from energy-utilization-widget (v2.0 multi-year)
     if (event.data?.type === 'LOG_USAGE_ACTIVITY' && currentUser) {
         const d = event.data;
         const displayName = d.accountName 
@@ -1030,17 +1271,24 @@ function handleWidgetMessage(event) {
             clientName: d.clientName,
             accountId: d.accountId,
             accountName: d.accountName,
+            year: d.year || new Date().getFullYear(),
             totalElectric: d.totalElectric,
             totalGas: d.totalGas,
+            totalSupplyCost: d.totalSupplyCost || 0,
+            totalDTCost: d.totalDTCost || 0,
             electricData: d.electricData,
-            gasData: d.gasData
+            gasData: d.gasData,
+            supplyCostData: d.supplyCostData || [],
+            dtCostData: d.dtCostData || [],
+            dataSource: d.dataSource || 'manual',
+            accountCount: d.accountCount || 0
         });
         
-        console.log('[Portal] Logged usage entry for:', displayName);
+        console.log('[Portal] Logged usage entry for:', displayName, '| Year:', d.year || 'current');
         saveAllWidgetStates();
     }
     
-    // Handle CLIENT_USAGE_UPDATED - broadcast to all widgets
+    // Handle CLIENT_USAGE_UPDATED - broadcast to all widgets + BroadcastChannel
     if (event.data?.type === 'CLIENT_USAGE_UPDATED') {
         console.log('[Portal] Received CLIENT_USAGE_UPDATED, broadcasting to all widgets');
         const iframes = document.querySelectorAll('iframe');
@@ -1049,12 +1297,16 @@ function handleWidgetMessage(event) {
                 iframe.contentWindow.postMessage(event.data, '*');
             } catch (e) { /* ignore */ }
         });
+        // Also broadcast via BroadcastChannel for popped-out windows
+        if (window.portalChannel) {
+            try { window.portalChannel.postMessage(event.data); } catch(e) {}
+        }
     }
     
-    // Handle SAVE_USAGE_PROFILE - save to UsageProfileStore when widget can't access it directly
+    // Handle SAVE_USAGE_PROFILE - save to UsageProfileStore (v2.0 with 3-level data)
     if (event.data?.type === 'SAVE_USAGE_PROFILE' && window.UsageProfileStore) {
         const d = event.data;
-        console.log('[Portal] Received SAVE_USAGE_PROFILE for client:', d.clientId);
+        console.log('[Portal] Received SAVE_USAGE_PROFILE for client:', d.clientId, '| Year:', d.year || 'default');
         
         // Get user info for createdBy field
         let userInfo = {};
@@ -1070,7 +1322,11 @@ function handleWidgetMessage(event) {
             d.accountId,
             {
                 ...d.profile,
-                ...userInfo
+                ...userInfo,
+                year: d.year || new Date().getFullYear(),
+                supplyCost: d.profile?.supplyCost || d.supplyCostData || [],
+                dtCost: d.profile?.dtCost || d.dtCostData || [],
+                dataSource: d.dataSource || 'manual'
             }
         ).then(result => {
             if (result.success) {
@@ -1081,6 +1337,62 @@ function handleWidgetMessage(event) {
         }).catch(e => {
             console.error('[Portal] Error saving usage profile:', e);
         });
+    }
+    
+    // Handle LAUNCH_BUDGET_TOOL - activate budget tool widget and pass utilization data
+    if (event.data?.type === 'LAUNCH_BUDGET_TOOL') {
+        console.log('[Portal] Received LAUNCH_BUDGET_TOOL');
+        const budgetWidgetId = 'energy-budget';
+        const budgetWidget = document.querySelector('[data-widget-id="' + budgetWidgetId + '"]');
+        
+        // Try to find the budget tool iframe anywhere
+        let budgetIframe = null;
+        document.querySelectorAll('iframe').forEach(iframe => {
+            try {
+                if (iframe.src && (iframe.src.includes('budget') || iframe.src.includes('energy_budget'))) {
+                    budgetIframe = iframe;
+                }
+            } catch(e) {}
+        });
+        
+        if (budgetWidget) {
+            // Un-collapse if collapsed
+            if (budgetWidget.classList.contains('collapsed')) {
+                toggleWidgetCollapse(budgetWidgetId);
+            }
+            // Scroll to it
+            budgetWidget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        
+        // Send utilization data to budget tool
+        if (budgetIframe) {
+            budgetIframe.contentWindow.postMessage({
+                type: 'LOAD_UTILIZATION_DATA',
+                clientId: event.data.clientId,
+                clientName: event.data.clientName,
+                year: event.data.year,
+                data: event.data.data
+            }, '*');
+        } else {
+            // Store in sessionStorage for when budget tool loads
+            try {
+                sessionStorage.setItem('pendingBudgetData', JSON.stringify({
+                    clientId: event.data.clientId,
+                    clientName: event.data.clientName,
+                    year: event.data.year,
+                    data: event.data.data,
+                    timestamp: new Date().toISOString()
+                }));
+            } catch(e) {}
+        }
+        
+        if (currentUser) {
+            logWidgetAction('Budget Report Requested', 'energy-utilization', { 
+                clientName: event.data.clientName, 
+                year: event.data.year 
+            });
+        }
+        showNotification('Budget data sent to report tool', 'success');
     }
     
     if (event.data?.type === 'DATA_UPLOADED' && currentUser) {
@@ -1167,43 +1479,52 @@ function handleWidgetMessage(event) {
 function broadcastActiveClientToWidgets(client, account = null) {
     const iframes = document.querySelectorAll('iframe');
     console.log('[Portal] broadcastActiveClientToWidgets - Client:', client?.name, '- Found', iframes.length, 'iframes');
+    const msg = { 
+        type: 'ACTIVE_CLIENT_CHANGED', 
+        client: client, 
+        clientId: client?.id || null,
+        account: account,
+        accountId: account?.id || null
+    };
     iframes.forEach((iframe, index) => {
         try { 
-            iframe.contentWindow.postMessage({ 
-                type: 'ACTIVE_CLIENT_CHANGED', 
-                client: client, 
-                clientId: client?.id || null,
-                account: account,
-                accountId: account?.id || null
-            }, '*');
+            iframe.contentWindow.postMessage(msg, '*');
             console.log('[Portal] Sent ACTIVE_CLIENT_CHANGED to iframe', index);
         } catch (e) {
             console.warn('[Portal] Failed to send to iframe', index, ':', e.message);
         }
     });
+    // Broadcast to popped-out windows via BroadcastChannel
+    if (window.portalChannel) {
+        try { window.portalChannel.postMessage(msg); } catch(e) {}
+    }
 }
 
 function broadcastActiveAccountToWidgets(account, client = null) {
-    // Get client if not provided
     if (!client && window.SecureEnergyClients) {
         client = window.SecureEnergyClients.getActiveClient();
     }
     const iframes = document.querySelectorAll('iframe');
     console.log('[Portal] broadcastActiveAccountToWidgets - Account:', account?.accountName, 'Client:', client?.name, '- Found', iframes.length, 'iframes');
+    const msg = { 
+        type: 'ACTIVE_ACCOUNT_CHANGED', 
+        client: client, 
+        clientId: client?.id || null,
+        account: account,
+        accountId: account?.id || null
+    };
     iframes.forEach((iframe, index) => {
         try { 
-            iframe.contentWindow.postMessage({ 
-                type: 'ACTIVE_ACCOUNT_CHANGED', 
-                client: client, 
-                clientId: client?.id || null,
-                account: account,
-                accountId: account?.id || null
-            }, '*');
+            iframe.contentWindow.postMessage(msg, '*');
             console.log('[Portal] Sent ACTIVE_ACCOUNT_CHANGED to iframe', index);
         } catch (e) {
             console.warn('[Portal] Failed to send to iframe', index, ':', e.message);
         }
     });
+    // Broadcast to popped-out windows
+    if (window.portalChannel) {
+        try { window.portalChannel.postMessage(msg); } catch(e) {}
+    }
 }
 
 function updateGlobalClientIndicator() {
@@ -1405,7 +1726,7 @@ function renderAnalysisHistory() {
 }
 
 function getCreateUserPanel() {
-    return '<div class="create-user-form"><h3 style="margin-bottom:20px;font-size:16px;">Create New User</h3><div class="form-row"><div class="form-group"><label>First Name *</label><input type="text" id="newFirstName" placeholder="First name"></div><div class="form-group"><label>Last Name *</label><input type="text" id="newLastName" placeholder="Last name"></div></div><div class="form-row single"><div class="form-group"><label>Email *</label><input type="email" id="newEmail" placeholder="Email"></div></div><div class="form-row single"><div class="form-group"><label>Password *</label><input type="password" id="newPassword" placeholder="Password"></div></div><div class="form-row single"><div class="form-group"><label>Role</label><select id="newRole"><option value="user">Standard User</option><option value="admin">Administrator</option></select></div></div><div class="widget-permissions"><h4>Widget Permissions</h4><div class="widget-permission-item"><span>Client Command Center</span><label class="toggle-switch"><input type="checkbox" id="perm-client-command-center" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Client Lookup</span><label class="toggle-switch"><input type="checkbox" id="perm-client-lookup" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Client Administration</span><label class="toggle-switch"><input type="checkbox" id="perm-client-admin" checked><span class="toggle-slider"></span></label><span style="font-size:0.7rem;color:var(--text-tertiary);margin-left:6px;">(Admin only)</span></div><div class="widget-permission-item"><span>Energy Utilization</span><label class="toggle-switch"><input type="checkbox" id="perm-energy-utilization" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Bid Management</span><label class="toggle-switch"><input type="checkbox" id="perm-bid-management" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>AI Assistant</span><label class="toggle-switch"><input type="checkbox" id="perm-ai-assistant" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>AE Intelligence (BUDA)</span><label class="toggle-switch"><input type="checkbox" id="perm-aei-intelligence" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>LMP Comparison</span><label class="toggle-switch"><input type="checkbox" id="perm-lmp-comparison" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>LMP Analytics V2</span><label class="toggle-switch"><input type="checkbox" id="perm-lmp-analytics" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Peak Demand Analytics</span><label class="toggle-switch"><input type="checkbox" id="perm-peak-demand" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Analysis History</span><label class="toggle-switch"><input type="checkbox" id="perm-analysis-history" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Data Manager</span><label class="toggle-switch"><input type="checkbox" id="perm-data-manager"><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Arcadia Fetcher</span><label class="toggle-switch"><input type="checkbox" id="perm-arcadia-fetcher"><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Feedback & Support</span><label class="toggle-switch"><input type="checkbox" id="perm-feedback" checked><span class="toggle-slider"></span></label><span style="font-size:0.7rem;color:var(--text-tertiary);margin-left:6px;">(Admin only)</span></div><div class="widget-permission-item"><span>Change Password</span><label class="toggle-switch"><input type="checkbox" id="perm-password-reset" checked><span class="toggle-slider"></span></label></div></div><button class="btn-primary" onclick="createUser()" style="margin-top:20px;">Create User</button></div>';
+    return '<div class="create-user-form"><h3 style="margin-bottom:20px;font-size:16px;">Create New User</h3><div class="form-row"><div class="form-group"><label>First Name *</label><input type="text" id="newFirstName" placeholder="First name"></div><div class="form-group"><label>Last Name *</label><input type="text" id="newLastName" placeholder="Last name"></div></div><div class="form-row single"><div class="form-group"><label>Email *</label><input type="email" id="newEmail" placeholder="Email"></div></div><div class="form-row single"><div class="form-group"><label>Password *</label><input type="password" id="newPassword" placeholder="Password"></div></div><div class="form-row single"><div class="form-group"><label>Role</label><select id="newRole"><option value="user">Standard User</option><option value="admin">Administrator</option></select></div></div><div class="widget-permissions"><h4>Widget Permissions</h4><div class="widget-permission-item"><span>Client Command Center</span><label class="toggle-switch"><input type="checkbox" id="perm-client-command-center" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Client Lookup</span><label class="toggle-switch"><input type="checkbox" id="perm-client-lookup" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Client Administration</span><label class="toggle-switch"><input type="checkbox" id="perm-client-admin" checked><span class="toggle-slider"></span></label><span style="font-size:0.7rem;color:var(--text-tertiary);margin-left:6px;">(Admin only)</span></div><div class="widget-permission-item"><span>Energy Utilization</span><label class="toggle-switch"><input type="checkbox" id="perm-energy-utilization" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Bid Management</span><label class="toggle-switch"><input type="checkbox" id="perm-bid-management" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>AI Assistant</span><label class="toggle-switch"><input type="checkbox" id="perm-ai-assistant" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>AE Intelligence (BUDA)</span><label class="toggle-switch"><input type="checkbox" id="perm-aei-intelligence" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>LMP Comparison</span><label class="toggle-switch"><input type="checkbox" id="perm-lmp-comparison" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>LMP Analytics V2</span><label class="toggle-switch"><input type="checkbox" id="perm-lmp-analytics" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Peak Demand Analytics</span><label class="toggle-switch"><input type="checkbox" id="perm-peak-demand" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Analysis History</span><label class="toggle-switch"><input type="checkbox" id="perm-analysis-history" checked><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Data Manager</span><label class="toggle-switch"><input type="checkbox" id="perm-data-manager"><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Arcadia Fetcher</span><label class="toggle-switch"><input type="checkbox" id="perm-arcadia-fetcher"><span class="toggle-slider"></span></label></div><div class="widget-permission-item"><span>Feedback & Support</span><label class="toggle-switch"><input type="checkbox" id="perm-feedback" checked><span class="toggle-slider"></span></label><span style="font-size:0.7rem;color:var(--text-tertiary);margin-left:6px;">(Admin only)</span></div><div class="widget-permission-item"><span>Change Password</span><label class="toggle-switch"><input type="checkbox" id="perm-password-reset" checked><span class="toggle-slider"></span></label></div></div><div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-color);"><h4 style="margin-bottom:10px;color:var(--text-secondary);">Layout Settings</h4><div class="widget-permission-item"><span>Default Layout Mode</span><select id="perm-default-layout" style="padding:6px 10px;border-radius:6px;background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);font-size:13px;"><option value="wide">Wide (Single Column)</option><option value="grid">Grid (Two Column)</option></select></div></div><button class="btn-primary" onclick="createUser()" style="margin-top:20px;">Create User</button></div>';
 }
 
 function getManageUsersPanel() { return '<div style="margin-bottom:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;"><button onclick="forceResetAllUsers()" style="padding:8px 16px;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">🔐 Force Reset All Users</button><span style="font-size:12px;color:var(--text-tertiary);">Requires all users to change their password on next login</span></div><div style="overflow-x:auto;"><table class="users-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead><tbody id="usersTableBody"></tbody></table></div>'; }
@@ -2027,7 +2348,8 @@ window.createUser = async function() {
         'data-manager': document.getElementById('perm-data-manager')?.checked ?? false,
         'arcadia-fetcher': document.getElementById('perm-arcadia-fetcher')?.checked ?? false,
         'feedback': document.getElementById('perm-feedback')?.checked ?? true,
-        'password-reset': document.getElementById('perm-password-reset')?.checked ?? true
+        'password-reset': document.getElementById('perm-password-reset')?.checked ?? true,
+        'defaultLayoutMode': document.getElementById('perm-default-layout')?.value || 'wide'
     };
     
     const result = await UserStore.create({ firstName, lastName, email, password, role, permissions });
@@ -2082,6 +2404,10 @@ window.editUser = function(userId) {
         '<div class="widget-permission-item"><span>Feedback & Support</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-feedback" ' + getChecked('feedback') + '><span class="toggle-slider"></span></label><span style="font-size:0.7rem;color:var(--text-tertiary);margin-left:6px;">(Admin only)</span></div>' +
         '<div class="widget-permission-item"><span>Change Password</span><label class="toggle-switch"><input type="checkbox" id="edit-perm-password-reset" ' + getChecked('password-reset') + '><span class="toggle-slider"></span></label></div>' +
         '</div>' +
+        '<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-color);">' +
+        '<h4 style="margin-bottom:10px;color:var(--text-secondary);">Layout Settings</h4>' +
+        '<div class="widget-permission-item"><span>Default Layout Mode</span><select id="edit-perm-default-layout" style="padding:6px 10px;border-radius:6px;background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);font-size:13px;"><option value="wide"' + (perms.defaultLayoutMode === 'grid' ? '' : ' selected') + '>Wide (Single Column)</option><option value="grid"' + (perms.defaultLayoutMode === 'grid' ? ' selected' : '') + '>Grid (Two Column)</option></select></div>' +
+        '</div>' +
         '<div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border-color);">' +
         '<h4 style="margin-bottom:12px;color:var(--text-secondary);">Security</h4>' +
         '<div class="widget-permission-item"><span>Force Password Reset on Next Login</span><label class="toggle-switch"><input type="checkbox" id="edit-force-password-reset" ' + (user.forcePasswordReset ? 'checked' : '') + '><span class="toggle-slider"></span></label></div>' +
@@ -2119,7 +2445,8 @@ window.saveUserEdit = async function(userId) {
             'data-manager': document.getElementById('edit-perm-data-manager')?.checked,
             'arcadia-fetcher': document.getElementById('edit-perm-arcadia-fetcher')?.checked,
             'feedback': document.getElementById('edit-perm-feedback')?.checked,
-            'password-reset': document.getElementById('edit-perm-password-reset')?.checked
+            'password-reset': document.getElementById('edit-perm-password-reset')?.checked,
+            'defaultLayoutMode': document.getElementById('edit-perm-default-layout')?.value || 'wide'
         },
         forcePasswordReset: document.getElementById('edit-force-password-reset')?.checked || false
     };
@@ -2318,5 +2645,12 @@ function downloadFile(content, filename, mimeType) {
     URL.revokeObjectURL(url);
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEditModal(); });
+document.addEventListener('keydown', e => { 
+    if (e.key === 'Escape') {
+        // First check for maximized widget
+        const maximized = document.querySelector('.widget.maximized');
+        if (maximized) { toggleWidgetMaximize(maximized.dataset.widgetId); return; }
+        closeEditModal(); 
+    }
+});
 document.getElementById('editUserModal')?.addEventListener('click', function(e) { if (e.target === this) closeEditModal(); });
