@@ -848,9 +848,11 @@ const AzureSync = GitHubSync;
 // =====================================================
 const SecureEnergyData = {
     STORAGE_KEY: 'secureEnergy_lmpData',
+    STORAGE_META_KEY: 'secureEnergy_lmpMeta',
     lmpData: [],
     _subscribers: [],
     isLoaded: false,
+    lastUpdated: null,
 
     async init() {
         console.log('[SecureEnergyData] Initializing...');
@@ -860,6 +862,11 @@ const SecureEnergyData = {
             this.isLoaded = true;
             console.log(`[SecureEnergyData] ${cached.length} records from cache`);
         }
+        // Load saved metadata (lastUpdated)
+        try {
+            const meta = JSON.parse(localStorage.getItem(this.STORAGE_META_KEY) || '{}');
+            if (meta.lastUpdated) this.lastUpdated = meta.lastUpdated;
+        } catch (e) {}
         try { await this.fetchLatest(); } catch (e) { console.warn('[SecureEnergyData] Fetch failed:', e.message); }
         this.notifySubscribers();
         return this.lmpData;
@@ -869,33 +876,93 @@ const SecureEnergyData = {
         if (typeof AzureDataService !== 'undefined' && AzureDataService.isConfigured()) {
             try {
                 const data = await AzureDataService.get('lmp-database.json');
-                if (data?.records?.length) {
-                    this.lmpData = data.records.map(r => this.normalizeRecord(r));
-                    this.isLoaded = true;
-                    this.saveToStorage();
-                    console.log(`[SecureEnergyData] ${this.lmpData.length} records from Azure`);
-                    return;
+                if (data) {
+                    const records = this._extractRecords(data);
+                    if (records.length) {
+                        this.lmpData = records;
+                        this.isLoaded = true;
+                        this.lastUpdated = data.lastUpdated || data.updated || new Date().toISOString();
+                        this.saveToStorage();
+                        console.log(`[SecureEnergyData] ${this.lmpData.length} records from Azure`);
+                        return;
+                    }
                 }
             } catch (e) {
                 console.warn('[SecureEnergyData] Azure fetch failed:', e.message);
             }
         }
         
-        // Fallback to direct file fetch (for local development)
+        // Fallback: try direct Azure API with widget key
+        try {
+            const response = await fetch('https://ses-data-api-gpaqghfbehhrb6c2.eastus-01.azurewebsites.net/api/data/lmp-database.json', {
+                headers: { 'X-API-Key': 'ses-widget-mno345pqr678' }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (data) {
+                    const records = this._extractRecords(data);
+                    if (records.length) {
+                        this.lmpData = records;
+                        this.isLoaded = true;
+                        this.lastUpdated = data.lastUpdated || data.updated || new Date().toISOString();
+                        this.saveToStorage();
+                        console.log(`[SecureEnergyData] ${this.lmpData.length} records from Azure API direct`);
+                        return;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[SecureEnergyData] Direct Azure fetch failed:', e.message);
+        }
+
+        // Fallback to local file (for local development)
         try {
             const response = await fetch(`data/lmp-database.json?t=${Date.now()}`);
             if (response.ok) {
                 const data = await response.json();
-                if (data?.records?.length) {
-                    this.lmpData = data.records.map(r => this.normalizeRecord(r));
-                    this.isLoaded = true;
-                    this.saveToStorage();
-                    console.log(`[SecureEnergyData] ${this.lmpData.length} records from local file`);
+                if (data) {
+                    const records = this._extractRecords(data);
+                    if (records.length) {
+                        this.lmpData = records;
+                        this.isLoaded = true;
+                        this.lastUpdated = data.lastUpdated || data.updated || null;
+                        this.saveToStorage();
+                        console.log(`[SecureEnergyData] ${this.lmpData.length} records from local file`);
+                    }
                 }
             }
         } catch (e) {
             console.warn('[SecureEnergyData] Local fetch failed:', e.message);
         }
+    },
+
+    // Extract records from any format (Azure grouped or flat records array)
+    _extractRecords(data) {
+        // Format 1: { records: [...] } (flat array)
+        if (data?.records?.length) {
+            return data.records.map(r => this.normalizeRecord(r));
+        }
+        // Format 2: { data: { ISONE: [...], PJM: [...] } } (Azure grouped)
+        if (data?.data && typeof data.data === 'object' && !Array.isArray(data.data)) {
+            const records = [];
+            for (const [iso, isoRecords] of Object.entries(data.data)) {
+                if (Array.isArray(isoRecords)) {
+                    isoRecords.forEach(r => {
+                        records.push(this.normalizeRecord({
+                            iso: iso,
+                            zone: r.zone || r.zone_id || r.zoneId,
+                            month: r.month,
+                            year: r.year,
+                            lmp: r.avg_da_lmp || r.lmp || 0,
+                            peak_lmp: r.peak_lmp || 0,
+                            offpeak_lmp: r.offpeak_lmp || 0
+                        }));
+                    });
+                }
+            }
+            return records;
+        }
+        return [];
     },
 
     normalizeRecord(record) {
@@ -911,7 +978,10 @@ const SecureEnergyData = {
     },
 
     loadFromStorage() { try { return JSON.parse(localStorage.getItem(this.STORAGE_KEY)) || []; } catch { return []; } },
-    saveToStorage() { localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.lmpData)); },
+    saveToStorage() { 
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.lmpData));
+        localStorage.setItem(this.STORAGE_META_KEY, JSON.stringify({ lastUpdated: this.lastUpdated }));
+    },
 
     getAll() { return this.lmpData; },
     getRecords() { return this.lmpData; },
@@ -928,7 +998,7 @@ const SecureEnergyData = {
         isos.forEach(iso => {
             byISO[iso] = [...new Set(this.lmpData.filter(r => r.iso === iso).map(r => r.zone))].length;
         });
-        return { totalRecords: this.lmpData.length, isoCount: isos.length, isos: isos.sort(), zonesByISO: byISO, isLoaded: this.isLoaded };
+        return { totalRecords: this.lmpData.length, isoCount: isos.length, isos: isos.sort(), zonesByISO: byISO, isLoaded: this.isLoaded, lastUpdated: this.lastUpdated };
     },
 
     subscribe(callback) { this._subscribers.push(callback); },
@@ -937,6 +1007,7 @@ const SecureEnergyData = {
     bulkUpdate(records) {
         this.lmpData = records.map(r => this.normalizeRecord(r));
         this.isLoaded = true;
+        this.lastUpdated = new Date().toISOString();
         this.saveToStorage();
         this.notifySubscribers();
         window.postMessage({ type: 'LMP_BULK_UPDATE', count: records.length }, '*');
@@ -944,8 +1015,10 @@ const SecureEnergyData = {
 
     clearCache() {
         localStorage.removeItem(this.STORAGE_KEY);
+        localStorage.removeItem(this.STORAGE_META_KEY);
         this.lmpData = [];
         this.isLoaded = false;
+        this.lastUpdated = null;
         console.log('[SecureEnergyData] Cache cleared');
     }
 };

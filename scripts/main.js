@@ -1872,7 +1872,18 @@ function updateDataStatus() {
     document.getElementById('dataRecordCount').textContent = stats.totalRecords?.toLocaleString() || '0';
     document.getElementById('dataISOCount').textContent = stats.isoCount || '0';
     const indicator = document.getElementById('dataStatusIndicator'), title = document.getElementById('dataStatusTitle'), desc = document.getElementById('dataStatusDesc');
-    if (stats.totalRecords > 0) { indicator.style.background = 'var(--accent-success)'; title.textContent = 'Data Loaded'; desc.textContent = stats.isos?.join(', ') || (stats.totalRecords + ' records'); }
+    if (stats.totalRecords > 0) { 
+        indicator.style.background = 'var(--accent-success)'; 
+        title.textContent = 'Data Loaded'; 
+        let descText = stats.isos?.join(', ') || (stats.totalRecords + ' records');
+        if (stats.lastUpdated) {
+            try {
+                const d = new Date(stats.lastUpdated);
+                descText += ' · Updated ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            } catch (e) {}
+        }
+        desc.textContent = descText;
+    }
     else { indicator.style.background = 'var(--accent-warning)'; title.textContent = 'No Data'; desc.textContent = 'Use Data Manager to load'; }
 }
 
