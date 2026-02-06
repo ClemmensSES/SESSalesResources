@@ -242,8 +242,6 @@
 /* Color-coded hover states */
 .dock-ctrl-btn.minimize-btn:hover { background: rgba(59, 130, 246, 0.15); border-color: #3b82f6; color: #3b82f6; }
 .dock-ctrl-btn.maximize-btn:hover { background: rgba(62, 180, 137, 0.15); border-color: var(--se-light-green, #3EB489); color: var(--se-light-green, #3EB489); }
-.dock-ctrl-btn.popout-btn:hover { background: rgba(168, 85, 247, 0.15); border-color: #a855f7; color: #a855f7; }
-.dock-ctrl-btn.width-btn:hover { background: rgba(245, 158, 11, 0.15); border-color: #f59e0b; color: #f59e0b; }
 
 .dock-action-btn,
 .widget-btn {
@@ -268,25 +266,56 @@
     color: #000;
 }
 
-/* Drag Handle */
-.dock-drag-handle,
-.widget-drag-handle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    color: var(--text-tertiary);
+/* Header-based drag handle — the header itself is the grab zone */
+.widget-drag-header {
     cursor: grab;
-    border-radius: 6px;
-    transition: all 0.2s ease;
-    opacity: 0.4;
+    user-select: none;
 }
 
-.dock-drag-handle:hover,
-.widget-drag-handle:hover { background: var(--bg-tertiary); color: var(--se-light-green, #3EB489); opacity: 1; }
-.dock-drag-handle:active,
-.widget-drag-handle:active { cursor: grabbing; }
+.widget-drag-header:active {
+    cursor: grabbing;
+}
+
+.widget.dragging .widget-drag-header {
+    cursor: grabbing;
+}
+
+/* =============================================================================
+   WIDGET FOOTER — Version & Updated Date
+   ============================================================================= */
+.widget-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 20px;
+    background: var(--bg-tertiary);
+    border-top: 1px solid var(--border-color);
+    font-size: 11px;
+    color: var(--text-tertiary);
+    user-select: none;
+    min-height: 28px;
+}
+
+.widget-footer-version {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.widget-footer-updated {
+    opacity: 0.7;
+}
+
+.widget.collapsed .widget-footer { display: none; }
+.widget.maximized .widget-footer { display: none; }
+
+/* Docked panel footer */
+.docked-panel .widget-footer {
+    border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+}
+
+.docked-panel-body[style*="display:none"] ~ .widget-footer,
+.docked-panel-body[style*="display: none"] ~ .widget-footer { display: none; }
 
 /* =============================================================================
    WIDGET CONTENT
