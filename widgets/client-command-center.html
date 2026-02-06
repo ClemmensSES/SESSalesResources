@@ -712,50 +712,128 @@
         }
 
         /* ============================================
-           ADMIN PANEL (hidden for standard users)
+           ADMIN ACTION BAR (compact bottom strip)
            ============================================ */
-        .admin-panel {
-            background: var(--bg-card);
+        .admin-action-bar {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: var(--bg-elevated);
             border: 1px solid var(--border);
             border-radius: var(--radius-lg);
-            overflow: hidden;
-            display: none;
         }
 
-        .admin-panel.visible { display: flex; flex-direction: column; }
+        .admin-action-bar.visible { display: flex; }
 
-        .admin-tabs {
+        .admin-action-bar-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            margin-right: 4px;
+            white-space: nowrap;
+        }
+
+        .action-bar-btn {
             display: flex;
-            background: var(--bg-elevated);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .admin-tab {
-            flex: 1;
-            padding: 9px 14px;
-            background: transparent;
-            border: none;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
             color: var(--text-secondary);
             cursor: pointer;
-            font-size: 0.78rem;
+            font-size: 0.72rem;
             font-weight: 500;
             transition: all 0.15s;
-            border-bottom: 2px solid transparent;
+            white-space: nowrap;
+        }
+
+        .action-bar-btn:hover {
+            color: var(--text-primary);
+            border-color: var(--accent);
+            background: rgba(62, 180, 137, 0.06);
+        }
+
+        .action-bar-btn svg { flex-shrink: 0; }
+
+        /* Action Modal (popup windows for admin tools) */
+        .action-modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 5px;
+            z-index: 1000;
+            animation: fadeIn 0.15s ease;
         }
 
-        .admin-tab:hover { color: var(--text-primary); background: rgba(255,255,255,0.02); }
-        .admin-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-
-        .admin-tab-content {
-            display: none;
-            padding: 16px;
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
 
-        .admin-tab-content.active { display: block; }
+        .action-modal {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            width: 90%;
+            max-height: 85vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            animation: modalSlide 0.2s ease;
+        }
+
+        .action-modal.size-sm { max-width: 480px; }
+        .action-modal.size-md { max-width: 620px; }
+        .action-modal.size-lg { max-width: 720px; }
+
+        @keyframes modalSlide {
+            from { transform: translateY(12px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .action-modal-header {
+            padding: 12px 16px;
+            background: var(--bg-elevated);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .action-modal-header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .action-modal-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(62, 180, 137, 0.1);
+            color: var(--accent);
+        }
+
+        .action-modal-title { font-size: 0.9rem; font-weight: 600; }
+        .action-modal-close {
+            background: none; border: none; color: var(--text-muted); cursor: pointer;
+            padding: 4px 6px; font-size: 1.1rem; border-radius: var(--radius-sm);
+            transition: all 0.15s;
+        }
+        .action-modal-close:hover { background: var(--bg-input); color: var(--text-primary); }
+        .action-modal-body { padding: 16px; overflow-y: auto; flex: 1; }
 
         /* ============================================
            SHARED UI COMPONENTS
@@ -1134,184 +1212,214 @@
                 <div class="widget-grid" id="widgetGrid"></div>
             </div>
 
-            <!-- Admin Panel (only visible for admin users) -->
-            <div class="admin-panel" id="adminPanel">
-                <div class="admin-tabs">
-                    <button class="admin-tab active" data-admintab="create" onclick="switchAdminTab('create', this)">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
-                        </svg>
-                        Add Client
-                    </button>
-                    <button class="admin-tab" data-admintab="import" onclick="switchAdminTab('import', this)">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <!-- Admin Action Bar (compact strip, only visible for admin users) -->
+            <div class="admin-action-bar" id="adminPanel">
+                <span class="admin-action-bar-label">Admin</span>
+                <button class="action-bar-btn" onclick="openAdminModal('create')">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                    Add Client
+                </button>
+                <button class="action-bar-btn" onclick="openAdminModal('import')">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Import
+                </button>
+                <button class="action-bar-btn" onclick="openAdminModal('export')">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Export
+                </button>
+                <button class="action-bar-btn" onclick="openAdminModal('details')">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Client Details
+                </button>
+            </div>
+
+    <!-- Admin Action Modals -->
+    <!-- Create Client Modal -->
+    <div class="action-modal-overlay" id="adminModal-create" style="display:none;" onclick="if(event.target===this)closeAdminModal('create')">
+        <div class="action-modal size-md">
+            <div class="action-modal-header">
+                <div class="action-modal-header-left">
+                    <div class="action-modal-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div>
+                    <span class="action-modal-title">Add New Client</span>
+                </div>
+                <button class="action-modal-close" onclick="closeAdminModal('create')">×</button>
+            </div>
+            <div class="action-modal-body">
+                <form id="createClientForm" onsubmit="handleCreateClient(event)">
+                    <div class="detail-section">
+                        <div class="detail-section-title">Basic Information</div>
+                        <div class="form-row">
+                            <div class="form-group"><label class="form-label">Client Name *</label><input type="text" class="form-input" name="name" required></div>
+                            <div class="form-group"><label class="form-label">Salesforce ID</label><input type="text" class="form-input" name="salesforceId"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Account Type</label>
+                                <select class="form-select" name="accountType">
+                                    <option value="Prospect">Prospect</option>
+                                    <option value="Customer">Customer</option>
+                                    <option value="Former Customer">Former Customer</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Status</label>
+                                <select class="form-select" name="status"><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="detail-section">
+                        <div class="detail-section-title">Location & Contact</div>
+                        <div class="form-group"><label class="form-label">Address</label><input type="text" class="form-input" name="address"></div>
+                        <div class="form-row form-row-3">
+                            <div class="form-group"><label class="form-label">City</label><input type="text" class="form-input" name="city"></div>
+                            <div class="form-group"><label class="form-label">State</label><input type="text" class="form-input" name="state"></div>
+                            <div class="form-group"><label class="form-label">ZIP</label><input type="text" class="form-input" name="zip"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label class="form-label">Phone</label><input type="tel" class="form-input" name="phone"></div>
+                            <div class="form-group"><label class="form-label">Website</label><input type="url" class="form-input" name="website"></div>
+                        </div>
+                    </div>
+                    <div class="detail-section">
+                        <div class="detail-section-title">Energy Details</div>
+                        <div class="form-row form-row-3">
+                            <div class="form-group">
+                                <label class="form-label">ISO</label>
+                                <select class="form-select" name="iso">
+                                    <option value="">Select...</option>
+                                    <option value="PJM">PJM</option><option value="ISO-NE">ISO-NE</option>
+                                    <option value="NYISO">NYISO</option><option value="ERCOT">ERCOT</option>
+                                    <option value="MISO">MISO</option><option value="CAISO">CAISO</option>
+                                </select>
+                            </div>
+                            <div class="form-group"><label class="form-label">Utility</label><input type="text" class="form-input" name="utility"></div>
+                            <div class="form-group"><label class="form-label">Load Zone</label><input type="text" class="form-input" name="loadZone"></div>
+                        </div>
+                        <div class="form-row form-row-3">
+                            <div class="form-group"><label class="form-label">Annual Usage (MWh)</label><input type="number" class="form-input" name="annualUsageMWh" step="0.01"></div>
+                            <div class="form-group"><label class="form-label">Contract End Date</label><input type="date" class="form-input" name="contractEndDate"></div>
+                            <div class="form-group"><label class="form-label">Current Supplier</label><input type="text" class="form-input" name="currentSupplier"></div>
+                        </div>
+                    </div>
+                    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" name="notes"></textarea></div>
+                    <div style="display: flex; gap: 8px;">
+                        <button type="submit" class="btn btn-accent">Create Client</button>
+                        <button type="reset" class="btn btn-ghost">Clear</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div class="action-modal-overlay" id="adminModal-import" style="display:none;" onclick="if(event.target===this)closeAdminModal('import')">
+        <div class="action-modal size-lg">
+            <div class="action-modal-header">
+                <div class="action-modal-header-left">
+                    <div class="action-modal-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+                    <span class="action-modal-title">Import Data</span>
+                </div>
+                <button class="action-modal-close" onclick="closeAdminModal('import')">×</button>
+            </div>
+            <div class="action-modal-body">
+                <!-- Parent Import -->
+                <div style="margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border);">
+                    <h4 style="font-size: 0.88rem; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                        <span style="background: var(--accent); color: white; padding: 2px 7px; border-radius: 3px; font-size: 0.65rem;">1</span>
+                        Import Parent Clients
+                    </h4>
+                    <p style="color: var(--text-secondary); font-size: 0.78rem; margin-bottom: 10px;">Upload contract-level data from Salesforce to create parent client records.</p>
+                    <div class="import-zone" id="importZone" onclick="document.getElementById('importFile').click()">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" style="margin-bottom: 6px;">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                             <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
                         </svg>
-                        Import
-                    </button>
-                    <button class="admin-tab" data-admintab="export" onclick="switchAdminTab('export', this)">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                        <p><strong>Click to upload</strong> or drag & drop</p>
+                        <p style="font-size: 0.72rem;">Excel, CSV or JSON</p>
+                        <input type="file" id="importFile" accept=".xlsx,.xls,.csv,.json" style="display:none;" onchange="handleFileSelect(event)">
+                    </div>
+                    <div class="import-options">
+                        <label class="import-option"><input type="checkbox" id="optUpdateExisting" checked> Update existing</label>
+                        <label class="import-option"><input type="checkbox" id="optMatchByName"> Match by name</label>
+                    </div>
+                    <div id="importPreview" style="display:none; margin-top: 12px;"></div>
+                    <div id="importResults" style="display:none; margin-top: 12px;"></div>
+                </div>
+                <!-- Account Import -->
+                <div>
+                    <h4 style="font-size: 0.88rem; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                        <span style="background: var(--account-active); color: white; padding: 2px 7px; border-radius: 3px; font-size: 0.65rem;">2</span>
+                        Import Account Tree (Enrichment)
+                    </h4>
+                    <p style="color: var(--text-secondary); font-size: 0.78rem; margin-bottom: 10px;">Upload account-level data to add child accounts under parents. <strong>Requires "Parent Account" column.</strong></p>
+                    <div class="import-zone" id="accountImportZone" onclick="document.getElementById('accountImportFile').click()" style="border-color: rgba(59,130,246,0.3);">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--account-active)" stroke-width="1.5" style="margin-bottom: 6px;">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="8.5" cy="7" r="4"/>
+                            <path d="M20 8v6M23 11h-6"/>
                         </svg>
-                        Export
-                    </button>
-                    <button class="admin-tab" data-admintab="details" onclick="switchAdminTab('details', this)">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                        </svg>
-                        Client Details
-                    </button>
-                </div>
-
-                <!-- Create Tab -->
-                <div class="admin-tab-content active" id="admintab-create">
-                    <h3 style="font-size: 0.95rem; margin-bottom: 12px;">Add New Client</h3>
-                    <form id="createClientForm" onsubmit="handleCreateClient(event)">
-                        <div class="detail-section">
-                            <div class="detail-section-title">Basic Information</div>
-                            <div class="form-row">
-                                <div class="form-group"><label class="form-label">Client Name *</label><input type="text" class="form-input" name="name" required></div>
-                                <div class="form-group"><label class="form-label">Salesforce ID</label><input type="text" class="form-input" name="salesforceId"></div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label">Account Type</label>
-                                    <select class="form-select" name="accountType">
-                                        <option value="Prospect">Prospect</option>
-                                        <option value="Customer">Customer</option>
-                                        <option value="Former Customer">Former Customer</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Status</label>
-                                    <select class="form-select" name="status"><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="detail-section">
-                            <div class="detail-section-title">Location & Contact</div>
-                            <div class="form-group"><label class="form-label">Address</label><input type="text" class="form-input" name="address"></div>
-                            <div class="form-row form-row-3">
-                                <div class="form-group"><label class="form-label">City</label><input type="text" class="form-input" name="city"></div>
-                                <div class="form-group"><label class="form-label">State</label><input type="text" class="form-input" name="state"></div>
-                                <div class="form-group"><label class="form-label">ZIP</label><input type="text" class="form-input" name="zip"></div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group"><label class="form-label">Phone</label><input type="tel" class="form-input" name="phone"></div>
-                                <div class="form-group"><label class="form-label">Website</label><input type="url" class="form-input" name="website"></div>
-                            </div>
-                        </div>
-                        <div class="detail-section">
-                            <div class="detail-section-title">Energy Details</div>
-                            <div class="form-row form-row-3">
-                                <div class="form-group">
-                                    <label class="form-label">ISO</label>
-                                    <select class="form-select" name="iso">
-                                        <option value="">Select...</option>
-                                        <option value="PJM">PJM</option><option value="ISO-NE">ISO-NE</option>
-                                        <option value="NYISO">NYISO</option><option value="ERCOT">ERCOT</option>
-                                        <option value="MISO">MISO</option><option value="CAISO">CAISO</option>
-                                    </select>
-                                </div>
-                                <div class="form-group"><label class="form-label">Utility</label><input type="text" class="form-input" name="utility"></div>
-                                <div class="form-group"><label class="form-label">Load Zone</label><input type="text" class="form-input" name="loadZone"></div>
-                            </div>
-                            <div class="form-row form-row-3">
-                                <div class="form-group"><label class="form-label">Annual Usage (MWh)</label><input type="number" class="form-input" name="annualUsageMWh" step="0.01"></div>
-                                <div class="form-group"><label class="form-label">Contract End Date</label><input type="date" class="form-input" name="contractEndDate"></div>
-                                <div class="form-group"><label class="form-label">Current Supplier</label><input type="text" class="form-input" name="currentSupplier"></div>
-                            </div>
-                        </div>
-                        <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" name="notes"></textarea></div>
-                        <div style="display: flex; gap: 8px;">
-                            <button type="submit" class="btn btn-accent">Create Client</button>
-                            <button type="reset" class="btn btn-ghost">Clear</button>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- Import Tab -->
-                <div class="admin-tab-content" id="admintab-import">
-                    <!-- Parent Import -->
-                    <div style="margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border);">
-                        <h4 style="font-size: 0.88rem; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
-                            <span style="background: var(--accent); color: white; padding: 2px 7px; border-radius: 3px; font-size: 0.65rem;">1</span>
-                            Import Parent Clients
-                        </h4>
-                        <p style="color: var(--text-secondary); font-size: 0.78rem; margin-bottom: 10px;">Upload contract-level data from Salesforce to create parent client records.</p>
-                        <div class="import-zone" id="importZone" onclick="document.getElementById('importFile').click()">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" style="margin-bottom: 6px;">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-                            </svg>
-                            <p><strong>Click to upload</strong> or drag & drop</p>
-                            <p style="font-size: 0.72rem;">Excel, CSV or JSON</p>
-                            <input type="file" id="importFile" accept=".xlsx,.xls,.csv,.json" style="display:none;" onchange="handleFileSelect(event)">
-                        </div>
-                        <div class="import-options">
-                            <label class="import-option"><input type="checkbox" id="optUpdateExisting" checked> Update existing</label>
-                            <label class="import-option"><input type="checkbox" id="optMatchByName"> Match by name</label>
-                        </div>
-                        <div id="importPreview" style="display:none; margin-top: 12px;"></div>
-                        <div id="importResults" style="display:none; margin-top: 12px;"></div>
+                        <p><strong>Click to upload</strong> account data</p>
+                        <p style="font-size: 0.72rem;">Excel, CSV or JSON with Parent Account column</p>
+                        <input type="file" id="accountImportFile" accept=".xlsx,.xls,.csv,.json" style="display:none;" onchange="handleAccountFileSelect(event)">
                     </div>
-
-                    <!-- Account Import -->
-                    <div>
-                        <h4 style="font-size: 0.88rem; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
-                            <span style="background: var(--account-active); color: white; padding: 2px 7px; border-radius: 3px; font-size: 0.65rem;">2</span>
-                            Import Account Tree (Enrichment)
-                        </h4>
-                        <p style="color: var(--text-secondary); font-size: 0.78rem; margin-bottom: 10px;">Upload account-level data to add child accounts under parents. <strong>Requires "Parent Account" column.</strong></p>
-                        <div class="import-zone" id="accountImportZone" onclick="document.getElementById('accountImportFile').click()" style="border-color: rgba(59,130,246,0.3);">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--account-active)" stroke-width="1.5" style="margin-bottom: 6px;">
-                                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                                <circle cx="8.5" cy="7" r="4"/>
-                                <path d="M20 8v6M23 11h-6"/>
-                            </svg>
-                            <p><strong>Click to upload</strong> account data</p>
-                            <p style="font-size: 0.72rem;">Excel, CSV or JSON with Parent Account column</p>
-                            <input type="file" id="accountImportFile" accept=".xlsx,.xls,.csv,.json" style="display:none;" onchange="handleAccountFileSelect(event)">
-                        </div>
-                        <div class="import-options">
-                            <label class="import-option"><input type="checkbox" id="optAcctUpdateExisting" checked> Update existing</label>
-                            <label class="import-option"><input type="checkbox" id="optCreateOrphans"> Create missing parents</label>
-                        </div>
-                        <div id="accountImportPreview" style="display:none; margin-top: 12px;"></div>
-                        <div id="accountImportResults" style="display:none; margin-top: 12px;"></div>
+                    <div class="import-options">
+                        <label class="import-option"><input type="checkbox" id="optAcctUpdateExisting" checked> Update existing</label>
+                        <label class="import-option"><input type="checkbox" id="optCreateOrphans"> Create missing parents</label>
                     </div>
-                </div>
-
-                <!-- Export Tab -->
-                <div class="admin-tab-content" id="admintab-export">
-                    <h3 style="font-size: 0.95rem; margin-bottom: 8px;">Export & Save</h3>
-                    <p style="color: var(--text-secondary); font-size: 0.78rem; margin-bottom: 16px;">
-                        Client data is stored in <code style="background: var(--bg-input); padding: 2px 5px; border-radius: 3px;">clients.json</code> on Azure Blob Storage. Changes auto-sync when Azure is configured.
-                    </p>
-                    <div id="storageInfo" style="background: var(--bg-input); padding: 12px; border-radius: var(--radius-md); margin-bottom: 16px;"></div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
-                        <button class="btn btn-success" style="padding: 12px; justify-content: center;" onclick="downloadForGitHub()">
-                            ⬇️ Download clients.json
-                        </button>
-                        <button class="btn btn-ghost" style="padding: 12px; justify-content: center;" onclick="exportClients('csv')">
-                            📊 Export as CSV
-                        </button>
-                    </div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted); padding: 10px; background: var(--bg-input); border-radius: var(--radius-sm);">
-                        <strong>Auto-sync:</strong> Changes save to Azure automatically when configured. Download for manual backup or offline use.
-                    </div>
-                </div>
-
-                <!-- Client Details Tab -->
-                <div class="admin-tab-content" id="admintab-details">
-                    <div id="clientDetailsPanel">
-                        <div class="empty-state"><p>Select a client to view details</p></div>
-                    </div>
+                    <div id="accountImportPreview" style="display:none; margin-top: 12px;"></div>
+                    <div id="accountImportResults" style="display:none; margin-top: 12px;"></div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div class="action-modal-overlay" id="adminModal-export" style="display:none;" onclick="if(event.target===this)closeAdminModal('export')">
+        <div class="action-modal size-sm">
+            <div class="action-modal-header">
+                <div class="action-modal-header-left">
+                    <div class="action-modal-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+                    <span class="action-modal-title">Export & Save</span>
+                </div>
+                <button class="action-modal-close" onclick="closeAdminModal('export')">×</button>
+            </div>
+            <div class="action-modal-body">
+                <p style="color: var(--text-secondary); font-size: 0.78rem; margin-bottom: 16px;">
+                    Client data is stored in <code style="background: var(--bg-input); padding: 2px 5px; border-radius: 3px;">clients.json</code> on Azure Blob Storage. Changes auto-sync when Azure is configured.
+                </p>
+                <div id="storageInfo" style="background: var(--bg-input); padding: 12px; border-radius: var(--radius-md); margin-bottom: 16px;"></div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
+                    <button class="btn btn-success" style="padding: 12px; justify-content: center;" onclick="downloadForGitHub()">
+                        ⬇️ Download clients.json
+                    </button>
+                    <button class="btn btn-ghost" style="padding: 12px; justify-content: center;" onclick="exportClients('csv')">
+                        📊 Export as CSV
+                    </button>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); padding: 10px; background: var(--bg-input); border-radius: var(--radius-sm);">
+                    <strong>Auto-sync:</strong> Changes save to Azure automatically when configured. Download for manual backup or offline use.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Client Details Modal -->
+    <div class="action-modal-overlay" id="adminModal-details" style="display:none;" onclick="if(event.target===this)closeAdminModal('details')">
+        <div class="action-modal size-md">
+            <div class="action-modal-header">
+                <div class="action-modal-header-left">
+                    <div class="action-modal-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+                    <span class="action-modal-title">Client Details</span>
+                </div>
+                <button class="action-modal-close" onclick="closeAdminModal('details')">×</button>
+            </div>
+            <div class="action-modal-body">
+                <div id="clientDetailsPanel">
+                    <div class="empty-state"><p>Select a client to view details</p></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
         </div>
     </div>
@@ -1474,11 +1582,11 @@
         }
 
         function updateAdminVisibility() {
-            const panel = document.getElementById('adminPanel');
+            const bar = document.getElementById('adminPanel');
             if (isAdmin) {
-                panel.classList.add('visible');
+                bar.classList.add('visible');
             } else {
-                panel.classList.remove('visible');
+                bar.classList.remove('visible');
             }
         }
 
@@ -2034,16 +2142,16 @@
             if (query) {
                 const q = query.toLowerCase();
                 filtered = filtered.filter(c =>
-                    c.name?.toLowerCase().includes(q) ||
-                    c.city?.toLowerCase().includes(q) ||
-                    c.state?.toLowerCase().includes(q) ||
-                    c.iso?.toLowerCase().includes(q) ||
-                    c.salesforceId?.toLowerCase().includes(q) ||
-                    c.parentAccountCustomer?.toLowerCase().includes(q) ||
+                    String(c.name || '').toLowerCase().includes(q) ||
+                    String(c.city || '').toLowerCase().includes(q) ||
+                    String(c.state || '').toLowerCase().includes(q) ||
+                    String(c.iso || '').toLowerCase().includes(q) ||
+                    String(c.salesforceId || '').toLowerCase().includes(q) ||
+                    String(c.parentAccountCustomer || '').toLowerCase().includes(q) ||
                     c.accounts?.some(a =>
-                        a.accountName?.toLowerCase().includes(q) ||
-                        a.accountNumber?.toLowerCase().includes(q) ||
-                        a.serviceZip?.includes(q)
+                        String(a.accountName || '').toLowerCase().includes(q) ||
+                        String(a.accountNumber || '').toLowerCase().includes(q) ||
+                        String(a.serviceZip || '').includes(q)
                     )
                 );
             }
@@ -2252,15 +2360,21 @@
         // ========================================
         // ADMIN ACTIONS
         // ========================================
-        function switchAdminTab(tab, el) {
-            document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
-            el.classList.add('active');
-            document.getElementById('admintab-' + tab).classList.add('active');
-
-            if (tab === 'export') updateStorageInfo();
-            if (tab === 'details') updateClientDetails();
+        function openAdminModal(name) {
+            const overlay = document.getElementById('adminModal-' + name);
+            if (!overlay) return;
+            overlay.style.display = 'flex';
+            if (name === 'export') updateStorageInfo();
+            if (name === 'details') updateClientDetails();
         }
+
+        function closeAdminModal(name) {
+            const overlay = document.getElementById('adminModal-' + name);
+            if (overlay) overlay.style.display = 'none';
+        }
+
+        // Legacy compat — redirect old tab calls to modal
+        function switchAdminTab(tab) { openAdminModal(tab); }
 
         function handleCreateClient(e) {
             e.preventDefault();
@@ -2270,6 +2384,7 @@
             f.forEach((v, k) => d[k] = v);
             const c = ClientStore.createClient(d);
             e.target.reset();
+            closeAdminModal('create');
             selectClient(c.id);
             showToast('Client created', 'success');
         }
