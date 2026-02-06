@@ -1,113 +1,130 @@
 /**
- * Arcadia LMP Data Fetcher - HOURLY VERSION
+ * Arcadia/Genability LMP Hourly Data Fetcher
+ * Version: 2.1.0 - CORRECTED
  * 
- * This script fetches Day-Ahead LMP data from the Arcadia/Genability Signal API
- * and stores BOTH hourly data AND monthly aggregates.
+ * Fetches Day-Ahead LMP hourly data from the Genability API.
+ * Zone IDs and field names verified against the Arcadia LMP Fetcher V2
+ * and the Arcadia_ISO-zone_mapping.txt API discovery output.
  * 
- * The hourly data enables more detailed analysis in the LMP Analytics widget.
+ * Outputs BOTH:
+ *   temp/fetched-lmp-hourly.json  - hourly records by ISO > month > [{dt,p,z}]
+ *   temp/fetched-lmp-data.json    - monthly summaries for backward compat
  * 
- * Runs server-side via GitHub Actions to avoid CORS issues.
- * 
- * Environment Variables Required:
- *   ARCADIA_APP_ID  - Arcadia API App ID
- *   ARCADIA_APP_KEY - Arcadia API App Key
- *   START_DATE      - Start date (YYYY-MM-DD)
- *   END_DATE        - End date (YYYY-MM-DD)
- *   ISO_MARKETS     - Comma-separated ISOs or 'all'
+ * Environment Variables:
+ *   ARCADIA_APP_ID  - Genability API App ID
+ *   ARCADIA_APP_KEY - Genability API App Key
+ *   START_DATE      - YYYY-MM-DD
+ *   END_DATE        - YYYY-MM-DD
+ *   ISO_MARKETS     - comma-separated ISOs or 'all' (default: all)
  */
 
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
-// ISO Configuration - expanded to include all markets
+// ============================================================
+// ISO CONFIGURATION
+// Zone IDs match arcadia-lmp-fetcher-COMPLETE_V2.html exactly
+// propertyKeys match Arcadia_ISO-zone_mapping.txt
+// ============================================================
 const ISO_CONFIG = {
-    ISONE: {
-        name: 'ISO-NE',
-        propertyKey: 'hourlyPricingDayAheadISONE',
-        zones: [
-            { value: '4000', label: 'ISO NE CA', zoneId: '4000_ISONE' },
-            { value: '4001', label: 'Maine', zoneId: '4001_Maine' },
-            { value: '4002', label: 'NH', zoneId: '4002_NH' },
-            { value: '4003', label: 'Vermont', zoneId: '4003_Vermont' },
-            { value: '4004', label: 'Connecticut', zoneId: '4004_Connecticut' },
-            { value: '4005', label: 'Rhode Island', zoneId: '4005_Rhode_Island' },
-            { value: '4006', label: 'SEMA', zoneId: '4006_SEMA' },
-            { value: '4007', label: 'WCMA', zoneId: '4007_WCMA' },
-            { value: '4008', label: 'NEMA', zoneId: '4008_NEMA' }
-        ]
-    },
-    PJM: {
-        name: 'PJM',
-        propertyKey: 'hourlyPricingDayAheadPJM',
-        zones: [
-            { value: '51291', label: 'AECO', zoneId: 'AECO' },
-            { value: '51292', label: 'BGE', zoneId: 'BGE' },
-            { value: '51293', label: 'DPL', zoneId: 'DPL' },
-            { value: '51294', label: 'JCPL', zoneId: 'JCPL' },
-            { value: '51295', label: 'METED', zoneId: 'METED' },
-            { value: '51296', label: 'PECO', zoneId: 'PECO' },
-            { value: '51297', label: 'PENELEC', zoneId: 'PENELEC' },
-            { value: '51298', label: 'PEPCO', zoneId: 'PEPCO' },
-            { value: '51299', label: 'PPL', zoneId: 'PPL' },
-            { value: '51300', label: 'PSEG', zoneId: 'PSEG' },
-            // Extended PJM zones
-            { value: '51301', label: 'AEP', zoneId: 'AEP' },
-            { value: '51302', label: 'APS', zoneId: 'APS' },
-            { value: '51303', label: 'ATSI', zoneId: 'ATSI' },
-            { value: '51304', label: 'COMED', zoneId: 'COMED' },
-            { value: '51305', label: 'DAY', zoneId: 'DAY' },
-            { value: '51306', label: 'DEOK', zoneId: 'DEOK' },
-            { value: '51307', label: 'DOM', zoneId: 'DOM' },
-            { value: '51308', label: 'DUQ', zoneId: 'DUQ' },
-            { value: '51309', label: 'EKPC', zoneId: 'EKPC' },
-            { value: '51310', label: 'EXTERNAL', zoneId: 'EXTERNAL' },
-            { value: '51311', label: 'RECO', zoneId: 'RECO' }
-        ]
-    },
     ERCOT: {
         name: 'ERCOT',
         propertyKey: 'hourlyPricingDayAheadERCOT',
         zones: [
-            { value: 'LZ_AEN', label: 'AEN', zoneId: 'AEN' },
-            { value: 'LZ_CPS', label: 'CPS', zoneId: 'CPS' },
-            { value: 'LZ_HOUSTON', label: 'Houston', zoneId: 'HOUSTON' },
-            { value: 'LZ_LCRA', label: 'LCRA', zoneId: 'LCRA' },
-            { value: 'LZ_NORTH', label: 'North', zoneId: 'NORTH' },
-            { value: 'LZ_RAYBN', label: 'RAYBN', zoneId: 'RAYBN' },
-            { value: 'LZ_SOUTH', label: 'South', zoneId: 'SOUTH' },
-            { value: 'LZ_WEST', label: 'West', zoneId: 'WEST' }
+            // API subKeyName values - NO "LZ_" prefix
+            { value: 'AEN',     label: 'AEN',      dbName: 'AEN' },
+            { value: 'CPS',     label: 'CPS Energy',dbName: 'CPS' },
+            { value: 'HOUSTON', label: 'Houston',   dbName: 'HOUSTON' },
+            { value: 'LCRA',    label: 'LCRA',      dbName: 'LCRA' },
+            { value: 'NORTH',   label: 'North',     dbName: 'NORTH' },
+            { value: 'RAYBN',   label: 'Rayburn',   dbName: 'RAYBN' },
+            { value: 'SOUTH',   label: 'South',     dbName: 'SOUTH' },
+            { value: 'WEST',    label: 'West',      dbName: 'WEST' }
         ]
     },
-    NYISO: {
-        name: 'NYISO',
-        propertyKey: 'hourlyPricingDayAheadNYISO',
+    ISONE: {
+        name: 'ISO-NE',
+        propertyKey: 'hourlyPricingDayAheadISONE',
         zones: [
-            { value: '61753', label: 'CAPITL', zoneId: '61753' },
-            { value: '61754', label: 'CENTRL', zoneId: '61754' },
-            { value: '61757', label: 'DUNWOD', zoneId: '61757' },
-            { value: '61758', label: 'GENESE', zoneId: '61758' },
-            { value: '61760', label: 'HUD VL', zoneId: '61760' },
-            { value: '61762', label: 'LONGIL', zoneId: '61762' }
+            // 4001-4008 only. Zone 4000 does NOT exist in the API.
+            { value: '4001', label: 'Maine',        dbName: '4001_Maine' },
+            { value: '4002', label: 'NH',           dbName: '4002_NH' },
+            { value: '4003', label: 'Vermont',      dbName: '4003_Vermont' },
+            { value: '4004', label: 'Connecticut',  dbName: '4004_Connecticut' },
+            { value: '4005', label: 'Rhode Island', dbName: '4005_Rhode_Island' },
+            { value: '4006', label: 'SEMA',         dbName: '4006_SEMA' },
+            { value: '4007', label: 'WCMA',         dbName: '4007_WCMA' },
+            { value: '4008', label: 'NEMA',         dbName: '4008_NEMA' }
         ]
     },
     MISO: {
         name: 'MISO',
         propertyKey: 'hourlyPricingDayAheadMISO',
         zones: [
-            { value: 'ARKANSAS', label: 'Arkansas', zoneId: 'ARKANSAS' },
-            { value: 'ILLINOIS', label: 'Illinois', zoneId: 'ILLINOIS' },
-            { value: 'INDIANA', label: 'Indiana', zoneId: 'INDIANA' },
-            { value: 'LOUISIANA', label: 'Louisiana', zoneId: 'LOUISIANA' },
-            { value: 'MICHIGAN', label: 'Michigan', zoneId: 'MICHIGAN' },
-            { value: 'MINN', label: 'Minnesota', zoneId: 'MINN' },
-            { value: 'MS', label: 'Mississippi', zoneId: 'MS' },
-            { value: 'TEXAS', label: 'Texas', zoneId: 'TEXAS' }
+            { value: 'ARKANSAS',  label: 'Arkansas',   dbName: 'ARKANSAS' },
+            { value: 'ILLINOIS',  label: 'Illinois',   dbName: 'ILLINOIS' },
+            { value: 'INDIANA',   label: 'Indiana',    dbName: 'INDIANA' },
+            { value: 'LOUISIANA', label: 'Louisiana',  dbName: 'LOUISIANA' },
+            { value: 'MICHIGAN',  label: 'Michigan',   dbName: 'MICHIGAN' },
+            { value: 'MINN',      label: 'Minnesota',  dbName: 'MINN' },
+            { value: 'MS',        label: 'Mississippi', dbName: 'MS' },
+            { value: 'TEXAS',     label: 'Texas',      dbName: 'TEXAS' }
+        ]
+    },
+    NYISO: {
+        name: 'NYISO',
+        propertyKey: 'hourlyPricingDayAheadNYISO',
+        zones: [
+            // All 15 zones from API discovery (11 main + 4 hubs)
+            { value: '61752', label: 'West (A)',         dbName: '61752' },
+            { value: '61753', label: 'Genesee (B)',      dbName: '61753' },
+            { value: '61754', label: 'Central (C)',      dbName: '61754' },
+            { value: '61755', label: 'North (D)',        dbName: '61755' },
+            { value: '61756', label: 'Mohawk Valley (E)',dbName: '61756' },
+            { value: '61757', label: 'Capital (F)',      dbName: '61757' },
+            { value: '61758', label: 'Hudson Valley (G)',dbName: '61758' },
+            { value: '61759', label: 'Millwood (H)',     dbName: '61759' },
+            { value: '61760', label: 'Dunwoodie (I)',    dbName: '61760' },
+            { value: '61761', label: 'NYC (J)',          dbName: '61761' },
+            { value: '61762', label: 'Long Island (K)',  dbName: '61762' },
+            { value: '61844', label: 'Zone J Hub',       dbName: '61844' },
+            { value: '61845', label: 'Zone K Hub',       dbName: '61845' },
+            { value: '61846', label: 'Zone A Hub',       dbName: '61846' },
+            { value: '61847', label: 'Zone F Hub',       dbName: '61847' }
+        ]
+    },
+    PJM: {
+        name: 'PJM',
+        propertyKey: 'hourlyPricingDayAheadPJM',
+        zones: [
+            // ACTUAL Genability API zone IDs - NOT sequential
+            { value: '51291',     label: 'AECO',              dbName: 'AECO' },
+            { value: '51292',     label: 'BGE',               dbName: 'BGE' },
+            { value: '51293',     label: 'DPL',               dbName: 'DPL' },
+            { value: '51295',     label: 'JCPL',              dbName: 'JCPL' },
+            { value: '51296',     label: 'Met-Ed',            dbName: 'METED' },
+            { value: '51297',     label: 'PECO',              dbName: 'PECO' },
+            { value: '51298',     label: 'Penelec',           dbName: 'PENELEC' },
+            { value: '51299',     label: 'Pepco',             dbName: 'PEPCO' },
+            { value: '51300',     label: 'PPL',               dbName: 'PPL' },
+            { value: '51301',     label: 'Duquesne',          dbName: 'DUQ' },
+            { value: '7633629',   label: 'EKPC',              dbName: 'EKPC' },
+            { value: '8394954',   label: 'APS',               dbName: 'APS' },
+            { value: '8445784',   label: 'AEP',               dbName: 'AEP' },
+            { value: '33092371',  label: 'ComEd',             dbName: 'COMED' },
+            { value: '34508503',  label: 'Dayton',            dbName: 'DAY' },
+            { value: '34964545',  label: 'Dominion',          dbName: 'DOM' },
+            { value: '37737283',  label: 'RECO',              dbName: 'RECO' },
+            { value: '116013753', label: 'ATSI',              dbName: 'ATSI' },
+            { value: '124076095', label: 'Duke Energy OH/KY', dbName: 'DEOK' }
         ]
     }
 };
 
-// Get credentials from environment
+// ============================================================
+// ENVIRONMENT
+// ============================================================
 const APP_ID = process.env.ARCADIA_APP_ID;
 const APP_KEY = process.env.ARCADIA_APP_KEY;
 const START_DATE = process.env.START_DATE;
@@ -115,60 +132,55 @@ const END_DATE = process.env.END_DATE;
 const ISO_MARKETS = process.env.ISO_MARKETS || 'all';
 
 if (!APP_ID || !APP_KEY) {
-    console.error('❌ Missing ARCADIA_APP_ID or ARCADIA_APP_KEY environment variables');
+    console.error('❌ Missing ARCADIA_APP_ID or ARCADIA_APP_KEY');
     process.exit(1);
 }
-
 if (!START_DATE || !END_DATE) {
-    console.error('❌ Missing START_DATE or END_DATE environment variables');
+    console.error('❌ Missing START_DATE or END_DATE');
     process.exit(1);
 }
 
 const credentials = Buffer.from(`${APP_ID}:${APP_KEY}`).toString('base64');
 
-/**
- * Make HTTPS request to Arcadia API
- */
+// ============================================================
+// GENABILITY API
+// ============================================================
+
 function fetchFromAPI(url) {
     return new Promise((resolve, reject) => {
-        const options = {
-            method: 'GET',
+        const req = https.get(url, {
             headers: {
                 'Authorization': `Basic ${credentials}`,
                 'Accept': 'application/json'
             }
-        };
-
-        const req = https.request(url, options, (res) => {
+        }, (res) => {
             let data = '';
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
                 if (res.statusCode === 200) {
-                    try {
-                        resolve(JSON.parse(data));
-                    } catch (e) {
-                        reject(new Error(`Failed to parse response: ${e.message}`));
-                    }
+                    try { resolve(JSON.parse(data)); }
+                    catch (e) { reject(new Error(`JSON parse error: ${e.message}`)); }
                 } else if (res.statusCode === 401) {
-                    reject(new Error('Invalid API credentials'));
+                    reject(new Error('Invalid API credentials (401)'));
                 } else {
-                    reject(new Error(`API returned status ${res.statusCode}`));
+                    reject(new Error(`API returned ${res.statusCode}: ${data.substring(0, 200)}`));
                 }
             });
         });
-
         req.on('error', reject);
-        req.end();
+        req.setTimeout(30000, () => { req.destroy(); reject(new Error('Request timeout')); });
     });
 }
 
 /**
- * Fetch all HOURLY data for a specific zone with pagination
- * Returns raw hourly records instead of aggregating
+ * Fetch all hourly records for one zone, with pagination.
+ * 
+ * CRITICAL FIX: Uses actualValue / bestValue (the real Genability field names)
+ * NOT dataValue / lmpTotal which don't exist and caused all p:0 records.
  */
-async function fetchZoneHourlyData(propertyKey, zoneId, zoneLabel, startDate, endDate) {
+async function fetchZoneHourly(propertyKey, zoneId, startDate, endDate) {
     const baseUrl = 'https://api.genability.com/rest/public/properties';
-    const allRecords = [];
+    const records = [];
     let pageStart = 0;
     const pageCount = 1000;
     let hasMore = true;
@@ -183,64 +195,58 @@ async function fetchZoneHourlyData(propertyKey, zoneId, zoneLabel, startDate, en
         });
 
         const url = `${baseUrl}/${propertyKey}/lookups?${params}`;
-        
+
         try {
             const data = await fetchFromAPI(url);
-            
-            if (data.results && data.results.length > 0) {
-                const records = data.results
-                    .map(item => ({
-                        datetime: item.fromDateTime || item.period,
-                        price: parseFloat(item.dataValue || item.lmpTotal || 0),
-                        zone: zoneLabel
-                    }))
-                    .filter(r => !isNaN(r.price) && r.datetime);
 
-                allRecords.push(...records);
-                hasMore = data.count && data.count > pageStart + pageCount;
+            if (data.results && data.results.length > 0) {
+                for (const item of data.results) {
+                    // ── THE FIX: correct Genability field names ──
+                    const price = parseFloat(item.actualValue || item.bestValue || 0);
+                    if (!isNaN(price) && item.fromDateTime) {
+                        records.push({
+                            datetime: item.fromDateTime,
+                            price: price
+                        });
+                    }
+                }
+                hasMore = data.count > pageStart + pageCount;
                 pageStart += pageCount;
             } else {
                 hasMore = false;
             }
         } catch (error) {
-            console.error(`    ⚠️ Error fetching page ${pageStart}: ${error.message}`);
+            console.error(`    ⚠️  Page ${pageStart} error: ${error.message}`);
             hasMore = false;
         }
     }
 
-    return allRecords;
+    return records;
 }
 
-/**
- * Calculate monthly averages from hourly data
- * This runs on the raw hourly data to create monthly summaries
- */
-function calculateMonthlyFromHourly(hourlyData, iso, zoneId) {
-    const monthlyMap = {};
+// ============================================================
+// MONTHLY AVERAGE COMPUTATION
+// ============================================================
 
-    hourlyData.forEach(record => {
-        const date = new Date(record.datetime);
-        const year = date.getFullYear().toString();
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+function calculateMonthlyFromHourly(hourlyRecords, iso, dbName) {
+    const byMonth = {};
+
+    for (const rec of hourlyRecords) {
+        const d = new Date(rec.datetime);
+        const year = d.getFullYear().toString();
+        const month = (d.getMonth() + 1).toString().padStart(2, '0');
         const key = `${year}_${month}`;
 
-        if (!monthlyMap[key]) {
-            monthlyMap[key] = {
-                iso: iso,
-                zone: record.zone,
-                zone_id: zoneId,
-                year: year,
-                month: month,
-                prices: []
-            };
+        if (!byMonth[key]) {
+            byMonth[key] = { year, month, prices: [] };
         }
-        monthlyMap[key].prices.push(record.price);
-    });
+        byMonth[key].prices.push(rec.price);
+    }
 
-    return Object.values(monthlyMap).map(m => ({
-        iso: m.iso,
-        zone: m.zone,
-        zone_id: m.zone_id,
+    return Object.values(byMonth).map(m => ({
+        iso: iso,
+        zone: dbName,
+        zone_id: dbName,
         year: m.year,
         month: m.month,
         avg_da_lmp: parseFloat((m.prices.reduce((a, b) => a + b, 0) / m.prices.length).toFixed(4)),
@@ -250,161 +256,143 @@ function calculateMonthlyFromHourly(hourlyData, iso, zoneId) {
     }));
 }
 
-/**
- * Organize hourly data by year-month for efficient storage
- */
-function organizeHourlyByMonth(hourlyData) {
-    const organized = {};
-    
-    hourlyData.forEach(record => {
-        const date = new Date(record.datetime);
-        const yearMonth = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-        
-        if (!organized[yearMonth]) {
-            organized[yearMonth] = [];
-        }
-        organized[yearMonth].push({
-            dt: record.datetime,  // Shortened key name to save space
-            p: record.price,      // Shortened key name
-            z: record.zone        // Shortened key name
-        });
-    });
-    
-    return organized;
-}
+// ============================================================
+// MAIN
+// ============================================================
 
-/**
- * Main execution
- */
 async function main() {
-    console.log('⚡ Arcadia LMP Data Fetcher - HOURLY VERSION');
+    console.log('⚡ Arcadia LMP Hourly Fetcher v2.1.0');
     console.log('─'.repeat(60));
     console.log(`📅 Date Range: ${START_DATE} to ${END_DATE}`);
     console.log(`🏢 Markets: ${ISO_MARKETS}`);
+
+    // Determine ISOs
+    const isoList = ISO_MARKETS === 'all'
+        ? Object.keys(ISO_CONFIG)
+        : ISO_MARKETS.split(',').map(s => s.trim().toUpperCase()).filter(s => ISO_CONFIG[s]);
+
+    const totalZones = isoList.reduce((sum, iso) => sum + ISO_CONFIG[iso].zones.length, 0);
+    console.log(`📡 ISOs: ${isoList.join(', ')} (${totalZones} total zones)`);
     console.log('─'.repeat(60));
 
-    // Determine which ISOs to fetch
-    const isosToFetch = ISO_MARKETS === 'all' 
-        ? Object.keys(ISO_CONFIG) 
-        : ISO_MARKETS.split(',').map(s => s.trim().toUpperCase());
+    // ── Fetch hourly data ──
+    const hourlyByISO = {};     // { ISONE: { "2026-01": [{dt,p,z},...] } }
+    const monthlyByISO = {};    // { ISONE: [{iso,zone,...}] }
+    let totalHourly = 0;
+    let totalMonthly = 0;
+    let totalErrors = 0;
 
-    // Data structures to hold results
-    const hourlyByISO = {};   // { ISONE: { "2024-01": [...hourly...] } }
-    const monthlyByISO = {};  // { ISONE: [...monthly summaries...] }
-    
-    let totalHourlyRecords = 0;
-    let totalMonthlyRecords = 0;
-
-    for (const isoKey of isosToFetch) {
+    for (const isoKey of isoList) {
         const config = ISO_CONFIG[isoKey];
-        if (!config) {
-            console.warn(`⚠️ Unknown ISO: ${isoKey}, skipping...`);
-            continue;
-        }
-
-        console.log(`\n📊 Fetching ${config.name}...`);
-        
         hourlyByISO[isoKey] = {};
         monthlyByISO[isoKey] = [];
 
+        console.log(`\n📊 ${config.name} (${config.zones.length} zones)...`);
+
         for (const zone of config.zones) {
-            process.stdout.write(`  → ${zone.label}... `);
-            
+            process.stdout.write(`  → ${zone.dbName}... `);
+
             try {
-                // Fetch ALL hourly data for this zone
-                const hourlyData = await fetchZoneHourlyData(
-                    config.propertyKey, 
+                const records = await fetchZoneHourly(
+                    config.propertyKey,
                     zone.value,
-                    zone.zoneId,
-                    START_DATE, 
+                    START_DATE,
                     END_DATE
                 );
 
-                if (hourlyData.length > 0) {
-                    // Store hourly data organized by month
-                    const organizedHourly = organizeHourlyByMonth(hourlyData);
-                    
-                    // Merge into ISO's hourly data
-                    for (const [yearMonth, records] of Object.entries(organizedHourly)) {
-                        if (!hourlyByISO[isoKey][yearMonth]) {
-                            hourlyByISO[isoKey][yearMonth] = [];
+                if (records.length > 0) {
+                    // Organize hourly by year-month
+                    for (const rec of records) {
+                        const d = new Date(rec.datetime);
+                        const ym = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+
+                        if (!hourlyByISO[isoKey][ym]) {
+                            hourlyByISO[isoKey][ym] = [];
                         }
-                        hourlyByISO[isoKey][yearMonth].push(...records);
+                        hourlyByISO[isoKey][ym].push({
+                            dt: rec.datetime,
+                            p: parseFloat(rec.price.toFixed(4)),
+                            z: zone.dbName
+                        });
                     }
-                    
-                    // Calculate monthly summaries from hourly
-                    const monthlyData = calculateMonthlyFromHourly(hourlyData, isoKey, zone.zoneId);
-                    monthlyByISO[isoKey].push(...monthlyData);
-                    
-                    totalHourlyRecords += hourlyData.length;
-                    totalMonthlyRecords += monthlyData.length;
-                    
-                    console.log(`✅ ${hourlyData.length} hourly → ${monthlyData.length} monthly`);
+
+                    // Calculate monthly averages
+                    const monthly = calculateMonthlyFromHourly(records, isoKey, zone.dbName);
+                    monthlyByISO[isoKey].push(...monthly);
+
+                    totalHourly += records.length;
+                    totalMonthly += monthly.length;
+
+                    // Quick sanity check: show first non-zero price
+                    const firstPrice = records.find(r => r.price !== 0);
+                    const priceNote = firstPrice ? `$${firstPrice.price.toFixed(2)}/MWh` : '⚠️ all zeros';
+                    console.log(`✅ ${records.length} hourly → ${monthly.length} monthly (${priceNote})`);
                 } else {
-                    console.log(`⚠️ No data`);
+                    console.log('⚠️  No data');
                 }
 
-                // Small delay to avoid rate limiting
-                await new Promise(resolve => setTimeout(resolve, 200));
+                // Rate limiting
+                await new Promise(r => setTimeout(r, 250));
 
-            } catch (error) {
-                console.log(`❌ ${error.message}`);
+            } catch (err) {
+                totalErrors++;
+                console.log(`❌ ${err.message}`);
             }
         }
-        
-        // Sort monthly data for this ISO
-        monthlyByISO[isoKey].sort((a, b) => {
-            return a.zone.localeCompare(b.zone) || 
-                   a.year.localeCompare(b.year) || 
-                   a.month.localeCompare(b.month);
-        });
+
+        // Sort monthly
+        monthlyByISO[isoKey].sort((a, b) =>
+            a.zone.localeCompare(b.zone) ||
+            a.year.localeCompare(b.year) ||
+            a.month.localeCompare(b.month)
+        );
     }
 
-    // Ensure temp directory exists
-    const tempDir = path.join(__dirname, '..', 'temp');
-    if (!fs.existsSync(tempDir)) {
-        fs.mkdirSync(tempDir, { recursive: true });
-    }
-
-    // Save HOURLY data to temp file
-    const hourlyOutputPath = path.join(tempDir, 'fetched-lmp-hourly.json');
-    fs.writeFileSync(hourlyOutputPath, JSON.stringify({
-        fetchedAt: new Date().toISOString(),
-        dateRange: { start: START_DATE, end: END_DATE },
-        markets: isosToFetch,
-        hourlyRecordCount: totalHourlyRecords,
-        data: hourlyByISO
-    }, null, 2));
-
-    // Save MONTHLY summaries to temp file (for backward compatibility)
-    const monthlyOutputPath = path.join(tempDir, 'fetched-lmp-data.json');
-    
-    // Flatten monthly data for legacy format
-    const allMonthlyRecords = [];
-    for (const [iso, records] of Object.entries(monthlyByISO)) {
-        allMonthlyRecords.push(...records.map(r => ({
-            ...r,
-            lmp: r.avg_da_lmp,  // Legacy field name
-            recordCount: r.record_count
-        })));
-    }
-    
-    fs.writeFileSync(monthlyOutputPath, JSON.stringify({
-        fetchedAt: new Date().toISOString(),
-        dateRange: { start: START_DATE, end: END_DATE },
-        markets: isosToFetch,
-        recordCount: totalMonthlyRecords,
-        records: allMonthlyRecords
-    }, null, 2));
-
+    // ── Summary ──
     console.log('\n' + '─'.repeat(60));
-    console.log(`✅ Fetched ${totalHourlyRecords.toLocaleString()} hourly records`);
-    console.log(`✅ Aggregated to ${totalMonthlyRecords.toLocaleString()} monthly records`);
-    console.log(`💾 Hourly saved to: ${hourlyOutputPath}`);
-    console.log(`💾 Monthly saved to: ${monthlyOutputPath}`);
+    console.log(`✅ Total hourly records: ${totalHourly.toLocaleString()}`);
+    console.log(`✅ Total monthly records: ${totalMonthly.toLocaleString()}`);
+    if (totalErrors > 0) console.log(`⚠️  Errors: ${totalErrors}`);
+
+    if (totalHourly === 0) {
+        console.error('\n❌ No data fetched. Check API credentials and date range.');
+        process.exit(1);
+    }
+
+    // ── Save temp files ──
+    const tempDir = path.join(__dirname, '..', 'temp');
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+    // Hourly output
+    const hourlyOutput = {
+        fetchedAt: new Date().toISOString(),
+        dateRange: { start: START_DATE, end: END_DATE },
+        markets: isoList,
+        hourlyRecordCount: totalHourly,
+        data: hourlyByISO
+    };
+    const hourlyPath = path.join(tempDir, 'fetched-lmp-hourly.json');
+    fs.writeFileSync(hourlyPath, JSON.stringify(hourlyOutput));
+    console.log(`\n💾 Hourly: ${hourlyPath} (${(JSON.stringify(hourlyOutput).length / 1024 / 1024).toFixed(2)} MB)`);
+
+    // Monthly output (backward compat for update-lmp-database-azure-v2.js)
+    const allMonthly = [];
+    for (const [iso, records] of Object.entries(monthlyByISO)) {
+        allMonthly.push(...records);
+    }
+    const monthlyOutput = {
+        fetchedAt: new Date().toISOString(),
+        dateRange: { start: START_DATE, end: END_DATE },
+        markets: isoList,
+        recordCount: totalMonthly,
+        records: allMonthly
+    };
+    const monthlyPath = path.join(tempDir, 'fetched-lmp-data.json');
+    fs.writeFileSync(monthlyPath, JSON.stringify(monthlyOutput));
+    console.log(`💾 Monthly: ${monthlyPath} (${(JSON.stringify(monthlyOutput).length / 1024).toFixed(1)} KB)`);
 }
 
-main().catch(error => {
-    console.error('❌ Fatal error:', error.message);
+main().catch(err => {
+    console.error('❌ Fatal:', err.message);
     process.exit(1);
 });

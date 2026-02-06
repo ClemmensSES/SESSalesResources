@@ -1903,18 +1903,11 @@
             // Populate profile dropdown
             populateProfileDropdown();
             
-            // Check if there's an active profile — only load if it belongs to current client
+            // Check if there's an active profile
             if (ProfileStore) {
                 const activeProfile = ProfileStore.getActiveProfile();
                 if (activeProfile) {
-                    // STRICT SCOPING: Only auto-load if profile belongs to our active client context
-                    const belongsToContext = !activeClient || (
-                        activeProfile.clientId === activeClient.id &&
-                        (!activeAccount || !activeProfile.accountId || activeProfile.accountId === activeAccount.id)
-                    );
-                    if (belongsToContext) {
-                        loadProfileData(activeProfile);
-                    }
+                    loadProfileData(activeProfile);
                 }
                 
                 // Subscribe to profile changes
@@ -1926,14 +1919,7 @@
         function handleProfileChange(data) {
             populateProfileDropdown();
             if (data.activeProfile) {
-                // STRICT SCOPING: Only auto-load if profile belongs to our active client
-                if (ProfileStore?.belongsToContext) {
-                    if (ProfileStore.belongsToContext(data.activeProfile, activeClient?.id, activeAccount?.id)) {
-                        loadProfileData(data.activeProfile);
-                    }
-                } else if (activeClient && data.activeProfile.clientId === activeClient.id) {
-                    loadProfileData(data.activeProfile);
-                }
+                loadProfileData(data.activeProfile);
             }
         }
         
@@ -1945,56 +1931,63 @@
             // Clear existing options except the first one
             select.innerHTML = '<option value="">-- Select a saved profile --</option>';
             
-            // STRICT SCOPING: Only show profiles for the active client/account
-            // If no client is selected, show nothing (profiles are client-owned)
-            if (!activeClient) {
-                const opt = document.createElement('option');
-                opt.value = '';
-                opt.disabled = true;
-                opt.textContent = 'Select a client to see available profiles';
-                select.appendChild(opt);
-                return;
+            // Get profiles from UsageProfileStore (GitHub-synced)
+            let storeProfiles = [];
+            if (ProfileStore && ProfileStore.getAll) {
+                storeProfiles = ProfileStore.getAll() || [];
             }
             
-            // Get profiles from UsageProfileStore - STRICTLY scoped to active client
-            let clientProfiles = [];
-            let accountProfiles = [];
-            if (ProfileStore && ProfileStore.getForClientContext) {
-                const scoped = ProfileStore.getForClientContext(activeClient.id, activeAccount?.id || null);
-                clientProfiles = scoped.clientProfiles || [];
-                accountProfiles = scoped.accountProfiles || [];
-            } else if (ProfileStore && ProfileStore.getByClientId) {
-                // Fallback for older UsageProfileStore without getForClientContext
-                const allForClient = ProfileStore.getByClientId(activeClient.id) || [];
-                clientProfiles = allForClient.filter(p => !p.accountId);
-                accountProfiles = activeAccount 
-                    ? allForClient.filter(p => p.accountId === activeAccount.id)
-                    : allForClient.filter(p => p.accountId);
-            }
+            // Also collect localStorage profiles (for any that might not be synced yet)
+            const localStorageProfiles = getLocalStorageUsageProfiles();
             
-            // Also collect localStorage profiles - STRICTLY scoped to active client
-            const filteredLocalProfiles = getLocalStorageUsageProfiles(activeClient.id, activeAccount?.id || null);
+            // Merge: prefer store profiles but include localStorage-only profiles
+            const storeProfileKeys = new Set(storeProfiles.map(p => 
+                p.accountId ? `${p.clientId}_${p.accountId}` : p.clientId
+            ).filter(k => k));
             
-            // Exclude localStorage profiles already represented in the store
-            const storeProfileKeys = new Set([
-                ...clientProfiles.map(p => p.clientId),
-                ...accountProfiles.map(p => p.accountId ? `${p.clientId}_${p.accountId}` : p.clientId)
-            ].filter(k => k));
-            
-            const localOnlyProfiles = filteredLocalProfiles.filter(p => 
+            const localOnlyProfiles = localStorageProfiles.filter(p => 
                 !storeProfileKeys.has(p.contextKey)
             );
+            
+            // FILTER: Only show profiles for the active client if one is selected
+            let filteredStoreProfiles = storeProfiles;
+            let filteredLocalProfiles = localOnlyProfiles;
+            
+            if (activeClient) {
+                filteredStoreProfiles = storeProfiles.filter(p => {
+                    // Include standalone profiles (no clientId)
+                    if (!p.clientId) return true;
+                    // Include profiles for this client
+                    if (p.clientId !== activeClient.id) return false;
+                    // If account is active, show account-specific or client-level profiles
+                    if (activeAccount && p.accountId && p.accountId !== activeAccount.id) return false;
+                    return true;
+                });
+                
+                filteredLocalProfiles = localOnlyProfiles.filter(p => {
+                    if (p.clientId !== activeClient.id) return false;
+                    if (activeAccount && p.accountId && p.accountId !== activeAccount.id) return false;
+                    return true;
+                });
+            }
+            
+            // Group filtered profiles by type
+            const clientProfiles = filteredStoreProfiles.filter(p => p.clientId && !p.accountId);
+            const accountProfiles = filteredStoreProfiles.filter(p => p.clientId && p.accountId);
+            const standaloneProfiles = filteredStoreProfiles.filter(p => !p.clientId);
             
             // Add account-level profiles (most specific)
             if (accountProfiles.length > 0) {
                 const group = document.createElement('optgroup');
-                group.label = `⚡ ${activeClient.name} → Account Profiles`;
+                group.label = activeClient 
+                    ? `⚡ ${activeClient.name} → Account Profiles`
+                    : '⚡ Account Profiles';
                 accountProfiles.forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = p.id;
                     opt.textContent = `${p.accountName || p.name} (${((p.totalElectric || 0) / 1000).toLocaleString()} MWh/yr)`;
                     // Auto-select if matches current context
-                    if (p.clientId === activeClient.id && p.accountId === activeAccount?.id) {
+                    if (p.clientId === activeClient?.id && p.accountId === activeAccount?.id) {
                         opt.selected = true;
                     }
                     group.appendChild(opt);
@@ -2002,16 +1995,18 @@
                 select.appendChild(group);
             }
             
-            // Add client-level (parent) profiles
+            // Add client-level profiles
             if (clientProfiles.length > 0) {
                 const group = document.createElement('optgroup');
-                group.label = `📋 ${activeClient.name} Profiles`;
+                group.label = activeClient 
+                    ? `📋 ${activeClient.name} Profiles`
+                    : '📋 Client Profiles';
                 clientProfiles.forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = p.id;
                     opt.textContent = `${p.name || p.clientName} (${((p.totalElectric || 0) / 1000).toLocaleString()} MWh/yr)`;
                     // Auto-select if matches current client (when no account selected)
-                    if (p.clientId === activeClient.id && !activeAccount) {
+                    if (p.clientId === activeClient?.id && !activeAccount) {
                         opt.selected = true;
                     }
                     group.appendChild(opt);
@@ -2019,11 +2014,11 @@
                 select.appendChild(group);
             }
             
-            // Add localStorage-only profiles (not yet synced to store) - already filtered to client
-            if (localOnlyProfiles.length > 0) {
+            // Add localStorage-only profiles (not yet synced to store) - filtered
+            if (filteredLocalProfiles.length > 0) {
                 const group = document.createElement('optgroup');
                 group.label = '💾 Local Profiles (Not Synced)';
-                localOnlyProfiles.forEach(p => {
+                filteredLocalProfiles.forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = 'localStorage:' + p.contextKey;
                     opt.textContent = `${p.displayName} (${(p.totalElectric / 1000).toLocaleString()} MWh/yr)`;
@@ -2035,7 +2030,20 @@
                 select.appendChild(group);
             }
             
-            // Add option to load from active client object if it has embedded usage data
+            // Add standalone profiles (available to all)
+            if (standaloneProfiles.length > 0) {
+                const group = document.createElement('optgroup');
+                group.label = 'Standalone Profiles';
+                standaloneProfiles.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = p.name;
+                    group.appendChild(opt);
+                });
+                select.appendChild(group);
+            }
+            
+            // Add option to load from active client if available and has usage
             if (activeClient?.usageProfile && 
                 (activeClient.usageProfile.electric?.some(v => v > 0) || 
                  activeClient.usageProfile.gas?.some(v => v > 0))) {
@@ -2050,7 +2058,7 @@
             }
             
             // Show message if no profiles available for active context
-            if (clientProfiles.length === 0 && accountProfiles.length === 0 && localOnlyProfiles.length === 0) {
+            if (activeClient && clientProfiles.length === 0 && accountProfiles.length === 0 && filteredLocalProfiles.length === 0) {
                 const opt = document.createElement('option');
                 opt.value = '';
                 opt.disabled = true;
@@ -2059,16 +2067,13 @@
             }
         }
         
-        // Get usage profiles saved in localStorage by energy-utilization-widget
-        // SCOPED: Only returns profiles matching the given clientId/accountId
-        function getLocalStorageUsageProfiles(filterClientId = null, filterAccountId = null) {
+        // Get all usage profiles saved in localStorage by energy-utilization-widget
+        function getLocalStorageUsageProfiles() {
             const profiles = [];
             
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                // Only match legacy single-profile keys (usage_CID-xxx)
-                // Skip v2 multi-year keys (usage_v2_CID-xxx) — different data structure
-                if (key && key.startsWith('usage_') && !key.startsWith('usage_v2_')) {
+                if (key && key.startsWith('usage_')) {
                     try {
                         const profile = JSON.parse(localStorage.getItem(key));
                         const contextKey = key.replace('usage_', '');
@@ -2077,12 +2082,6 @@
                         const parts = contextKey.split('_');
                         const clientId = parts[0];
                         const accountId = parts.length > 1 ? parts.slice(1).join('_') : null;
-                        
-                        // STRICT CLIENT SCOPING: Skip profiles not belonging to the requested client
-                        if (filterClientId) {
-                            if (clientId !== filterClientId) continue;
-                            if (filterAccountId && accountId && accountId !== filterAccountId) continue;
-                        }
                         
                         let displayName = profile.clientName || contextKey;
                         if (profile.accountName) {
@@ -2158,18 +2157,6 @@
             if (ProfileStore) {
                 const profile = ProfileStore.getById(profileId);
                 if (profile) {
-                    // STRICT SCOPING: Verify profile belongs to active client before loading
-                    if (activeClient && profile.clientId && profile.clientId !== activeClient.id) {
-                        showNotification('This profile belongs to a different client', 'warning');
-                        select.value = '';
-                        return;
-                    }
-                    if (activeAccount && profile.accountId && profile.accountId !== activeAccount.id) {
-                        showNotification('This profile belongs to a different account', 'warning');
-                        select.value = '';
-                        return;
-                    }
-                    
                     ProfileStore.setActiveProfile(profileId);
                     // Use electricUsage (store format) or electric (localStorage format)
                     const usage = profile.electricUsage || profile.electric || Array(12).fill(0);
@@ -5216,17 +5203,6 @@
             if (!data) return;
             
             if (data.type === 'ACTIVE_CLIENT_CHANGED' || data.type === 'ACTIVE_CLIENT_RESPONSE') {
-                // Clear any currently loaded profile that belonged to the previous client
-                if (currentActiveProfile && data.client?.id !== activeClient?.id) {
-                    clearActiveProfileIndicator();
-                    // Clear usage grid when switching clients to prevent stale data
-                    for (let i = 0; i < 12; i++) {
-                        const input = document.getElementById(`usage_${i}`);
-                        if (input) input.value = 0;
-                    }
-                    updateUsageSummary();
-                }
-                
                 activeClient = data.client;
                 activeAccount = data.account || null;
                 renderClientContextBanner();
@@ -5262,12 +5238,6 @@
             
             // Handle account-only changes
             if (data.type === 'ACTIVE_ACCOUNT_CHANGED') {
-                // Clear any currently loaded profile if it doesn't match the new account
-                if (currentActiveProfile && currentActiveProfile.accountId && 
-                    data.account?.id !== currentActiveProfile.accountId) {
-                    clearActiveProfileIndicator();
-                }
-                
                 activeAccount = data.account;
                 if (data.client) activeClient = data.client;
                 renderClientContextBanner();
@@ -5306,14 +5276,7 @@
             // Handle usage profile changes from other widgets
             if (data.type === 'USAGE_PROFILE_CHANGED') {
                 if (data.profile) {
-                    // STRICT SCOPING: Only load if this profile belongs to our active client
-                    const profileBelongsToContext = activeClient && 
-                        data.profile.clientId === activeClient.id &&
-                        (!activeAccount || !data.profile.accountId || data.profile.accountId === activeAccount.id);
-                    
-                    if (profileBelongsToContext) {
-                        loadProfileData(data.profile);
-                    }
+                    loadProfileData(data.profile);
                     populateProfileDropdown();
                 } else {
                     clearActiveProfileIndicator();
@@ -5324,17 +5287,10 @@
             // Handle direct profile load requests
             if (data.type === 'USAGE_PROFILE_LOADED') {
                 if (data.profile) {
-                    // STRICT SCOPING: Only load if profile belongs to our active client
-                    const belongs = activeClient && 
-                        data.profile.clientId === activeClient.id &&
-                        (!activeAccount || !data.profile.accountId || data.profile.accountId === activeAccount.id);
-                    
-                    if (belongs) {
-                        loadUsageData(
-                            data.profile.electricUsage || Array(12).fill(0),
-                            data.profile.name || 'Loaded Profile'
-                        );
-                    }
+                    loadUsageData(
+                        data.profile.electricUsage || Array(12).fill(0),
+                        data.profile.name || 'Loaded Profile'
+                    );
                 }
             }
         }

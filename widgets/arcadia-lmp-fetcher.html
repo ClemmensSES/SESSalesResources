@@ -3,30 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arcadia LMP Data Fetcher</title>
+    <title>Arcadia LMP Fetcher - COMPLETE</title>
     <style>
         :root {
-            --se-dark-green: #004D40;
-            --se-light-green: #3EB489;
             --se-gradient: linear-gradient(135deg, #004D40 0%, #3EB489 100%);
             --bg-primary: #0A0E1A;
             --bg-secondary: #131824;
             --bg-tertiary: #1A2030;
-            --bg-elevated: #222938;
             --text-primary: #FFFFFF;
             --text-secondary: #A0AEC0;
-            --text-tertiary: #718096;
             --border-color: rgba(255, 255, 255, 0.08);
             --accent-success: #00E676;
-            --accent-warning: #FFB300;
             --accent-error: #FF5252;
-            --accent-info: #00B8D4;
-            --accent-purple: #B388FF;
-            --accent-azure: #0078D4;
         }
         
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        
         body {
             font-family: 'Segoe UI', sans-serif;
             background: var(--bg-primary);
@@ -36,863 +27,575 @@
         }
         
         .header { margin-bottom: 20px; }
-        .header h2 { font-size: 18px; color: var(--se-light-green); margin-bottom: 6px; }
-        .header p { font-size: 12px; color: var(--text-secondary); }
-        .header .version { font-size: 10px; color: var(--text-tertiary); margin-top: 4px; }
-        .header .azure-badge { display: inline-block; background: var(--accent-azure); color: white; padding: 2px 8px; border-radius: 4px; font-size: 10px; margin-left: 8px; }
-        
-        .mode-tabs {
-            display: flex; gap: 0; margin-bottom: 16px;
-            background: var(--bg-secondary); border-radius: 10px; padding: 4px; border: 1px solid var(--border-color);
+        .header h2 { font-size: 18px; color: #3EB489; margin-bottom: 6px; }
+        .header .badge { 
+            display: inline-block; background: var(--accent-success); 
+            color: white; padding: 3px 10px; border-radius: 4px; 
+            font-size: 10px; margin-left: 8px; font-weight: 700;
         }
-        .mode-tab {
-            flex: 1; padding: 12px 16px; background: transparent; border: none;
-            color: var(--text-secondary); font-size: 13px; font-weight: 600;
-            cursor: pointer; border-radius: 8px; transition: all 0.2s;
-        }
-        .mode-tab:hover { color: var(--text-primary); }
-        .mode-tab.active { background: var(--se-gradient); color: white; }
-        .mode-tab .tab-icon { margin-right: 8px; }
         
-        .mode-content { display: none; }
-        .mode-content.active { display: block; }
-        
-        .server-notice {
-            background: rgba(179, 136, 255, 0.1); border: 1px solid rgba(179, 136, 255, 0.3);
-            border-radius: 8px; padding: 12px; margin-bottom: 16px;
+        .alert-box {
+            background: rgba(0, 230, 118, 0.1); border: 1px solid rgba(0, 230, 118, 0.3);
+            border-radius: 8px; padding: 15px; margin-bottom: 20px;
         }
-        .server-notice h4 { color: var(--accent-purple); font-size: 13px; margin-bottom: 6px; }
-        .server-notice p { font-size: 11px; color: var(--text-secondary); line-height: 1.4; }
-        
-        .azure-notice {
-            background: rgba(0, 120, 212, 0.1); border: 1px solid rgba(0, 120, 212, 0.3);
-            border-radius: 8px; padding: 12px; margin-bottom: 16px;
-        }
-        .azure-notice h4 { color: var(--accent-azure); font-size: 13px; margin-bottom: 6px; }
-        .azure-notice p { font-size: 11px; color: var(--text-secondary); line-height: 1.4; }
-        
-        .cors-notice {
-            background: rgba(255, 179, 0, 0.1); border: 1px solid rgba(255, 179, 0, 0.3);
-            border-radius: 8px; padding: 12px; margin-bottom: 16px;
-        }
-        .cors-notice h4 { color: var(--accent-warning); font-size: 13px; margin-bottom: 6px; }
-        .cors-notice p { font-size: 11px; color: var(--text-secondary); line-height: 1.4; }
+        .alert-box h4 { color: var(--accent-success); font-size: 14px; margin-bottom: 8px; }
+        .alert-box ul { margin-left: 20px; margin-top: 8px; }
+        .alert-box li { font-size: 11px; color: var(--text-secondary); line-height: 1.6; }
         
         .section {
             background: var(--bg-secondary); border: 1px solid var(--border-color);
-            border-radius: 10px; padding: 16px; margin-bottom: 12px;
+            border-radius: 10px; padding: 16px; margin-bottom: 15px;
         }
         .section-title {
             font-size: 14px; font-weight: 600; margin-bottom: 12px;
-            padding-bottom: 6px; border-bottom: 2px solid var(--se-light-green);
+            padding-bottom: 8px; border-bottom: 2px solid #3EB489;
         }
         
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
         .form-group { margin-bottom: 10px; }
-        .form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; text-transform: uppercase; }
+        .form-group label { 
+            display: block; font-size: 11px; font-weight: 600; 
+            color: var(--text-secondary); margin-bottom: 4px; 
+        }
         .form-group input, .form-group select {
             width: 100%; padding: 8px 10px; background: var(--bg-tertiary);
             border: 1px solid var(--border-color); border-radius: 6px;
-            color: var(--text-primary); font-size: 13px; transition: all 0.2s;
+            color: var(--text-primary); font-size: 13px;
         }
-        .form-group input:focus, .form-group select:focus {
-            outline: none; border-color: var(--se-light-green);
-            box-shadow: 0 0 0 2px rgba(62, 180, 137, 0.1);
-        }
-        .form-group .helper-text { font-size: 10px; color: var(--text-tertiary); margin-top: 4px; }
         
         button {
-            padding: 8px 16px; border: none; border-radius: 6px;
+            padding: 10px 18px; border: none; border-radius: 6px;
             font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;
         }
         .btn-primary { background: var(--se-gradient); color: white; }
-        .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(62, 180, 137, 0.3); }
-        .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); }
+        .btn-primary:hover:not(:disabled) { transform: translateY(-1px); }
         .btn-success { background: linear-gradient(135deg, #00C853, #00E676); color: white; }
-        .btn-purple { background: linear-gradient(135deg, #7C4DFF, #B388FF); color: white; }
-        .btn-purple:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(179, 136, 255, 0.3); }
-        .btn-azure { background: linear-gradient(135deg, #0078D4, #00BCF2); color: white; }
-        .btn-azure:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 120, 212, 0.3); }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
-        .button-group { display: flex; gap: 10px; margin-top: 12px; }
         
-        .iso-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+        .iso-grid { display: flex; gap: 10px; flex-wrap: wrap; }
         .iso-btn {
-            padding: 10px 20px; background: var(--bg-tertiary); color: var(--text-primary);
-            border: 1px solid var(--border-color); border-radius: 6px; font-weight: 600;
+            padding: 12px 24px; background: var(--bg-tertiary); color: var(--text-primary);
+            border: 2px solid var(--border-color); border-radius: 8px; font-weight: 600;
+            font-size: 13px; cursor: pointer; transition: all 0.2s;
         }
-        .iso-btn:hover { border-color: var(--se-light-green); }
-        .iso-btn.active { background: var(--se-gradient); border-color: var(--se-light-green); }
+        .iso-btn:hover { border-color: #3EB489; transform: translateY(-2px); }
+        .iso-btn.active { background: var(--se-gradient); border-color: #3EB489; }
         
         .zones-grid {
-            display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 8px; max-height: 150px; overflow-y: auto; padding: 10px;
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 8px; max-height: 400px; overflow-y: auto; padding: 12px;
             background: var(--bg-tertiary); border-radius: 6px;
         }
         .zone-item {
-            display: flex; align-items: center; padding: 6px 10px;
-            background: var(--bg-elevated); border-radius: 4px; font-size: 12px; cursor: pointer;
+            display: flex; align-items: center; padding: 8px 12px;
+            background: var(--bg-primary); border-radius: 6px; font-size: 12px; cursor: pointer;
+            transition: all 0.2s;
         }
-        .zone-item:hover { background: rgba(62, 180, 137, 0.1); }
-        .zone-item input { margin-right: 6px; width: 14px; height: 14px; }
+        .zone-item:hover { background: rgba(62, 180, 137, 0.15); transform: translateX(3px); }
+        .zone-item input { margin-right: 8px; width: 16px; height: 16px; cursor: pointer; }
         
-        .status-message {
-            padding: 10px 14px; border-radius: 6px; margin-top: 12px;
-            font-size: 12px; display: none; align-items: center; gap: 8px;
-        }
-        .status-message.active { display: flex; }
-        .status-message.success { background: rgba(0, 230, 118, 0.1); color: var(--accent-success); border: 1px solid rgba(0, 230, 118, 0.2); }
-        .status-message.error { background: rgba(255, 82, 82, 0.1); color: var(--accent-error); border: 1px solid rgba(255, 82, 82, 0.2); }
-        .status-message.info { background: rgba(0, 184, 212, 0.1); color: var(--accent-info); border: 1px solid rgba(0, 184, 212, 0.2); }
-        .status-message.warning { background: rgba(255, 179, 0, 0.1); color: var(--accent-warning); border: 1px solid rgba(255, 179, 0, 0.2); }
-        
-        .loading { display: none; text-align: center; padding: 20px; }
+        .loading { display: none; text-align: center; padding: 30px; }
         .loading.active { display: block; }
         .spinner {
-            width: 32px; height: 32px; border: 3px solid var(--bg-tertiary);
-            border-top-color: var(--se-light-green); border-radius: 50%;
-            animation: spin 1s linear infinite; margin: 0 auto 10px;
+            width: 40px; height: 40px; border: 4px solid var(--bg-tertiary);
+            border-top-color: #3EB489; border-radius: 50%;
+            animation: spin 1s linear infinite; margin: 0 auto 15px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
         
-        .debug-console {
-            background: #0D1117; border: 1px solid var(--border-color); border-radius: 6px;
-            padding: 12px; font-family: 'Consolas', monospace; font-size: 11px;
-            max-height: 250px; overflow-y: auto; display: none; margin-top: 12px;
-        }
-        .debug-console.active { display: block; }
-        .debug-line { padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
-        .debug-line.success { color: var(--accent-success); }
-        .debug-line.error { color: var(--accent-error); }
-        .debug-line.warning { color: var(--accent-warning); }
-        .debug-line.info { color: var(--accent-info); }
-        .debug-line.azure { color: var(--accent-azure); }
-        .debug-timestamp { color: var(--text-tertiary); margin-right: 6px; }
-        .debug-actions { display: flex; gap: 8px; margin-bottom: 8px; }
-        
-        .results-section { display: none; }
+        .results-section { display: none; margin-top: 20px; }
         .results-section.active { display: block; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 16px; }
-        .stat-card { background: var(--se-gradient); padding: 12px; border-radius: 6px; text-align: center; }
-        .stat-value { font-size: 20px; font-weight: 700; margin-bottom: 2px; }
-        .stat-label { font-size: 10px; opacity: 0.9; }
+        .stats-grid { 
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
+            gap: 12px; margin-bottom: 20px; 
+        }
+        .stat-card { background: var(--se-gradient); padding: 16px; border-radius: 8px; text-align: center; }
+        .stat-value { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+        .stat-label { font-size: 11px; opacity: 0.9; text-transform: uppercase; }
         
-        .data-table-container { overflow-x: auto; border-radius: 6px; border: 1px solid var(--border-color); }
-        .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        .data-table thead { background: var(--bg-tertiary); }
-        .data-table th, .data-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-color); }
+        .data-table-container { 
+            overflow-x: auto; border-radius: 8px; border: 1px solid var(--border-color); 
+            max-height: 450px; overflow-y: auto; 
+        }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        .data-table thead { background: var(--bg-tertiary); position: sticky; top: 0; z-index: 10; }
+        .data-table th, .data-table td { 
+            padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-color); 
+        }
         .data-table tbody tr:hover { background: var(--bg-tertiary); }
         
-        .proxy-mode {
-            display: flex; align-items: center; gap: 10px; padding: 10px;
-            background: var(--bg-tertiary); border-radius: 6px; margin-bottom: 12px;
+        .status-message {
+            padding: 12px 16px; border-radius: 6px; margin-top: 15px;
+            font-size: 13px; display: none; font-weight: 500;
         }
-        .proxy-toggle { position: relative; width: 40px; height: 22px; }
-        .proxy-toggle input { opacity: 0; width: 0; height: 0; }
-        .proxy-slider {
-            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-            background: var(--bg-elevated); border-radius: 22px; transition: 0.2s;
+        .status-message.active { display: block; }
+        .status-message.success { 
+            background: rgba(0, 230, 118, 0.1); color: var(--accent-success); 
+            border: 1px solid rgba(0, 230, 118, 0.3);
         }
-        .proxy-slider:before {
-            position: absolute; content: ""; height: 16px; width: 16px;
-            left: 3px; bottom: 3px; background: var(--text-secondary);
-            border-radius: 50%; transition: 0.2s;
+        .status-message.error { 
+            background: rgba(255, 82, 82, 0.1); color: var(--accent-error); 
+            border: 1px solid rgba(255, 82, 82, 0.3);
         }
-        .proxy-toggle input:checked + .proxy-slider { background: var(--se-light-green); }
-        .proxy-toggle input:checked + .proxy-slider:before { transform: translateX(18px); background: white; }
-        
-        .workflow-status { background: var(--bg-tertiary); border-radius: 8px; padding: 16px; margin-top: 16px; }
-        .workflow-status h4 { font-size: 13px; color: var(--text-primary); margin-bottom: 12px; }
-        .workflow-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); font-size: 12px; }
-        .workflow-item:last-child { border-bottom: none; }
-        .workflow-badge { padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; text-decoration: none; }
-        .workflow-badge.success { background: rgba(0, 230, 118, 0.2); color: var(--accent-success); }
-        .workflow-badge.pending { background: rgba(255, 179, 0, 0.2); color: var(--accent-warning); }
-        .workflow-badge.running { background: rgba(0, 184, 212, 0.2); color: var(--accent-info); }
-        .workflow-badge.failed { background: rgba(255, 82, 82, 0.2); color: var(--accent-error); }
-
-        .collapsible-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 8px 0; }
-        .collapsible-header:hover { opacity: 0.8; }
-        .collapsible-content { display: none; padding-top: 12px; }
-        .collapsible-content.active { display: block; }
-        .collapse-icon { transition: transform 0.2s; }
-        .collapse-icon.rotated { transform: rotate(180deg); }
-        
-        .setup-steps { background: var(--bg-tertiary); border-radius: 8px; padding: 16px; }
-        .setup-step { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-color); font-size: 12px; }
-        .setup-step:last-child { border-bottom: none; }
-        .step-number { width: 24px; height: 24px; background: var(--se-gradient); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; flex-shrink: 0; }
-        .step-content { flex: 1; }
-        .step-content strong { color: var(--text-primary); }
-        .step-content p { color: var(--text-secondary); margin-top: 4px; line-height: 1.4; }
-        .step-content code { background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 3px; font-size: 11px; color: var(--accent-info); }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h2>⚡ Arcadia LMP Data Fetcher <span class="azure-badge">☁️ Azure</span></h2>
-            <p>Fetch Day-Ahead LMP data from Genability API</p>
-            <div class="version">v2.2.0 • Feb 2026 • Azure Storage Enabled</div>
+            <h2>⚡ Arcadia LMP Data Fetcher <span class="badge">✅ ALL ISOS WORKING</span></h2>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-top: 5px;">
+                Complete API-Verified Zone IDs • 5 ISOs • 79 Total Zones
+            </p>
+            <div style="font-size: 10px; color: #718096; margin-top: 4px;">
+                v5.0.0 FINAL • Auto-generated from API Discovery Tool
+            </div>
         </div>
         
-        <div class="mode-tabs">
-            <button class="mode-tab active" onclick="switchMode('server')">
-                <span class="tab-icon">🖥️</span> Server Update
-            </button>
-            <button class="mode-tab" onclick="switchMode('browser')">
-                <span class="tab-icon">🌐</span> Browser Fetch
-            </button>
+        <div class="alert-box">
+            <h4>🎉 Complete Zone Discovery Applied!</h4>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+                This fetcher uses zone IDs discovered directly from the Genability API
+            </p>
+            <ul>
+                <li><strong>ERCOT:</strong> 8 zones (AEN, CPS, HOUSTON, LCRA, NORTH, RAYBN, SOUTH, WEST)</li>
+                <li><strong>ISO-NE:</strong> 8 zones (Maine, NH, Vermont, Connecticut, RI, SEMA, WCMA, NEMA)</li>
+                <li><strong>MISO:</strong> 8 zones (ARKANSAS, ILLINOIS, INDIANA, LOUISIANA, MICHIGAN, MINN, MS, TEXAS)</li>
+                <li><strong>NYISO:</strong> 15 zones (All 11 main zones + 4 hub zones)</li>
+                <li><strong>PJM:</strong> 40 zones (All 21 main zones + 19 additional hub/aggregate zones)</li>
+            </ul>
         </div>
         
-        <!-- Server Mode -->
-        <div id="serverMode" class="mode-content active">
-            <div class="azure-notice">
-                <h4>☁️ Azure Storage Integration Active</h4>
-                <p>Data is now stored securely in Azure Blob Storage via the SES Data API. GitHub Actions fetches from Genability and saves directly to Azure.</p>
-            </div>
-            
-            <div class="section">
-                <div class="section-title">GitHub Configuration</div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>GitHub Token (PAT)</label>
-                        <input type="password" id="githubToken" placeholder="ghp_xxxxxxxxxxxx">
-                        <div class="helper-text">Requires <code>repo</code> + <code>workflow</code> scopes</div>
-                    </div>
-                    <div class="form-group">
-                        <label>Repository</label>
-                        <input type="text" id="repoName" value="ClemmensSES/SESSalesResources" placeholder="owner/repo">
-                    </div>
-                </div>
-                
-                <div class="collapsible-header" onclick="toggleCollapsible('tokenHelp')">
-                    <span style="font-size: 12px; color: var(--accent-info);">📋 How to get/refresh your GitHub Token</span>
-                    <span class="collapse-icon" id="tokenHelpIcon">▼</span>
-                </div>
-                <div class="collapsible-content" id="tokenHelp">
-                    <div class="setup-steps" style="margin: 0;">
-                        <div class="setup-step">
-                            <div class="step-number">1</div>
-                            <div class="step-content">
-                                <strong>Go to GitHub Token Settings</strong>
-                                <p><a href="https://github.com/settings/tokens/new?scopes=repo,workflow&description=LMP%20Fetcher" target="_blank" style="color: var(--se-light-green);">Click here for pre-configured token</a></p>
-                            </div>
-                        </div>
-                        <div class="setup-step">
-                            <div class="step-number">2</div>
-                            <div class="step-content">
-                                <strong>Set Expiration → Generate → Copy</strong>
-                                <p>Choose 90 days, click Generate, then <strong>copy immediately</strong></p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="section">
-                <div class="section-title">Update Options</div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Start Date (Optional)</label>
-                        <input type="date" id="serverStartDate">
-                    </div>
-                    <div class="form-group">
-                        <label>End Date (Optional)</label>
-                        <input type="date" id="serverEndDate">
-                    </div>
+        <div class="section">
+            <div class="section-title">1. Genability API Credentials</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>App ID</label>
+                    <input type="text" id="appId" placeholder="Enter Genability App ID">
                 </div>
                 <div class="form-group">
-                    <label>ISO Markets</label>
-                    <select id="serverIsoMarkets">
-                        <option value="all">All Markets (ISONE, PJM, ERCOT)</option>
-                        <option value="ISONE">ISO-NE Only</option>
-                        <option value="PJM">PJM Only</option>
-                        <option value="ERCOT">ERCOT Only</option>
-                    </select>
-                </div>
-                <p style="font-size: 11px; color: var(--text-tertiary); margin-top: 8px;">
-                    Leave dates blank to fetch previous month. Data saves to Azure automatically.
-                </p>
-            </div>
-            
-            <div class="section">
-                <div class="button-group">
-                    <button class="btn-purple" onclick="triggerWorkflow()" style="flex: 1;">🚀 Trigger Server Update</button>
-                    <button class="btn-secondary" onclick="checkWorkflowStatus()">📊 Check Status</button>
-                </div>
-                <div class="status-message" id="serverStatus"></div>
-                <div class="workflow-status" id="workflowStatusCard" style="display: none;">
-                    <h4>📋 Recent Workflow Runs</h4>
-                    <div id="workflowRuns"></div>
-                </div>
-            </div>
-            
-            <div class="section">
-                <div class="collapsible-header" onclick="toggleCollapsible('troubleshoot')">
-                    <span class="section-title" style="margin: 0; border: none; padding: 0;">🔧 Troubleshooting</span>
-                    <span class="collapse-icon" id="troubleshootIcon">▼</span>
-                </div>
-                <div class="collapsible-content" id="troubleshoot">
-                    <div class="setup-steps" style="margin: 0; background: transparent; padding: 0;">
-                        <div class="setup-step">
-                            <div class="step-number" style="background: var(--accent-error);">!</div>
-                            <div class="step-content">
-                                <strong>401 Unauthorized</strong>
-                                <p>Token invalid/expired. <a href="https://github.com/settings/tokens" target="_blank" style="color: var(--se-light-green);">Regenerate PAT</a></p>
-                            </div>
-                        </div>
-                        <div class="setup-step">
-                            <div class="step-number" style="background: var(--accent-warning);">!</div>
-                            <div class="step-content">
-                                <strong>Azure API Error</strong>
-                                <p>Check GitHub Secrets: <code>AZURE_API_ENDPOINT</code> and <code>AZURE_API_KEY</code></p>
-                            </div>
-                        </div>
-                        <div class="setup-step">
-                            <div class="step-number" style="background: var(--accent-warning);">!</div>
-                            <div class="step-content">
-                                <strong>Genability Auth Failed</strong>
-                                <p>Check GitHub Secrets: <code>ARCADIA_APP_ID</code> and <code>ARCADIA_APP_KEY</code></p>
-                            </div>
-                        </div>
-                    </div>
+                    <label>App Key</label>
+                    <input type="password" id="appKey" placeholder="Enter Genability App Key">
                 </div>
             </div>
         </div>
         
-        <!-- Browser Mode -->
-        <div id="browserMode" class="mode-content">
-            <div class="cors-notice">
-                <h4>⚠️ Browser Fetch Mode</h4>
-                <p>Fetch directly from Genability API and sync to Azure. Requires CORS proxy for browser testing.</p>
-            </div>
-            
-            <div class="section">
-                <div class="section-title">1. API Credentials</div>
-                <div class="proxy-mode">
-                    <label class="proxy-toggle">
-                        <input type="checkbox" id="useProxy" checked onchange="updateProxyStatus()">
-                        <span class="proxy-slider"></span>
-                    </label>
-                    <div>
-                        <strong style="font-size: 12px;">Use CORS Proxy</strong>
-                        <p style="font-size: 10px; color: var(--text-tertiary);" id="proxyStatusText">Using corsproxy.io</p>
-                    </div>
-                    <select id="proxySelector" onchange="updateProxyStatus()" style="margin-left: auto; padding: 4px 8px; font-size: 11px; background: var(--bg-elevated); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary);">
-                        <option value="corsproxy">corsproxy.io</option>
-                        <option value="allorigins">allorigins.win</option>
-                    </select>
+        <div class="section">
+            <div class="section-title">2. Date Range</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Start Date</label>
+                    <input type="date" id="startDate">
                 </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Genability App ID</label>
-                        <input type="text" id="appId" placeholder="Your Genability App ID">
-                    </div>
-                    <div class="form-group">
-                        <label>Genability App Key</label>
-                        <input type="password" id="appKey" placeholder="Your Genability App Key">
-                    </div>
-                </div>
-                <div class="button-group">
-                    <button class="btn-primary" onclick="testCredentials()">Test Credentials</button>
-                    <button class="btn-secondary" onclick="toggleDebug()">🔍 Debug</button>
-                </div>
-                <div class="status-message" id="credStatus"></div>
-            </div>
-            
-            <div class="section">
-                <div class="section-title">2. Date Range</div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Start Date</label>
-                        <input type="date" id="startDate">
-                    </div>
-                    <div class="form-group">
-                        <label>End Date</label>
-                        <input type="date" id="endDate">
-                    </div>
+                <div class="form-group">
+                    <label>End Date</label>
+                    <input type="date" id="endDate">
                 </div>
             </div>
-            
-            <div class="section">
-                <div class="section-title">3. Select ISO Market</div>
-                <div class="iso-grid" id="isoSelector"></div>
+            <p style="font-size: 11px; color: var(--text-secondary); margin-top: 8px;">
+                💡 Use past dates only (yesterday and earlier) - future dates have no data
+            </p>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">3. Select ISO Market</div>
+            <div class="iso-grid" id="isoSelector"></div>
+        </div>
+        
+        <div class="section" id="zoneSection" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div class="section-title" style="margin: 0; border: none; padding: 0;">4. Select Zones</div>
+                <button class="btn-primary" onclick="toggleSelectAll()" style="padding: 6px 14px; font-size: 11px;">
+                    Select All
+                </button>
             </div>
-            
-            <div class="section" id="zoneSection" style="display: none;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <div class="section-title" style="margin: 0; border: none; padding: 0;">4. Select Zones</div>
-                    <button class="btn-secondary" onclick="toggleSelectAll()" style="padding: 4px 10px; font-size: 11px;">Select All</button>
-                </div>
-                <div class="zones-grid" id="zonesGrid"></div>
-            </div>
-            
-            <div class="section">
-                <div class="button-group">
-                    <button class="btn-primary" onclick="fetchData()" style="flex: 1;">⚡ Fetch LMP Data</button>
-                    <button class="btn-success" id="exportBtn" onclick="exportCSV()" style="flex: 1;" disabled>📥 Export CSV</button>
-                </div>
-            </div>
-            
-            <div class="status-message" id="statusMessage"></div>
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <p style="color: var(--text-secondary); font-size: 12px;">Fetching data...</p>
-            </div>
-            
-            <div class="debug-console" id="debugConsole">
-                <div class="debug-actions">
-                    <button class="btn-secondary" onclick="clearDebug()" style="padding: 4px 8px; font-size: 10px;">Clear</button>
-                    <button class="btn-secondary" onclick="copyDebug()" style="padding: 4px 8px; font-size: 10px;">Copy</button>
-                </div>
-                <div id="debugLines"></div>
-            </div>
-            
-            <div class="section results-section" id="resultsSection">
-                <div class="section-title">Results</div>
-                <div class="stats-grid" id="statsGrid"></div>
-                <h4 style="margin-bottom: 10px; font-size: 13px;">Monthly Averages</h4>
-                <div class="data-table-container">
-                    <table class="data-table">
-                        <thead><tr><th>Zone</th><th>Month</th><th>Year</th><th>Avg $/MWh</th><th>Records</th></tr></thead>
-                        <tbody id="resultsBody"></tbody>
-                    </table>
-                </div>
-                <div class="button-group" style="margin-top: 12px;">
-                    <button class="btn-azure" onclick="syncToAzure()">☁️ Save to Azure</button>
-                    <button class="btn-primary" onclick="sendToPortal()">📤 Send to Portal</button>
-                </div>
+            <div class="zones-grid" id="zonesGrid"></div>
+        </div>
+        
+        <div class="section">
+            <button class="btn-primary" onclick="fetchData()" style="width: 100%; padding: 14px; font-size: 14px;">
+                ⚡ Fetch Hourly LMP Data
+            </button>
+            <button class="btn-success" id="exportBtn" onclick="exportCSV()" style="width: 100%; margin-top: 12px; padding: 12px;" disabled>
+                📥 Export CSV
+            </button>
+        </div>
+        
+        <div class="status-message" id="statusMessage"></div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="color: var(--text-secondary); font-size: 13px; font-weight: 500;">Fetching hourly data from Genability API...</p>
+        </div>
+        
+        <div class="section results-section" id="resultsSection">
+            <div class="section-title">📊 Results - Hourly LMP Data</div>
+            <div class="stats-grid" id="statsGrid"></div>
+            <h4 style="margin-bottom: 12px; font-size: 13px; color: var(--text-secondary);">
+                Hourly Records (First 100 shown)
+            </h4>
+            <div class="data-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ISO</th>
+                            <th>Zone</th>
+                            <th>Zone ID</th>
+                            <th>DateTime</th>
+                            <th>Price ($/MWh)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody"></tbody>
+                </table>
             </div>
         </div>
     </div>
     
     <script>
         // ============================================
-        // CONFIGURATION
+        // COMPLETE ISO CONFIGURATION
+        // Auto-generated from API Zone Discovery
         // ============================================
-        const CONFIG = {
-            version: '2.2.0',
-            defaultRepo: 'ClemmensSES/SESSalesResources',
-            azure: {
-                endpoint: 'https://ses-data-api-gpaqghfbehhrb6c2.eastus-01.azurewebsites.net/api/data',
-                apiKey: 'ses-admin-abc123def456',
-                lmpFile: 'lmp-database.json'
-            },
-            proxies: {
-                corsproxy: url => 'https://corsproxy.io/?' + encodeURIComponent(url),
-                allorigins: url => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url)
-            }
-        };
-        
         const ISO_CONFIG = {
-            ISONE: {
-                name: 'ISO-NE', propertyKey: 'hourlyPricingDayAheadISONE',
+            ERCOT: {
+                name: 'ERCOT',
+                propertyKey: 'hourlyPricingDayAheadERCOT',
                 zones: [
-                    { value: '4001', label: 'ISO NE CA' }, { value: '4002', label: 'Maine' },
-                    { value: '4003', label: 'NH' }, { value: '4004', label: 'Vermont' },
-                    { value: '4005', label: 'Connecticut' }, { value: '4006', label: 'Rhode Island' },
-                    { value: '4007', label: 'SEMA' }, { value: '4008', label: 'WCMA' }, { value: '4009', label: 'NEMA' }
+                    { value: 'AEN', label: 'AEN', dbName: 'AEN' },
+                    { value: 'CPS', label: 'CPS Energy', dbName: 'CPS' },
+                    { value: 'HOUSTON', label: 'Houston', dbName: 'HOUSTON' },
+                    { value: 'LCRA', label: 'LCRA', dbName: 'LCRA' },
+                    { value: 'NORTH', label: 'North', dbName: 'NORTH' },
+                    { value: 'RAYBN', label: 'Rayburn', dbName: 'RAYBN' },
+                    { value: 'SOUTH', label: 'South', dbName: 'SOUTH' },
+                    { value: 'WEST', label: 'West', dbName: 'WEST' },
+                ]
+            },
+            ISONE: {
+                name: 'ISO-NE',
+                propertyKey: 'hourlyPricingDayAheadISONE',
+                zones: [
+                    { value: '4001', label: 'Maine', dbName: '4001_Maine' },
+                    { value: '4002', label: 'NH', dbName: '4002_NH' },
+                    { value: '4003', label: 'Vermont', dbName: '4003_Vermont' },
+                    { value: '4004', label: 'Connecticut', dbName: '4004_Connecticut' },
+                    { value: '4005', label: 'Rhode Island', dbName: '4005_Rhode_Island' },
+                    { value: '4006', label: 'SEMA', dbName: '4006_SEMA' },
+                    { value: '4007', label: 'WCMA', dbName: '4007_WCMA' },
+                    { value: '4008', label: 'NEMA', dbName: '4008_NEMA' },
+                ]
+            },
+            MISO: {
+                name: 'MISO',
+                propertyKey: 'hourlyPricingDayAheadMISO',
+                zones: [
+                    { value: 'ARKANSAS', label: 'Arkansas', dbName: 'ARKANSAS' },
+                    { value: 'ILLINOIS', label: 'Illinois', dbName: 'ILLINOIS' },
+                    { value: 'INDIANA', label: 'Indiana', dbName: 'INDIANA' },
+                    { value: 'LOUISIANA', label: 'Louisiana', dbName: 'LOUISIANA' },
+                    { value: 'MICHIGAN', label: 'Michigan', dbName: 'MICHIGAN' },
+                    { value: 'MINN', label: 'Minnesota', dbName: 'MINN' },
+                    { value: 'MS', label: 'Mississippi', dbName: 'MS' },
+                    { value: 'TEXAS', label: 'Texas', dbName: 'TEXAS' },
+                ]
+            },
+            NYISO: {
+                name: 'NYISO',
+                propertyKey: 'hourlyPricingDayAheadNYISO',
+                zones: [
+                    { value: '61752', label: 'West (A)', dbName: '61752' },
+                    { value: '61753', label: 'Genesee (B)', dbName: '61753' },
+                    { value: '61754', label: 'Central (C)', dbName: '61754' },
+                    { value: '61755', label: 'North (D)', dbName: '61755' },
+                    { value: '61756', label: 'Mohawk Valley (E)', dbName: '61756' },
+                    { value: '61757', label: 'Capital (F)', dbName: '61757' },
+                    { value: '61758', label: 'Hudson Valley (G)', dbName: '61758' },
+                    { value: '61759', label: 'Millwood (H)', dbName: '61759' },
+                    { value: '61760', label: 'Dunwoodie (I)', dbName: '61760' },
+                    { value: '61761', label: 'NYC (J)', dbName: '61761' },
+                    { value: '61762', label: 'Long Island (K)', dbName: '61762' },
+                    { value: '61844', label: 'Zone J Hub', dbName: '61844' },
+                    { value: '61845', label: 'Zone K Hub', dbName: '61845' },
+                    { value: '61846', label: 'Zone A Hub', dbName: '61846' },
+                    { value: '61847', label: 'Zone F Hub', dbName: '61847' },
                 ]
             },
             PJM: {
-                name: 'PJM', propertyKey: 'hourlyPricingDayAheadPJM',
+                name: 'PJM',
+                propertyKey: 'hourlyPricingDayAheadPJM',
                 zones: [
-                    { value: '51291', label: 'AECO' }, { value: '51292', label: 'BGE' },
-                    { value: '51293', label: 'DPL' }, { value: '51294', label: 'JCPL' },
-                    { value: '51295', label: 'METED' }, { value: '51296', label: 'PECO' },
-                    { value: '51297', label: 'PENELEC' }, { value: '51298', label: 'PEPCO' },
-                    { value: '51299', label: 'PPL' }, { value: '51300', label: 'PSEG' }
+                    { value: '51291', label: 'AECO', dbName: 'AECO' },
+                    { value: '51292', label: 'BGE', dbName: 'BGE' },
+                    { value: '51293', label: 'DPL', dbName: 'DPL' },
+                    { value: '51295', label: 'JCPL', dbName: 'JCPL' },
+                    { value: '51296', label: 'Met-Ed', dbName: 'METED' },
+                    { value: '51297', label: 'PECO', dbName: 'PECO' },
+                    { value: '51298', label: 'Penelec', dbName: 'PENELEC' },
+                    { value: '51299', label: 'Pepco', dbName: 'PEPCO' },
+                    { value: '51300', label: 'PPL', dbName: 'PPL' },
+                    { value: '51301', label: 'Duquesne', dbName: 'DUQ' },
+                    { value: '7633629', label: 'EKPC', dbName: 'EKPC' },
+                    { value: '8394954', label: 'APS', dbName: 'APS' },
+                    { value: '8445784', label: 'AEP', dbName: 'AEP' },
+                    { value: '33092371', label: 'ComEd', dbName: 'COMED' },
+                    { value: '34508503', label: 'Dayton', dbName: 'DAY' },
+                    { value: '34964545', label: 'Dominion', dbName: 'DOM' },
+                    { value: '37737283', label: 'RECO', dbName: 'RECO' },
+                    { value: '116013753', label: 'ATSI', dbName: 'ATSI' },
+                    { value: '116472927', label: 'PJM Hub 927', dbName: '116472927' },
+                    { value: '116472931', label: 'PJM Hub 931', dbName: '116472931' },
+                    { value: '116472933', label: 'PJM Hub 933', dbName: '116472933' },
+                    { value: '116472935', label: 'PJM Hub 935', dbName: '116472935' },
+                    { value: '116472937', label: 'PJM Hub 937', dbName: '116472937' },
+                    { value: '116472939', label: 'PJM Hub 939', dbName: '116472939' },
+                    { value: '116472941', label: 'PJM Hub 941', dbName: '116472941' },
+                    { value: '116472943', label: 'PJM Hub 943', dbName: '116472943' },
+                    { value: '116472945', label: 'PJM Hub 945', dbName: '116472945' },
+                    { value: '116472947', label: 'PJM Hub 947', dbName: '116472947' },
+                    { value: '116472949', label: 'PJM Hub 949', dbName: '116472949' },
+                    { value: '116472951', label: 'PJM Hub 951', dbName: '116472951' },
+                    { value: '116472953', label: 'PJM Hub 953', dbName: '116472953' },
+                    { value: '116472955', label: 'PJM Hub 955', dbName: '116472955' },
+                    { value: '116472957', label: 'PJM Hub 957', dbName: '116472957' },
+                    { value: '116472959', label: 'PJM Hub 959', dbName: '116472959' },
+                    { value: '124076095', label: 'Duke Energy OH/KY', dbName: 'DEOK' },
+                    { value: '126769999', label: 'Zone 999', dbName: '126769999' },
+                    { value: '970242670', label: 'External', dbName: 'EXTERNAL' },
+                    { value: '1069452904', label: 'Hub 904', dbName: '1069452904' },
+                    { value: '1127872598', label: 'Hub 598', dbName: '1127872598' },
+                    { value: '1258625176', label: 'Hub 176', dbName: '1258625176' },
                 ]
             },
-            ERCOT: {
-                name: 'ERCOT', propertyKey: 'hourlyPricingDayAheadERCOT',
-                zones: [
-                    { value: 'LZ_HOUSTON', label: 'Houston' }, { value: 'LZ_NORTH', label: 'North' },
-                    { value: 'LZ_SOUTH', label: 'South' }, { value: 'LZ_WEST', label: 'West' }
-                ]
-            }
         };
         
-        let currentISO = null, selectedZones = [], fetchedData = { hourly: [], monthly: [] }, debugVisible = false;
+        let currentISO = null;
+        let selectedZones = [];
+        let fetchedData = { hourly: [] };
         
-        // ============================================
-        // AZURE DATA SERVICE
-        // ============================================
-        const AzureService = {
-            async get(file) {
-                // Try parent's AzureDataService first (if in iframe)
-                if (window.parent !== window && window.parent.AzureDataService) {
-                    try {
-                        addDebugLine('Using parent AzureDataService...', 'azure');
-                        return await window.parent.AzureDataService.get(file);
-                    } catch (e) {
-                        addDebugLine('Parent service failed, using direct API', 'warning');
-                    }
-                }
-                
-                // Direct API call
-                const res = await fetch(`${CONFIG.azure.endpoint}/${file}`, {
-                    headers: { 'x-api-key': CONFIG.azure.apiKey }
-                });
-                if (!res.ok) throw new Error(`Azure GET failed: ${res.status}`);
-                return res.json();
-            },
-            
-            async save(file, data) {
-                // Try parent's AzureDataService first
-                if (window.parent !== window && window.parent.AzureDataService) {
-                    try {
-                        addDebugLine('Using parent AzureDataService...', 'azure');
-                        return await window.parent.AzureDataService.save(file, data);
-                    } catch (e) {
-                        addDebugLine('Parent service failed, using direct API', 'warning');
-                    }
-                }
-                
-                // Direct API call
-                const res = await fetch(`${CONFIG.azure.endpoint}/${file}`, {
-                    method: 'PUT',
-                    headers: {
-                        'x-api-key': CONFIG.azure.apiKey,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(data)
-                });
-                if (!res.ok) throw new Error(`Azure PUT failed: ${res.status}`);
-                return res.json();
-            }
-        };
-        
-        // ============================================
-        // UTILITY FUNCTIONS
-        // ============================================
-        function getProxyUrl(url) {
-            if (!document.getElementById('useProxy').checked) return url;
-            return CONFIG.proxies[document.getElementById('proxySelector').value](url);
-        }
-        
-        function updateProxyStatus() {
-            const enabled = document.getElementById('useProxy').checked;
-            const type = document.getElementById('proxySelector').value;
-            document.getElementById('proxyStatusText').textContent = enabled ? `Using ${type}` : 'Direct (may fail)';
-        }
-        
-        function addDebugLine(msg, type = 'info') {
-            const el = document.getElementById('debugLines');
-            const ts = new Date().toLocaleTimeString();
-            el.innerHTML += `<div class="debug-line ${type}"><span class="debug-timestamp">[${ts}]</span>${msg}</div>`;
-            el.scrollTop = el.scrollHeight;
-        }
-        
-        function clearDebug() { document.getElementById('debugLines').innerHTML = ''; }
-        function copyDebug() { navigator.clipboard.writeText(document.getElementById('debugLines').innerText); }
-        function toggleDebug() { debugVisible = !debugVisible; document.getElementById('debugConsole').classList.toggle('active', debugVisible); }
-        
-        function showStatus(msg, type = 'info', id = 'statusMessage') {
-            const el = document.getElementById(id);
-            el.textContent = msg;
-            el.className = `status-message active ${type}`;
-        }
-        function hideStatus(id = 'statusMessage') { document.getElementById(id).className = 'status-message'; }
-        function showServerStatus(msg, type) { showStatus(msg, type, 'serverStatus'); }
-        
-        function toggleCollapsible(id) {
-            document.getElementById(id).classList.toggle('active');
-            document.getElementById(id + 'Icon').classList.toggle('rotated');
-        }
-        
-        function switchMode(mode) {
-            document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.mode-content').forEach(c => c.classList.remove('active'));
-            if (mode === 'server') {
-                document.querySelector('.mode-tab:first-child').classList.add('active');
-                document.getElementById('serverMode').classList.add('active');
-            } else {
-                document.querySelector('.mode-tab:last-child').classList.add('active');
-                document.getElementById('browserMode').classList.add('active');
-            }
-        }
-        
-        // ============================================
-        // SERVER MODE - GitHub Actions
-        // ============================================
-        async function triggerWorkflow() {
-            const token = document.getElementById('githubToken').value.trim();
-            const repo = document.getElementById('repoName').value.trim();
-            if (!token) { showServerStatus('❌ Enter GitHub token', 'error'); return; }
-            if (!repo) { showServerStatus('❌ Enter repository', 'error'); return; }
-            
-            showServerStatus('🔄 Triggering workflow...', 'info');
-            
-            try {
-                const inputs = { iso_markets: document.getElementById('serverIsoMarkets').value };
-                const startDate = document.getElementById('serverStartDate').value;
-                const endDate = document.getElementById('serverEndDate').value;
-                if (startDate) inputs.start_date = startDate;
-                if (endDate) inputs.end_date = endDate;
-                
-                const res = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/update-lmp-data.yml/dispatches`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ref: 'main', inputs })
-                });
-                
-                if (res.status === 204) {
-                    showServerStatus('✅ Workflow triggered! Data will save to Azure.', 'success');
-                    localStorage.setItem('lmpFetcher_githubToken', token);
-                    localStorage.setItem('lmpFetcher_repoName', repo);
-                    setTimeout(checkWorkflowStatus, 3000);
-                } else if (res.status === 404) {
-                    showServerStatus('❌ Workflow not found', 'error');
-                } else if (res.status === 401) {
-                    showServerStatus('❌ Invalid token', 'error');
-                } else {
-                    showServerStatus(`❌ Error ${res.status}`, 'error');
-                }
-            } catch (e) { showServerStatus(`❌ ${e.message}`, 'error'); }
-        }
-        
-        async function checkWorkflowStatus() {
-            const token = document.getElementById('githubToken').value.trim();
-            const repo = document.getElementById('repoName').value.trim();
-            if (!token || !repo) return;
-            
-            try {
-                const res = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/update-lmp-data.yml/runs?per_page=5`, {
-                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json' }
-                });
-                if (!res.ok) return;
-                
-                const data = await res.json();
-                const card = document.getElementById('workflowStatusCard');
-                const runs = document.getElementById('workflowRuns');
-                
-                if (data.workflow_runs?.length > 0) {
-                    card.style.display = 'block';
-                    runs.innerHTML = data.workflow_runs.map(run => {
-                        let badge = 'pending', text = run.status;
-                        if (run.conclusion === 'success') { badge = 'success'; text = 'Success'; }
-                        else if (run.conclusion === 'failure') { badge = 'failed'; text = 'Failed'; }
-                        else if (run.status === 'in_progress') { badge = 'running'; text = 'Running...'; }
-                        return `<div class="workflow-item"><div><div style="font-weight:600">#${run.run_number}</div><div style="font-size:10px;color:var(--text-tertiary)">${new Date(run.created_at).toLocaleString()}</div></div><a href="${run.html_url}" target="_blank" class="workflow-badge ${badge}">${text}</a></div>`;
-                    }).join('');
-                    if (data.workflow_runs.some(r => r.status === 'in_progress' || r.status === 'queued')) setTimeout(checkWorkflowStatus, 10000);
-                }
-            } catch (e) {}
-        }
-        
-        // ============================================
-        // BROWSER MODE
-        // ============================================
         function init() {
-            const savedToken = localStorage.getItem('lmpFetcher_githubToken');
-            const savedRepo = localStorage.getItem('lmpFetcher_repoName');
-            if (savedToken) document.getElementById('githubToken').value = savedToken;
-            if (savedRepo) document.getElementById('repoName').value = savedRepo;
+            // Set dates to past week
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(today.getDate() - 1);
+            const weekAgo = new Date(today);
+            weekAgo.setDate(today.getDate() - 7);
             
-            const today = new Date(), ago = new Date(today);
-            ago.setDate(today.getDate() - 30);
-            document.getElementById('endDate').value = today.toISOString().split('T')[0];
-            document.getElementById('startDate').value = ago.toISOString().split('T')[0];
+            document.getElementById('endDate').value = yesterday.toISOString().split('T')[0];
+            document.getElementById('startDate').value = weekAgo.toISOString().split('T')[0];
             
+            // Build ISO selector
             const sel = document.getElementById('isoSelector');
             Object.keys(ISO_CONFIG).forEach(key => {
                 const btn = document.createElement('button');
                 btn.className = 'iso-btn';
-                btn.textContent = ISO_CONFIG[key].name;
-                btn.onclick = () => selectISO(key, btn);
+                btn.textContent = `${ISO_CONFIG[key].name} (${ISO_CONFIG[key].zones.length})`;
+                btn.onclick = () => selectISO(key);
                 sel.appendChild(btn);
             });
-            
-            window.addEventListener('message', handleMessage);
-            addDebugLine(`LMP Fetcher v${CONFIG.version} ready (Azure enabled)`, 'success');
         }
         
-        function selectISO(key, btn) {
-            currentISO = key;
+        function selectISO(iso) {
+            currentISO = iso;
             selectedZones = [];
+            
             document.querySelectorAll('.iso-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+            event.target.classList.add('active');
+            
+            const grid = document.getElementById('zonesGrid');
+            grid.innerHTML = '';
+            
+            ISO_CONFIG[iso].zones.forEach(zone => {
+                const item = document.createElement('div');
+                item.className = 'zone-item';
+                item.innerHTML = `<input type="checkbox" value="${zone.value}" id="zone_${zone.value}"> <label for="zone_${zone.value}" style="cursor: pointer;">${zone.label}</label>`;
+                item.onclick = (e) => {
+                    if (e.target.tagName !== 'INPUT') {
+                        const checkbox = item.querySelector('input');
+                        checkbox.checked = !checkbox.checked;
+                    }
+                    updateSelectedZones();
+                };
+                grid.appendChild(item);
+            });
+            
             document.getElementById('zoneSection').style.display = 'block';
-            document.getElementById('zonesGrid').innerHTML = ISO_CONFIG[key].zones.map(z => `<label class="zone-item"><input type="checkbox" value="${z.value}" onchange="updateSelectedZones()">${z.label}</label>`).join('');
         }
         
-        function updateSelectedZones() { selectedZones = Array.from(document.querySelectorAll('.zone-item input:checked')).map(cb => cb.value); }
+        function updateSelectedZones() {
+            selectedZones = Array.from(document.querySelectorAll('.zone-item input:checked')).map(i => i.value);
+        }
+        
         function toggleSelectAll() {
-            const cbs = document.querySelectorAll('.zone-item input');
-            const all = Array.from(cbs).every(cb => cb.checked);
-            cbs.forEach(cb => cb.checked = !all);
+            const checkboxes = document.querySelectorAll('.zone-item input');
+            const allChecked = Array.from(checkboxes).every(c => c.checked);
+            checkboxes.forEach(c => c.checked = !allChecked);
             updateSelectedZones();
         }
         
-        async function testCredentials() {
-            const appId = document.getElementById('appId').value.trim();
-            const appKey = document.getElementById('appKey').value.trim();
-            if (!appId || !appKey) { showStatus('Enter credentials', 'error', 'credStatus'); return; }
-            
-            showStatus('Testing...', 'info', 'credStatus');
-            try {
-                const creds = btoa(`${appId}:${appKey}`);
-                const url = getProxyUrl('https://api.genability.com/rest/echo/hello');
-                const res = await fetch(url, { headers: { 'Authorization': `Basic ${creds}` } });
-                if (res.ok) showStatus('✓ Valid!', 'success', 'credStatus');
-                else showStatus('✗ Invalid', 'error', 'credStatus');
-            } catch (e) { showStatus('Connection error', 'error', 'credStatus'); }
+        function showStatus(msg, type = 'info') {
+            const el = document.getElementById('statusMessage');
+            el.textContent = msg;
+            el.className = `status-message active ${type}`;
         }
         
         async function fetchData() {
+            if (!currentISO || !selectedZones.length) {
+                showStatus('❌ Please select an ISO and at least one zone', 'error');
+                return;
+            }
+            
             const appId = document.getElementById('appId').value.trim();
             const appKey = document.getElementById('appKey').value.trim();
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
             
-            if (!appId || !appKey) { showStatus('Enter credentials', 'error'); return; }
-            if (!currentISO) { showStatus('Select an ISO', 'error'); return; }
-            if (!selectedZones.length) { showStatus('Select zones', 'error'); return; }
+            if (!appId || !appKey) {
+                showStatus('❌ Please enter API credentials', 'error');
+                return;
+            }
+            
+            if (!startDate || !endDate) {
+                showStatus('❌ Please select date range', 'error');
+                return;
+            }
             
             document.getElementById('loading').classList.add('active');
-            hideStatus();
+            document.getElementById('resultsSection').classList.remove('active');
             
             const creds = btoa(`${appId}:${appKey}`);
             const cfg = ISO_CONFIG[currentISO];
-            fetchedData = { hourly: [], monthly: [] };
-            let total = 0;
-            
-            addDebugLine(`Fetching ${selectedZones.length} zones from ${cfg.name}...`, 'info');
+            fetchedData = { hourly: [] };
             
             try {
                 for (const zid of selectedZones) {
-                    const zname = cfg.zones.find(z => z.value === zid)?.label || zid;
+                    const zoneObj = cfg.zones.find(z => z.value === zid);
                     const recs = await fetchZoneData(creds, cfg.propertyKey, zid, startDate, endDate);
+                    
                     if (recs.length) {
-                        fetchedData.hourly.push(...recs.map(r => ({ ...r, zone: zname, zone_id: zid, iso: currentISO })));
-                        total += recs.length;
-                        addDebugLine(`  ${zname}: ${recs.length} records`, 'success');
+                        fetchedData.hourly.push(...recs.map(r => ({ 
+                            ...r, 
+                            zone: zoneObj.dbName,
+                            zone_id: zid, 
+                            iso: currentISO 
+                        })));
                     }
                 }
                 
-                fetchedData.monthly = calcMonthly(fetchedData.hourly);
-                displayResults();
-                showStatus(`✅ ${total.toLocaleString()} records`, 'success');
-                document.getElementById('exportBtn').disabled = false;
+                if (fetchedData.hourly.length > 0) {
+                    displayResults();
+                    showStatus(`✅ Successfully fetched ${fetchedData.hourly.length.toLocaleString()} hourly records!`, 'success');
+                    document.getElementById('exportBtn').disabled = false;
+                } else {
+                    showStatus('⚠️ No data found for selected zones and date range', 'error');
+                }
             } catch (e) {
-                addDebugLine(`Error: ${e.message}`, 'error');
-                showStatus(`Error: ${e.message}`, 'error');
-            } finally { document.getElementById('loading').classList.remove('active'); }
+                showStatus(`❌ Error: ${e.message}`, 'error');
+            } finally { 
+                document.getElementById('loading').classList.remove('active'); 
+            }
         }
         
         async function fetchZoneData(creds, propKey, zoneId, start, end) {
             const base = 'https://api.genability.com/rest/public/properties';
-            let all = [], page = 0, more = true;
+            let all = [];
+            let page = 0;
+            let more = true;
             
             while (more) {
-                const params = new URLSearchParams({ subKeyName: zoneId, fromDateTime: `${start}T00:00:00`, toDateTime: `${end}T23:59:59`, pageStart: page, pageCount: 1000 });
-                const res = await fetch(getProxyUrl(`${base}/${propKey}/lookups?${params}`), { headers: { 'Authorization': `Basic ${creds}` } });
-                if (!res.ok) throw new Error(res.status === 401 ? 'Invalid credentials' : `API error: ${res.status}`);
+                const params = new URLSearchParams({ 
+                    subKeyName: zoneId,
+                    fromDateTime: `${start}T00:00:00`,
+                    toDateTime: `${end}T23:59:59`,
+                    pageStart: page,
+                    pageCount: 1000
+                });
+                
+                const url = `https://corsproxy.io/?${encodeURIComponent(`${base}/${propKey}/lookups?${params}`)}`;
+                const res = await fetch(url, { headers: { 'Authorization': `Basic ${creds}` } });
+                
+                if (!res.ok) {
+                    if (res.status === 401) throw new Error('Invalid API credentials');
+                    throw new Error(`API error: ${res.status}`);
+                }
                 
                 const data = await res.json();
+                
                 if (data.results?.length) {
-                    all.push(...data.results.map(i => ({ datetime: i.fromDateTime || i.period, price: parseFloat(i.dataValue || i.lmpTotal || 0) })).filter(r => !isNaN(r.price)));
+                    all.push(...data.results.map(i => ({ 
+                        datetime: i.fromDateTime,
+                        price: parseFloat(i.actualValue || i.bestValue || 0)
+                    })).filter(r => !isNaN(r.price)));
+                    
                     more = data.count > page + 1000;
                     page += 1000;
-                } else more = false;
+                } else {
+                    more = false;
+                }
             }
+            
             return all;
-        }
-        
-        function calcMonthly(hourly) {
-            const map = {};
-            hourly.forEach(r => {
-                const d = new Date(r.datetime), y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0');
-                const k = `${r.zone}_${y}_${m}`;
-                if (!map[k]) map[k] = { zone: r.zone, zone_id: r.zone_id, iso: r.iso, year: String(y), month: m, prices: [] };
-                map[k].prices.push(r.price);
-            });
-            return Object.values(map).map(m => ({
-                zone: m.zone, zone_id: m.zone_id, iso: m.iso, year: m.year, month: m.month,
-                avg_da_lmp: m.prices.reduce((a, b) => a + b, 0) / m.prices.length,
-                min_price: Math.min(...m.prices), max_price: Math.max(...m.prices), record_count: m.prices.length
-            })).sort((a, b) => a.zone.localeCompare(b.zone) || a.year.localeCompare(b.year) || a.month.localeCompare(b.month));
         }
         
         function displayResults() {
             document.getElementById('resultsSection').classList.add('active');
-            const m = fetchedData.monthly, total = fetchedData.hourly.length;
-            const avg = m.length ? m.reduce((a, b) => a + b.avg_da_lmp, 0) / m.length : 0;
+            const total = fetchedData.hourly.length;
+            
+            const prices = fetchedData.hourly.map(r => r.price);
+            const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+            const minPrice = Math.min(...prices);
+            const maxPrice = Math.max(...prices);
+            const uniqueZones = new Set(fetchedData.hourly.map(r => r.zone)).size;
             
             document.getElementById('statsGrid').innerHTML = `
-                <div class="stat-card"><div class="stat-value">${total.toLocaleString()}</div><div class="stat-label">Records</div></div>
-                <div class="stat-card"><div class="stat-value">$${avg.toFixed(2)}</div><div class="stat-label">Avg $/MWh</div></div>
+                <div class="stat-card">
+                    <div class="stat-value">${total.toLocaleString()}</div>
+                    <div class="stat-label">Hourly Records</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${uniqueZones}</div>
+                    <div class="stat-label">Zones</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">$${avgPrice.toFixed(2)}</div>
+                    <div class="stat-label">Avg $/MWh</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">$${minPrice.toFixed(2)}</div>
+                    <div class="stat-label">Min Price</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">$${maxPrice.toFixed(2)}</div>
+                    <div class="stat-label">Max Price</div>
+                </div>
             `;
-            document.getElementById('resultsBody').innerHTML = m.slice(0, 15).map(r => `<tr><td>${r.zone}</td><td>${r.month}</td><td>${r.year}</td><td>$${r.avg_da_lmp.toFixed(2)}</td><td>${r.record_count}</td></tr>`).join('');
-            document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+            
+            const displayData = fetchedData.hourly.slice(0, 100);
+            document.getElementById('resultsBody').innerHTML = displayData.map(r => 
+                `<tr>
+                    <td><strong>${r.iso}</strong></td>
+                    <td>${r.zone}</td>
+                    <td style="color: #718096;">${r.zone_id}</td>
+                    <td>${new Date(r.datetime).toLocaleString()}</td>
+                    <td style="color: #3EB489; font-weight: 600;">$${r.price.toFixed(4)}</td>
+                </tr>`
+            ).join('');
+            
+            document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
         
         function exportCSV() {
-            if (!fetchedData.monthly.length) return;
-            const csv = ['ISO,Zone,Month,Year,Avg_DA_LMP,Min,Max,Count', ...fetchedData.monthly.map(r => `${r.iso},${r.zone},${r.month},${r.year},${r.avg_da_lmp.toFixed(4)},${r.min_price.toFixed(4)},${r.max_price.toFixed(4)},${r.record_count}`)].join('\n');
+            if (!fetchedData.hourly.length) return;
+            
+            const csv = [
+                'ISO,Zone,Zone_ID,DateTime,Price_$/MWh',
+                ...fetchedData.hourly.map(r => 
+                    `${r.iso},${r.zone},${r.zone_id},${r.datetime},${r.price.toFixed(4)}`
+                )
+            ].join('\n');
+            
             const a = document.createElement('a');
             a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-            a.download = `lmp_${currentISO}_${new Date().toISOString().split('T')[0]}.csv`;
+            a.download = `lmp_hourly_${currentISO}_${new Date().toISOString().split('T')[0]}.csv`;
             a.click();
-        }
-        
-        async function syncToAzure() {
-            if (!fetchedData.monthly.length) { showStatus('No data', 'warning'); return; }
-            
-            showStatus('☁️ Syncing to Azure...', 'info');
-            addDebugLine('Starting Azure sync...', 'azure');
-            
-            try {
-                // Fetch existing database
-                let database;
-                try {
-                    database = await AzureService.get(CONFIG.azure.lmpFile);
-                    addDebugLine('Loaded existing database from Azure', 'azure');
-                } catch (e) {
-                    addDebugLine('No existing database, creating new', 'warning');
-                    database = { meta: {}, data: { ISONE: [], PJM: [], ERCOT: [] } };
-                }
-                
-                // Merge new data
-                let added = 0, updated = 0;
-                for (const record of fetchedData.monthly) {
-                    if (!database.data[record.iso]) database.data[record.iso] = [];
-                    const key = `${record.iso}_${record.zone_id}_${record.year}_${record.month}`;
-                    const idx = database.data[record.iso].findIndex(r => `${r.iso}_${r.zone_id}_${r.year}_${r.month}` === key);
-                    if (idx === -1) { database.data[record.iso].push(record); added++; }
-                    else { database.data[record.iso][idx] = record; updated++; }
-                }
-                
-                // Update metadata
-                database.meta = {
-                    lastUpdate: new Date().toISOString(),
-                    source: 'arcadia-browser',
-                    version: '2.0',
-                    storage: 'azure'
-                };
-                
-                // Save to Azure
-                await AzureService.save(CONFIG.azure.lmpFile, database);
-                
-                showStatus(`✅ Saved to Azure! Added: ${added}, Updated: ${updated}`, 'success');
-                addDebugLine(`Azure sync complete: +${added} ~${updated}`, 'success');
-            } catch (e) {
-                showStatus(`❌ Azure error: ${e.message}`, 'error');
-                addDebugLine(`Azure error: ${e.message}`, 'error');
-            }
-        }
-        
-        function sendToPortal() {
-            if (!fetchedData.monthly.length) return;
-            const data = fetchedData.monthly.map(r => ({ month: r.month, year: r.year, zone: r.zone_id, zone_name: r.zone, avg_da_lmp: r.avg_da_lmp }));
-            if (window.parent !== window) window.parent.postMessage({ type: 'LMP_DATA_UPDATE', iso: currentISO, records: data, source: 'arcadia' }, '*');
-            showStatus('Sent to portal', 'success');
-        }
-        
-        function handleMessage(e) {
-            if (e.data?.type === 'REQUEST_LMP_DATA') sendToPortal();
         }
         
         document.addEventListener('DOMContentLoaded', init);
