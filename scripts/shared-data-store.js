@@ -1,8 +1,15 @@
 /**
- * Secure Energy Shared Data Store v3.4 (Azure Integration + Password Security + Command Center)
+ * Secure Energy Shared Data Store v3.5 (Profile Context Scoping)
  * Centralized data management for LMP data, user authentication, activity logging,
  * widget layout preferences, usage profiles, and support tickets
  * 
+ * v3.5 Updates:
+ * - SECURITY FIX: Added UsageProfileStore.getForClientContext(clientId, accountId)
+ *   Returns profiles STRICTLY scoped to a specific client/account - prevents cross-client leaking
+ * - Added UsageProfileStore.belongsToContext(profile, clientId, accountId)
+ *   Validates whether a profile belongs to a given client/account context
+ * - All widgets should use getForClientContext() instead of getAll() for profile selectors
+ *
  * v3.4 Updates:
  * - Added client-command-center to ErrorLog.getWidgetFromSource()
  *
@@ -393,6 +400,58 @@ const UsageProfileStore = {
     getById(id) { return this.profiles.find(p => p.id === id); },
     getByClientId(clientId) { return this.profiles.filter(p => p.clientId === clientId); },
     
+    /**
+     * getForClientContext - STRICT client-scoped profile retrieval
+     * Returns ONLY profiles that belong to the specified client (and optionally account).
+     * Does NOT return standalone profiles or profiles from other clients.
+     * All widgets should use this instead of getAll() when populating profile selectors.
+     * 
+     * @param {string} clientId - Required. The client ID to scope to.
+     * @param {string|null} accountId - Optional. If provided, returns account-specific
+     *   profiles for this account PLUS parent client-level profiles (no accountId).
+     *   If null, returns ALL profiles for this client (parent + all accounts).
+     * @returns {{ clientProfiles: Array, accountProfiles: Array }} Grouped results
+     */
+    getForClientContext(clientId, accountId = null) {
+        if (!clientId) return { clientProfiles: [], accountProfiles: [] };
+        
+        // Get all profiles strictly belonging to this client
+        const clientOwned = this.profiles.filter(p => p.clientId === clientId);
+        
+        // Parent-level profiles (belong to client, no specific account)
+        const clientProfiles = clientOwned.filter(p => !p.accountId);
+        
+        // Account-level profiles
+        let accountProfiles;
+        if (accountId) {
+            // Only profiles for this specific account
+            accountProfiles = clientOwned.filter(p => p.accountId === accountId);
+        } else {
+            // All account-level profiles for this client
+            accountProfiles = clientOwned.filter(p => p.accountId);
+        }
+        
+        return { clientProfiles, accountProfiles };
+    },
+    
+    /**
+     * belongsToContext - Check if a profile belongs to the given client/account context
+     * Useful for validating a profile before loading it in a widget.
+     * 
+     * @param {object} profile - The profile to check
+     * @param {string} clientId - The active client ID
+     * @param {string|null} accountId - The active account ID (optional)
+     * @returns {boolean} True if the profile belongs to this context
+     */
+    belongsToContext(profile, clientId, accountId = null) {
+        if (!profile || !clientId) return false;
+        // Must belong to this client
+        if (profile.clientId !== clientId) return false;
+        // If account is specified, profile must be either account-specific match or parent-level
+        if (accountId && profile.accountId && profile.accountId !== accountId) return false;
+        return true;
+    },
+
     getByContext(clientId, accountId = null) {
         if (accountId) {
             const accountProfile = this.profiles.find(p => p.clientId === clientId && p.accountId === accountId);
