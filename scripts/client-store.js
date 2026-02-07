@@ -2,7 +2,7 @@
  * Client Store - Centralized Client Management
  * Provides unique client identifiers (CID) across all portal widgets
  * Supports Salesforce data import and cross-widget client context
- * Version: 2.7.0 - Utilization Import + Rollups
+ * Version: 2.7.1 - Large File Optimization (chunked async, indexed lookups, progress)
  * 
  * v2.7.0 - Supplier Utilization import (Step 3), account-level utilization tracking,
  *          parent-level rollup summaries (totals, averages, account counts, date ranges)
@@ -327,15 +327,21 @@
             const data = JSON.stringify(clients);
             const sizeBytes = data.length;
             let totalAccounts = 0;
-            Object.values(clients).forEach(c => { totalAccounts += (c.accounts?.length || 0); });
+            let totalUtilRecords = 0;
+            Object.values(clients).forEach(c => {
+                const accs = c.accounts || [];
+                totalAccounts += accs.length;
+                accs.forEach(a => { totalUtilRecords += (a.utilization?.length || 0); });
+            });
             return {
                 clientCount: Object.keys(clients).length,
                 accountCount: totalAccounts,
+                utilizationRecords: totalUtilRecords,
                 sizeBytes,
                 sizeKB: parseFloat((sizeBytes / 1024).toFixed(2)),
                 sizeMB: parseFloat((sizeBytes / (1024 * 1024)).toFixed(2)),
-                estimatedLimit: '5-10 MB (varies by browser)',
-                warning: sizeBytes > 3 * 1024 * 1024 ? 'Approaching storage limit!' : null
+                estimatedLimit: 'Azure Blob (no hard limit)',
+                warning: sizeBytes > 10 * 1024 * 1024 ? 'Large dataset — sync may be slow' : null
             };
         } catch (e) { return { error: e.message }; }
     }
@@ -996,13 +1002,24 @@
     // ========================================
     // Utilization Import (Step 3)
     // ========================================
+    /**
+     * Import utilization data — async chunked processing for large files.
+     * Returns a Promise that resolves with results.
+     * options: { replaceAll, updateExisting, createUnmatched, onProgress(pct, msg) }
+     * For backward compat, also works synchronously for small datasets (<1000 rows).
+     */
     function importUtilization(data, options = {}) {
-        const results = { imported: 0, updated: 0, skipped: 0, orphanedAccounts: 0, orphanedParents: 0, parentsUpdated: 0, errors: [] };
+        const results = { imported: 0, updated: 0, skipped: 0, orphanedAccounts: 0, orphanedParents: 0, parentsUpdated: 0, errors: [], totalRows: 0 };
         let records = [];
 
         if (typeof data === 'string') records = parseCSV(data);
         else if (Array.isArray(data)) records = data;
         else if (data && typeof data === 'object') records = [data];
+
+        results.totalRows = records.length;
+        const MAX_ERRORS = 200; // Cap error list to avoid memory bloat on huge files
+        const CHUNK_SIZE = 2000; // Rows per chunk — yields to UI between chunks
+        const progress = options.onProgress || function() {};
 
         // Replace mode: clear utilization from all accounts
         if (options.replaceAll) {
@@ -1014,52 +1031,77 @@
             saveToStorage();
         }
 
-        startBatch();
+        // ── Build lookup indexes once (O(n) instead of O(n²)) ──
+        progress(0, 'Building indexes...');
+        const parentBySfId = {};
+        const parentByName = {};
+        Object.values(clients).forEach(c => {
+            if (c.salesforceId) parentBySfId[String(c.salesforceId)] = c;
+            if (c.name) parentByName[c.name.toLowerCase().trim()] = c;
+        });
 
-        // Track which parents need rollup recalc
+        // Per-parent account indexes: { parentId: { accountNum: acc, spn: acc } }
+        const accountIndexes = {};
+        function getAccountIndex(parentId) {
+            if (accountIndexes[parentId]) return accountIndexes[parentId];
+            const idx = { byAcctNum: {}, bySpn: {}, byLdc: {} };
+            const accs = clients[parentId]?.accounts || [];
+            accs.forEach(a => {
+                if (a.accountNumber) idx.byAcctNum[String(a.accountNumber)] = a;
+                if (a.supplierPaymentNumber) {
+                    idx.bySpn[String(a.supplierPaymentNumber)] = a;
+                    // Also index SPN as account number fallback
+                    if (!idx.byAcctNum[String(a.supplierPaymentNumber)]) {
+                        idx.byAcctNum[String(a.supplierPaymentNumber)] = a;
+                    }
+                }
+            });
+            accountIndexes[parentId] = idx;
+            return idx;
+        }
+
+        // ── Process function for a single record ──
         const affectedParents = new Set();
 
-        records.forEach((record, index) => {
+        function processRow(record, index) {
             try {
                 const mapped = mapUtilizationFields(record);
 
-                // Find parent by SF ID or name
+                // Find parent via index
                 let parentClient = null;
                 if (mapped.parentAccountId) {
-                    parentClient = getClientBySalesforceId(String(mapped.parentAccountId));
+                    parentClient = parentBySfId[String(mapped.parentAccountId)];
                 }
                 if (!parentClient && mapped.parentAccountName) {
-                    parentClient = getClientByName(mapped.parentAccountName);
+                    parentClient = parentByName[mapped.parentAccountName.toLowerCase().trim()];
                 }
 
                 if (!parentClient) {
                     results.orphanedParents++;
-                    results.errors.push(`Row ${index + 1}: Parent "${mapped.parentAccountName || mapped.parentAccountId}" not found`);
+                    if (results.errors.length < MAX_ERRORS) {
+                        results.errors.push(`Row ${index + 1}: Parent "${mapped.parentAccountName || mapped.parentAccountId}" not found`);
+                    }
                     return;
                 }
 
-                // Find matching account under parent by accountNumber or supplierPaymentNumber
-                const accounts = parentClient.accounts || [];
+                // Find matching account via index
+                const accIdx = getAccountIndex(parentClient.id);
                 let matchedAccount = null;
 
                 if (mapped.accountNumber) {
-                    matchedAccount = accounts.find(a => String(a.accountNumber) === String(mapped.accountNumber));
+                    matchedAccount = accIdx.byAcctNum[String(mapped.accountNumber)];
                 }
                 if (!matchedAccount && mapped.supplierPaymentNumber) {
-                    matchedAccount = accounts.find(a =>
-                        String(a.supplierPaymentNumber || '') === String(mapped.supplierPaymentNumber) ||
-                        String(a.accountNumber || '') === String(mapped.supplierPaymentNumber)
-                    );
+                    matchedAccount = accIdx.bySpn[String(mapped.supplierPaymentNumber)] ||
+                                     accIdx.byAcctNum[String(mapped.supplierPaymentNumber)];
                 }
                 if (!matchedAccount && mapped.ldcAccountNumber) {
-                    matchedAccount = accounts.find(a => String(a.accountNumber || '') === String(mapped.ldcAccountNumber));
+                    matchedAccount = accIdx.byAcctNum[String(mapped.ldcAccountNumber)];
                 }
 
                 if (!matchedAccount) {
-                    // If no accounts exist at all, store utilization at parent level as unmatched
                     results.orphanedAccounts++;
                     if (options.createUnmatched) {
-                        // Create a minimal account stub
                         const stub = {
                             id: 'ACC-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
                             accountNumber: mapped.accountNumber || mapped.ldcAccountNumber || '',
@@ -1072,8 +1114,14 @@
                         if (!clients[parentClient.id].accounts) clients[parentClient.id].accounts = [];
                         clients[parentClient.id].accounts.push(stub);
                         matchedAccount = stub;
+                        // Update index for this parent
+                        const idx = accountIndexes[parentClient.id];
+                        if (stub.accountNumber) idx.byAcctNum[String(stub.accountNumber)] = stub;
+                        if (stub.supplierPaymentNumber) idx.bySpn[String(stub.supplierPaymentNumber)] = stub;
                     } else {
-                        results.errors.push(`Row ${index + 1}: No matching account for Acct# "${mapped.accountNumber}" / SPN "${mapped.supplierPaymentNumber}" under "${parentClient.name}"`);
+                        if (results.errors.length < MAX_ERRORS) {
+                            results.errors.push(`Row ${index + 1}: No matching account for Acct# "${mapped.accountNumber}" / SPN "${mapped.supplierPaymentNumber}" under "${parentClient.name}"`);
+                        }
                         return;
                     }
                 }
@@ -1091,7 +1139,6 @@
                     importedAt: new Date().toISOString()
                 };
 
-                // Initialize utilization array if needed
                 if (!matchedAccount.utilization) matchedAccount.utilization = [];
 
                 // Check for existing record with same date range
@@ -1112,19 +1159,68 @@
                 }
 
                 affectedParents.add(parentClient.id);
+            } catch (e) {
+                if (results.errors.length < MAX_ERRORS) results.errors.push(`Row ${index + 1}: ${e.message}`);
+            }
+        }
 
-            } catch (e) { results.errors.push(`Row ${index + 1}: ${e.message}`); }
+        // ── For small datasets, process synchronously for backward compat ──
+        if (records.length < CHUNK_SIZE) {
+            startBatch();
+            records.forEach((rec, i) => processRow(rec, i));
+            affectedParents.forEach(clientId => {
+                updateUtilizationRollups(clientId);
+                results.parentsUpdated++;
+            });
+            endBatch();
+            if (results.errors.length >= MAX_ERRORS) {
+                results.errors.push(`... and more (capped at ${MAX_ERRORS} errors)`);
+            }
+            notifySubscribers('utilizationImport', results);
+            return results;
+        }
+
+        // ── For large datasets, process in async chunks ──
+        startBatch();
+        return new Promise((resolve) => {
+            let offset = 0;
+            const startTime = Date.now();
+
+            function processChunk() {
+                const end = Math.min(offset + CHUNK_SIZE, records.length);
+                for (let i = offset; i < end; i++) {
+                    processRow(records[i], i);
+                }
+                offset = end;
+                const pct = Math.round((offset / records.length) * 100);
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                progress(pct, `Processing ${offset.toLocaleString()} / ${records.length.toLocaleString()} rows (${elapsed}s)`);
+
+                if (offset < records.length) {
+                    setTimeout(processChunk, 0); // Yield to UI
+                } else {
+                    // Finalize
+                    progress(95, 'Calculating rollups...');
+                    setTimeout(() => {
+                        affectedParents.forEach(clientId => {
+                            updateUtilizationRollups(clientId);
+                            results.parentsUpdated++;
+                        });
+                        endBatch();
+                        if (results.errors.length >= MAX_ERRORS) {
+                            results.errors.push(`... and more (capped at ${MAX_ERRORS} errors)`);
+                        }
+                        const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+                        console.log(`[ClientStore] Utilization import complete: ${records.length} rows in ${totalTime}s`);
+                        progress(100, `Done — ${totalTime}s`);
+                        notifySubscribers('utilizationImport', results);
+                        resolve(results);
+                    }, 0);
+                }
+            }
+
+            processChunk();
         });
-
-        // Recalculate rollups for affected parents
-        affectedParents.forEach(clientId => {
-            updateUtilizationRollups(clientId);
-            results.parentsUpdated++;
-        });
-
-        endBatch();
-        notifySubscribers('utilizationImport', results);
-        return results;
     }
 
     function mapUtilizationFields(record) {

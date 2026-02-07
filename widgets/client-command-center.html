@@ -772,6 +772,7 @@
             animation: fadeIn 0.15s ease;
         }
 
+        @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -2744,54 +2745,106 @@
             const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
             const isCSV = file.name.endsWith('.csv');
             const isJSON = file.name.endsWith('.json');
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+            const previewEl = document.getElementById('utilImportPreview');
+
+            // Show parsing spinner immediately — XLSX.read blocks the thread
+            previewEl.innerHTML = '<div style="padding:12px;background:var(--bg-input);border-radius:6px;">' +
+                '<div style="display:flex;align-items:center;gap:8px;">' +
+                '<div style="width:18px;height:18px;border:2px solid #10b981;border-top:2px solid transparent;border-radius:50%;animation:spin 0.8s linear infinite;"></div>' +
+                '<span><strong>Parsing</strong> ' + file.name + ' (' + sizeMB + ' MB)...</span></div>' +
+                (parseFloat(sizeMB) > 10 ? '<div style="margin-top:6px;font-size:0.72rem;color:#f59e0b;">⚠ Large file — parsing may take 10-30 seconds. The tab may freeze briefly.</div>' : '') +
+                '</div>';
+            previewEl.style.display = 'block';
 
             const r = new FileReader();
             r.onload = (e) => {
-                try {
-                    let data;
-                    if (isJSON) { data = JSON.parse(e.target.result); }
-                    else if (isExcel) { const wb = XLSX.read(e.target.result, { type: 'array' }); data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' }); }
-                    else if (isCSV) { const wb = XLSX.read(e.target.result, { type: 'string' }); data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' }); }
-                    else { data = e.target.result; }
+                // Yield to UI so the spinner renders, then do heavy parsing
+                setTimeout(() => {
+                    try {
+                        const startMs = performance.now();
+                        let data;
+                        if (isJSON) { data = JSON.parse(e.target.result); }
+                        else if (isExcel) {
+                            const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+                            data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+                        }
+                        else if (isCSV) {
+                            const wb = XLSX.read(e.target.result, { type: 'string', cellDates: true });
+                            data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+                        }
+                        else { data = e.target.result; }
 
-                    pendingUtilData = data;
-                    const count = Array.isArray(data) ? data.length : 1;
-                    document.getElementById('utilImportPreview').innerHTML = '<div style="padding:10px;background:var(--bg-input);border-radius:6px;">' +
-                        '<strong>' + (count > 0 ? '✓' : '⚠') + '</strong> ' + count + ' utilization records from ' + file.name +
-                        '<div style="margin-top:10px;"><button class="btn btn-sm" style="background:#10b981;color:white;" onclick="executeUtilImport()">Import Utilization</button> <button class="btn btn-ghost btn-sm" onclick="cancelUtilImport()">Cancel</button></div></div>';
-                    document.getElementById('utilImportPreview').style.display = 'block';
-                } catch (err) { showToast('Parse error: ' + err.message, 'error'); }
+                        const parseTime = ((performance.now() - startMs) / 1000).toFixed(1);
+                        pendingUtilData = data;
+                        const count = Array.isArray(data) ? data.length : 1;
+                        console.log(`[UtilImport] Parsed ${count.toLocaleString()} rows from ${file.name} (${sizeMB} MB) in ${parseTime}s`);
+
+                        previewEl.innerHTML = '<div style="padding:10px;background:var(--bg-input);border-radius:6px;">' +
+                            '<strong>✓</strong> ' + count.toLocaleString() + ' utilization records from <em>' + file.name + '</em>' +
+                            ' <span style="color:var(--text-muted);font-size:0.72rem;">(' + sizeMB + ' MB, parsed in ' + parseTime + 's)</span>' +
+                            (count > 50000 ? '<div style="margin-top:6px;font-size:0.72rem;color:#f59e0b;">⚠ Large dataset — import will process in chunks with a progress bar.</div>' : '') +
+                            '<div style="margin-top:10px;"><button class="btn btn-sm" style="background:#10b981;color:white;" onclick="executeUtilImport()">Import Utilization</button> <button class="btn btn-ghost btn-sm" onclick="cancelUtilImport()">Cancel</button></div></div>';
+                    } catch (err) {
+                        previewEl.style.display = 'none';
+                        showToast('Parse error: ' + err.message, 'error');
+                    }
+                }, 50); // Yield for spinner to render
             };
+            r.onerror = () => { previewEl.style.display = 'none'; showToast('Failed to read file', 'error'); };
             if (isExcel) r.readAsArrayBuffer(file); else r.readAsText(file);
         }
 
-        function executeUtilImport() {
+        async function executeUtilImport() {
             if (!pendingUtilData || !ClientStore?.importUtilization) { showToast('No data or utilization import not supported', 'error'); return; }
             const isReplace = utilImportMode === 'replace';
             if (isReplace && !confirm('⚠️ REPLACE ALL will clear all utilization data from every account and import fresh.\n\nThis cannot be undone. Continue?')) return;
+
+            const rowCount = Array.isArray(pendingUtilData) ? pendingUtilData.length : 1;
+            const previewEl = document.getElementById('utilImportPreview');
+            const resultsEl = document.getElementById('utilImportResults');
+
+            // Show progress bar for large files
+            previewEl.innerHTML = '<div style="padding:12px;background:var(--bg-input);border-radius:6px;">' +
+                '<div style="font-weight:600;margin-bottom:8px;">⏳ Importing ' + rowCount.toLocaleString() + ' rows...</div>' +
+                '<div style="background:var(--border);border-radius:4px;height:20px;overflow:hidden;margin-bottom:6px;">' +
+                '<div id="utilProgressBar" style="height:100%;background:#10b981;width:0%;transition:width 0.3s;border-radius:4px;"></div></div>' +
+                '<div id="utilProgressText" style="font-size:0.72rem;color:var(--text-muted);">Starting...</div></div>';
+
             const opts = {
                 updateExisting: document.getElementById('optUtilUpdateExisting')?.checked,
                 createUnmatched: document.getElementById('optUtilCreateUnmatched')?.checked,
-                replaceAll: isReplace
+                replaceAll: isReplace,
+                onProgress: (pct, msg) => {
+                    const bar = document.getElementById('utilProgressBar');
+                    const txt = document.getElementById('utilProgressText');
+                    if (bar) bar.style.width = pct + '%';
+                    if (txt) txt.textContent = msg;
+                }
             };
+
             try {
-                const r = ClientStore.importUtilization(pendingUtilData, opts);
-                let msg = '<strong>Done:</strong> ' + r.imported + ' imported, ' + r.updated + ' updated, ' + r.skipped + ' skipped';
+                const result = ClientStore.importUtilization(pendingUtilData, opts);
+                // Handle both sync (object) and async (Promise) returns
+                const r = (result && typeof result.then === 'function') ? await result : result;
+
+                let msg = '<strong>✓ Done:</strong> ' + r.imported + ' imported, ' + r.updated + ' updated, ' + r.skipped + ' skipped';
                 msg += '<br>' + r.parentsUpdated + ' parents updated with rollups';
-                if (r.orphanedParents > 0) msg += ', <span style="color:var(--danger);">' + r.orphanedParents + ' orphaned (no parent)</span>';
-                if (r.orphanedAccounts > 0) msg += ', <span style="color:#f59e0b;">' + r.orphanedAccounts + ' unmatched accounts</span>';
+                if (r.totalRows) msg += ' <span style="color:var(--text-muted);">(' + r.totalRows.toLocaleString() + ' total rows)</span>';
+                if (r.orphanedParents > 0) msg += '<br><span style="color:var(--danger);">' + r.orphanedParents + ' orphaned (no parent)</span>';
+                if (r.orphanedAccounts > 0) msg += '<br><span style="color:#f59e0b;">' + r.orphanedAccounts + ' unmatched accounts</span>';
                 if (r.errors?.length > 0) {
                     msg += '<br><span style="color:var(--danger);font-size:0.72rem;">' + r.errors.length + ' errors — check console</span>';
                     console.warn('[Util Import] Errors:', r.errors);
                 }
-                document.getElementById('utilImportResults').innerHTML = '<div style="padding:10px;background:var(--bg-input);border-radius:6px;">' + msg + '</div>';
-                document.getElementById('utilImportResults').style.display = 'block';
-                document.getElementById('utilImportPreview').style.display = 'none';
+                resultsEl.innerHTML = '<div style="padding:10px;background:var(--bg-input);border-radius:6px;">' + msg + '</div>';
+                resultsEl.style.display = 'block';
+                previewEl.style.display = 'none';
                 allClients = ClientStore.getAllClients();
                 updateBannerStats();
                 if (selectedClient) updateClientDetails();
                 showToast((isReplace ? 'Replaced: ' : '') + r.imported + ' utilization records imported', 'success');
-            } catch (e) { showToast('Import failed: ' + e.message, 'error'); }
+            } catch (e) { showToast('Import failed: ' + e.message, 'error'); previewEl.style.display = 'none'; }
             pendingUtilData = null;
             document.getElementById('utilImportFile').value = '';
         }

@@ -347,6 +347,7 @@
         .toast.error { background: var(--danger); }
         .toast.info { background: var(--primary); }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
         .empty-state { text-align: center; padding: 30px 16px; color: var(--text-secondary); }
         .empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.5; }
         .modal-overlay {
@@ -1612,58 +1613,99 @@
             const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
             const isCSV = file.name.endsWith('.csv');
             const isJSON = file.name.endsWith('.json');
-            
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+            const previewEl = document.getElementById('utilImportPreview');
+
+            // Show parsing spinner immediately — XLSX.read blocks the thread
+            previewEl.innerHTML = '<div style="padding:12px;background:var(--bg-input);border-radius:6px;">' +
+                '<div style="display:flex;align-items:center;gap:8px;">' +
+                '<div style="width:18px;height:18px;border:2px solid #10b981;border-top:2px solid transparent;border-radius:50%;animation:spin 0.8s linear infinite;"></div>' +
+                '<span><strong>Parsing</strong> ' + file.name + ' (' + sizeMB + ' MB)...</span></div>' +
+                (parseFloat(sizeMB) > 10 ? '<div style="margin-top:6px;font-size:0.75rem;color:#f59e0b;">⚠ Large file — parsing may take 10-30 seconds. The tab may freeze briefly.</div>' : '') +
+                '</div>';
+            previewEl.style.display = 'block';
+
             const r = new FileReader();
             r.onload = (e) => {
-                try {
-                    let data;
-                    if (isJSON) { data = JSON.parse(e.target.result); }
-                    else if (isExcel) {
-                        const workbook = XLSX.read(e.target.result, { type: 'array' });
-                        data = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: '' });
-                    } else if (isCSV) {
-                        const workbook = XLSX.read(e.target.result, { type: 'string' });
-                        data = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: '' });
+                // Yield to UI so the spinner renders, then do heavy parsing
+                setTimeout(() => {
+                    try {
+                        const startMs = performance.now();
+                        let data;
+                        if (isJSON) { data = JSON.parse(e.target.result); }
+                        else if (isExcel) {
+                            const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+                            data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+                        } else if (isCSV) {
+                            const wb = XLSX.read(e.target.result, { type: 'string', cellDates: true });
+                            data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+                        }
+
+                        const parseTime = ((performance.now() - startMs) / 1000).toFixed(1);
+                        pendingUtilData = data;
+                        const count = Array.isArray(data) ? data.length : 1;
+                        console.log(`[ClientAdmin] Parsed ${count.toLocaleString()} rows from ${file.name} (${sizeMB} MB) in ${parseTime}s`);
+
+                        previewEl.innerHTML = '<div style="padding:12px;background:var(--bg-input);border-radius:6px;">' +
+                            '<strong>✓ ' + count.toLocaleString() + '</strong> utilization records from <em>' + file.name + '</em>' +
+                            ' <span style="color:var(--text-secondary);font-size:0.75rem;">(' + sizeMB + ' MB, parsed in ' + parseTime + 's)</span>' +
+                            (count > 50000 ? '<div style="margin-top:6px;font-size:0.75rem;color:#f59e0b;">⚠ Large dataset — import will process in chunks with a progress bar.</div>' : '') +
+                            '<div style="margin-top:12px;">' +
+                            '<button class="btn btn-primary" onclick="executeUtilImport()" style="background:#10b981;">Import Utilization</button> ' +
+                            '<button class="btn btn-ghost" onclick="cancelUtilImport()">Cancel</button></div></div>';
+                    } catch (err) {
+                        console.error('[ClientAdmin] Util parse error:', err);
+                        previewEl.style.display = 'none';
+                        showToast('Error parsing file: ' + err.message, 'error');
                     }
-                    
-                    pendingUtilData = data;
-                    const count = Array.isArray(data) ? data.length : 1;
-                    document.getElementById('utilImportPreview').innerHTML = 
-                        '<div style="padding:12px;background:var(--bg-input);border-radius:6px;">' +
-                        '<strong>' + count + '</strong> utilization records ready from <em>' + file.name + '</em>' +
-                        '<div style="margin-top:12px;">' +
-                        '<button class="btn btn-primary" onclick="executeUtilImport()" style="background:#10b981;">Import Utilization</button> ' +
-                        '<button class="btn btn-ghost" onclick="cancelUtilImport()">Cancel</button></div></div>';
-                    document.getElementById('utilImportPreview').style.display = 'block';
-                } catch (err) {
-                    console.error('[ClientAdmin] Util parse error:', err);
-                    showToast('Error parsing file: ' + err.message, 'error');
-                }
+                }, 50); // Yield for spinner to render
             };
+            r.onerror = () => { previewEl.style.display = 'none'; showToast('Failed to read file', 'error'); };
             if (isExcel) r.readAsArrayBuffer(file); else r.readAsText(file);
         }
         
-        function executeUtilImport() {
+        async function executeUtilImport() {
             if (!pendingUtilData) { showToast('No utilization data to import', 'error'); return; }
             if (!ClientStore || !ClientStore.importUtilization) { showToast('Utilization import not supported - update client-store.js to v2.7+', 'error'); return; }
             
             const isReplace = utilImportMode === 'replace';
             if (isReplace && !confirm('⚠️ REPLACE ALL will clear all utilization data from every account and import fresh.\n\nThis cannot be undone. Continue?')) return;
             
+            const rowCount = Array.isArray(pendingUtilData) ? pendingUtilData.length : 1;
+            const previewEl = document.getElementById('utilImportPreview');
+            const resultsEl = document.getElementById('utilImportResults');
+
+            // Show progress bar for large files
+            previewEl.innerHTML = '<div style="padding:12px;background:var(--bg-input);border-radius:6px;">' +
+                '<div style="font-weight:600;margin-bottom:8px;">⏳ Importing ' + rowCount.toLocaleString() + ' rows...</div>' +
+                '<div style="background:var(--border);border-radius:4px;height:20px;overflow:hidden;margin-bottom:6px;">' +
+                '<div id="utilProgressBar" style="height:100%;background:#10b981;width:0%;transition:width 0.3s;border-radius:4px;"></div></div>' +
+                '<div id="utilProgressText" style="font-size:0.75rem;color:var(--text-secondary);">Starting...</div></div>';
+            
             const opts = {
                 updateExisting: document.getElementById('optUtilUpdateExisting')?.checked,
                 createUnmatched: document.getElementById('optUtilCreateUnmatched')?.checked,
-                replaceAll: isReplace
+                replaceAll: isReplace,
+                onProgress: (pct, msg) => {
+                    const bar = document.getElementById('utilProgressBar');
+                    const txt = document.getElementById('utilProgressText');
+                    if (bar) bar.style.width = pct + '%';
+                    if (txt) txt.textContent = msg;
+                }
             };
             
             try {
-                const r = ClientStore.importUtilization(pendingUtilData, opts);
+                const result = ClientStore.importUtilization(pendingUtilData, opts);
+                // Handle both sync (object) and async (Promise) returns
+                const r = (result && typeof result.then === 'function') ? await result : result;
+
                 let resultHtml = '<div style="padding:12px;background:var(--bg-input);border-radius:6px;">' +
-                    '<strong>Utilization Import Complete</strong><br>' +
+                    '<strong>✓ Utilization Import Complete</strong><br>' +
                     '✓ Imported: ' + r.imported + '<br>' +
                     '↻ Updated: ' + r.updated + '<br>' +
                     '⊘ Skipped: ' + r.skipped + '<br>' +
                     '📊 Parents updated: ' + r.parentsUpdated;
+                if (r.totalRows) resultHtml += '<br><span style="color:var(--text-secondary);">Total rows processed: ' + r.totalRows.toLocaleString() + '</span>';
                 if (r.orphanedParents > 0) resultHtml += '<br><span style="color:#dc3545;">⚠ Orphaned parents: ' + r.orphanedParents + '</span>';
                 if (r.orphanedAccounts > 0) resultHtml += '<br><span style="color:#f59e0b;">⚠ Unmatched accounts: ' + r.orphanedAccounts + '</span>';
                 if (r.errors?.length > 0) {
@@ -1674,9 +1716,9 @@
                     resultHtml += '</div>';
                 }
                 resultHtml += '</div>';
-                document.getElementById('utilImportResults').innerHTML = resultHtml;
-                document.getElementById('utilImportResults').style.display = 'block';
-                document.getElementById('utilImportPreview').style.display = 'none';
+                resultsEl.innerHTML = resultHtml;
+                resultsEl.style.display = 'block';
+                previewEl.style.display = 'none';
                 loadClients();
                 updateStats();
                 if (selectedClientId) showClientDetails(selectedClientId);
@@ -1684,6 +1726,7 @@
             } catch (e) {
                 console.error('[ClientAdmin] Util import error:', e);
                 showToast('Import failed: ' + e.message, 'error');
+                previewEl.style.display = 'none';
             }
             pendingUtilData = null;
             document.getElementById('utilImportFile').value = '';
